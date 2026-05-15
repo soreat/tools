@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Tools Catalog</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0ea5e9',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+        }
+        .dark .glass-panel {
+            background: rgba(30, 41, 59, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+        }
+        .tool-card {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .tool-card:hover {
+            transform: translateY(-5px) scale(1.02);
+        }
+        .icon-container {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body class="text-slate-800 dark:text-slate-200 antialiased min-h-screen flex flex-col relative transition-colors duration-300 bg-slate-50 dark:bg-slate-950">
+
+    <div class="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        <div class="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-400/30 dark:bg-blue-600/20 blur-[100px] mix-blend-multiply dark:mix-blend-screen transition-all duration-700"></div>
+        <div class="absolute top-[20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-400/30 dark:bg-purple-600/20 blur-[120px] mix-blend-multiply dark:mix-blend-screen transition-all duration-700"></div>
+        <div class="absolute bottom-[-10%] left-[20%] w-[60%] h-[60%] rounded-full bg-cyan-400/30 dark:bg-cyan-600/20 blur-[120px] mix-blend-multiply dark:mix-blend-screen transition-all duration-700"></div>
+    </div>
+
+    <!-- Header -->
+    <header class="glass-panel sticky top-0 z-50 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 bg-primary-600 bg-opacity-90 backdrop-blur-sm rounded-lg flex items-center justify-center text-white shadow-sm border border-primary-400/30">
+                    <i class="fa-solid fa-toolbox text-xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">My Workspace</h1>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-sm font-medium text-slate-600 dark:text-slate-300 bg-white/50 dark:bg-slate-800/50 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/40 dark:border-slate-700/50 hidden sm:block">
+                    <span id="tool-count">0</span> Tools Available
+                </div>
+                <!-- Theme Toggle -->
+                <button id="theme-toggle" class="w-10 h-10 rounded-full bg-white/50 dark:bg-slate-800/50 border border-white/40 dark:border-slate-700/50 backdrop-blur-md flex items-center justify-center text-slate-600 dark:text-slate-300 hover:bg-white/80 dark:hover:bg-slate-700/80 transition-all focus:outline-none focus:ring-2 focus:ring-primary-500">
+                    <i class="fa-solid fa-moon dark:hidden"></i>
+                    <i class="fa-solid fa-sun hidden dark:block"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 w-full relative z-10">
+        <!-- Welcome Section -->
+        <div class="mb-12 text-center sm:text-left">
+            <h2 class="text-3xl font-extrabold text-slate-900 dark:text-white sm:text-4xl">
+                Personal Tools Catalog
+            </h2>
+            <p class="mt-4 text-lg text-slate-600 dark:text-slate-400 max-w-2xl">
+                Welcome to your centralized hub. Access all your local utilities, generators, and data visualizers quickly from this dashboard.
+            </p>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="mb-8 max-w-md">
+            <div class="relative rounded-md shadow-sm group">
+                <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <i class="fa-solid fa-search text-slate-400 group-focus-within:text-primary-500 transition-colors"></i>
+                </div>
+                <input type="text" id="search-tools" class="glass-panel focus:ring-2 focus:ring-primary-500 focus:border-primary-500 block w-full pl-10 sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500 rounded-xl py-3 outline-none transition-all" placeholder="Search tools...">
+            </div>
+        </div>
+
+        <!-- Tools Grid -->
+        <div id="tools-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            <!-- Cards will be injected here by JavaScript -->
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="glass-panel border-t-0 mt-auto relative z-10 rounded-t-2xl sm:rounded-none">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+            &copy; <span id="current-year"></span> Your Name. Local Workspace environment.
+        </div>
+    </footer>
+
+    <script>
+        // ==========================================
+        // TOOL CONFIGURATION
+        // Edit this array to add, remove, or modify tools
+        // ==========================================
+        const tools = [
+            {
+                id: 'graph-viewer',
+                name: "Graph Viewer",
+                description: "Visualize network nodes and relationship data structures.",
+                icon: "fa-solid fa-diagram-project", // FontAwesome class
+                color: "text-blue-500", // Tailwind text color class for the icon
+                bgColor: "bg-blue-100", // Tailwind bg color class for the icon container
+                url: "graph.html" // Relative path to your tool
+            },
+            {
+                id: 'text-formatter',
+                name: "Text Formatter",
+                description: "Clean, format, and transform raw text data quickly.",
+                icon: "fa-solid fa-align-left",
+                color: "text-emerald-500",
+                bgColor: "bg-emerald-100",
+                url: "text-formatter.html"
+            },
+            {
+                id: 'json-parser',
+                name: "JSON Parser",
+                description: "Validate, beautify, and navigate complex JSON objects.",
+                icon: "fa-solid fa-code",
+                color: "text-amber-500",
+                bgColor: "bg-amber-100",
+                url: "json-parser.html"
+            },
+            {
+                id: 'color-picker',
+                name: "Color Palette Gen",
+                description: "Generate and save harmonious color palettes for projects.",
+                icon: "fa-solid fa-palette",
+                color: "text-purple-500",
+                bgColor: "bg-purple-100",
+                url: "colors.html"
+            },
+            {
+                id: 'regex-tester',
+                name: "Regex Tester",
+                description: "Test and debug regular expressions in real-time.",
+                icon: "fa-solid fa-magnifying-glass-chart",
+                color: "text-rose-500",
+                bgColor: "bg-rose-100",
+                url: "regex.html"
+            },
+            {
+                id: 'db-manager',
+                name: "Local DB Viewer",
+                description: "Inspect and manage local SQLite or IndexedDB instances.",
+                icon: "fa-solid fa-database",
+                color: "text-indigo-500",
+                bgColor: "bg-indigo-100",
+                url: "db-viewer.html"
+            },
+            {
+                id: 'api-tester',
+                name: "API Workbench",
+                description: "Send HTTP requests and analyze API responses.",
+                icon: "fa-solid fa-network-wired",
+                color: "text-cyan-500",
+                bgColor: "bg-cyan-100",
+                url: "api-test.html"
+            },
+            {
+                id: 'calculator',
+                name: "Advanced Calc",
+                description: "Perform complex mathematical operations and unit conversions.",
+                icon: "fa-solid fa-calculator",
+                color: "text-orange-500",
+                bgColor: "bg-orange-100",
+                url: "calc.html"
+            },
+            {
+                id: 'todo-list',
+                name: "Task Manager",
+                description: "Keep track of pending features and bugs across projects.",
+                icon: "fa-solid fa-list-check",
+                color: "text-teal-500",
+                bgColor: "bg-teal-100",
+                url: "tasks.html"
+            },
+            {
+                id: 'notes-app',
+                name: "Scratchpad",
+                description: "Quick markdown notes and code snippet storage.",
+                icon: "fa-solid fa-note-sticky",
+                color: "text-yellow-600",
+                bgColor: "bg-yellow-100",
+                url: "notes.html"
+            }
+        ];
+
+        // ==========================================
+        // APP LOGIC
+        // ==========================================
+
+        function renderTools(toolsToRender) {
+            const grid = document.getElementById('tools-grid');
+            grid.innerHTML = ''; // Clear current content
+
+            if (toolsToRender.length === 0) {
+                grid.innerHTML = `
+                    <div class="col-span-full py-12 text-center">
+                        <i class="fa-regular fa-folder-open text-4xl text-slate-300 mb-3"></i>
+                        <p class="text-slate-500 text-lg">No tools found matching your search.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            toolsToRender.forEach(tool => {
+                // Create anchor element wrapping the card
+                const a = document.createElement('a');
+                a.href = tool.url;
+                // Optional: open in new tab
+                // a.target = "_blank"; 
+                // a.rel = "noopener noreferrer";
+                a.className = "tool-card glass-panel rounded-2xl p-6 flex flex-col h-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900 group";
+
+                // Card content structure
+                a.innerHTML = `
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="icon-container w-12 h-12 rounded-xl flex items-center justify-center ${tool.bgColor} bg-opacity-80 dark:bg-opacity-20 backdrop-blur-md border border-white/20 dark:border-white/10 shadow-inner ${tool.color} group-hover:scale-110 group-hover:-rotate-3">
+                            <i class="${tool.icon} text-xl"></i>
+                        </div>
+                        <div class="text-slate-400 dark:text-slate-500 group-hover:text-primary-500 dark:group-hover:text-primary-400 transition-colors">
+                            <i class="fa-solid fa-arrow-up-right-from-square text-sm"></i>
+                        </div>
+                    </div>
+                    <div class="flex-grow">
+                        <h3 class="text-lg font-semibold text-slate-900 dark:text-white mb-2 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">${tool.name}</h3>
+                        <p class="text-sm text-slate-500 dark:text-slate-400 line-clamp-3">${tool.description}</p>
+                    </div>
+                `;
+                grid.appendChild(a);
+            });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Set current year in footer
+            document.getElementById('current-year').textContent = new Date().getFullYear();
+            
+            // Set total count
+            document.getElementById('tool-count').textContent = tools.length;
+
+            // Initial render
+            renderTools(tools);
+
+            // Search functionality
+            const searchInput = document.getElementById('search-tools');
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                const filteredTools = tools.filter(tool => 
+                    tool.name.toLowerCase().includes(searchTerm) || 
+                    tool.description.toLowerCase().includes(searchTerm)
+                );
+                renderTools(filteredTools);
+            });
+
+            const themeToggleBtn = document.getElementById('theme-toggle');
+            const htmlElement = document.documentElement;
+
+            // Check system preference or localStorage
+            if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+                htmlElement.classList.add('dark');
+            }
+
+            // Toggle functionality
+            themeToggleBtn.addEventListener('click', () => {
+                htmlElement.classList.toggle('dark');
+                if (htmlElement.classList.contains('dark')) {
+                    localStorage.setItem('theme', 'dark');
+                } else {
+                    localStorage.setItem('theme', 'light');
+                }
+            });
+        });
+    </script>
+</body>
+</html>
