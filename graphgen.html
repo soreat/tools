@@ -1,0 +1,3448 @@
+<!doctype html>
+<html lang="bn">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>কাস্টম গ্রাফ জেনারেটর (SVG Vector)</title>
+        <!-- Tailwind CSS -->
+        <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+            tailwind.config = {
+                theme: {
+                    extend: {
+                        screens: {
+                            lg: {
+                                raw: "(min-aspect-ratio: 1/1) and (min-width: 768px)",
+                            },
+                        },
+                    },
+                },
+            };
+        </script>
+
+        <!-- Apache ECharts -->
+        <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+        <!-- html2canvas for PNG fallback -->
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+        <!-- Google Fonts -->
+        <link
+            href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@400;500;600;700&family=Tiro+Bangla:ital@0;1&display=swap"
+            rel="stylesheet"
+        />
+
+        <style>
+            body {
+                font-family: "Hind Siliguri", sans-serif;
+                background-color: #0f172a;
+                color: #f8fafc;
+            }
+            .input-group {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .input-field {
+                background-color: #1e293b;
+                border: 1px solid #334155;
+                color: #f8fafc;
+                padding: 0.5rem 1rem;
+                border-radius: 0.5rem;
+                outline: none;
+                transition: border-color 0.2s;
+            }
+            .input-field:focus {
+                border-color: #06b6d4;
+            }
+            .glass-panel {
+                background: rgba(30, 41, 59, 0.7);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                border-radius: 1rem;
+                padding: 1.5rem;
+            }
+            #export-container {
+                background-color: #0f172a;
+                padding: 2rem;
+                border-radius: 1rem;
+                border: 1px solid #334155;
+            }
+
+            /* Swatch and Color Pickers */
+            .color-swatch {
+                width: 24px;
+                height: 24px;
+                border-radius: 50%;
+                cursor: pointer;
+                border: 2px solid transparent;
+                transition: transform 0.1s;
+            }
+            .color-swatch:hover {
+                transform: scale(1.1);
+                border-color: white;
+            }
+            .color-picker-wrapper {
+                display: flex;
+                align-items: center;
+                gap: 0.5rem;
+            }
+            input[type="color"] {
+                background: none;
+                border: none;
+                width: 32px;
+                height: 32px;
+                cursor: pointer;
+                padding: 0;
+                border-radius: 4px;
+            }
+
+            #customChart {
+                width: 100%;
+                height: 100%;
+            }
+
+            /* Custom Scrollbar */
+            ::-webkit-scrollbar {
+                width: 6px;
+                height: 6px;
+            }
+            ::-webkit-scrollbar-track {
+                background: #1e293b;
+            }
+            ::-webkit-scrollbar-thumb {
+                background: #475569;
+                border-radius: 10px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+                background: #06b6d4;
+            }
+
+            /* Tabs Styles */
+            .tab-content {
+                display: none;
+            }
+            .tab-content.active {
+                display: block;
+                animation: fadeIn 0.3s ease;
+            }
+            .tab-btn {
+                position: relative;
+            }
+            .tab-btn.active {
+                color: #22d3ee;
+                border-bottom: 2px solid #22d3ee;
+                background: rgba(6, 182, 212, 0.1);
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(5px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+        </style>
+
+        <script>
+            // ================= TWEAKABLE DEFAULT SETTINGS =================
+            const USER_DEFAULTS = {
+                gridLineColor: "#768498", // Default Grid Line Color
+                gridLineOpacity: 0.6, // Default Grid Opacity (0 to 1)
+                subGridMultiplier: 0.4, // Opacity multiplier for Sub-grids (25% higher than 0.15)
+                font: "'Hind Siliguri', sans-serif",
+            };
+            // ==============================================================
+        </script>
+    </head>
+    <body
+        class="min-h-screen p-4 md:p-8 space-y-6 max-w-[1600px] mx-auto relative overflow-x-hidden"
+    >
+        <!-- Header Area -->
+        <div
+            class="flex flex-col md:flex-row justify-between items-center gap-4 mb-4"
+        >
+            <div class="text-center md:text-left space-y-1">
+                <h1
+                    class="text-2xl md:text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-blue-500"
+                >
+                    ইন্টারেক্টিভ গ্রাফ জেনারেটর (Pro SVG)
+                </h1>
+                <p class="text-slate-400 text-sm">
+                    ড্যাশবোর্ড স্টাইল • রিয়েল-টাইম রেন্ডারিং • পিসওয়াইজ ম্যাথ
+                    সাপোর্ট
+                </p>
+            </div>
+            <div class="flex gap-3">
+                <button
+                    onclick="openSavedGraphsModal()"
+                    class="bg-amber-600 hover:bg-amber-500 text-white text-sm font-medium py-2 px-5 rounded-lg transition-colors shadow-lg shadow-amber-500/20 flex items-center gap-2"
+                >
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <path
+                            d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
+                        ></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                    </svg>
+                    সেভড গ্রাফ
+                </button>
+            </div>
+        </div>
+
+        <!-- Dashboard Layout (Split View) -->
+        <div
+            class="flex flex-col xl:flex-row gap-6 lg:gap-8 items-start relative"
+        >
+            <!-- Left Sidebar: Controls Area (Sticky) -->
+            <div
+                class="w-full xl:w-5/12 glass-panel p-0 overflow-hidden flex flex-col h-[85vh] xl:sticky xl:top-6 border border-slate-700/50 shadow-2xl z-10 rounded-2xl"
+            >
+                <!-- Custom Tabs Navigation -->
+                <div
+                    class="flex border-b border-slate-700/50 overflow-x-auto hide-scrollbar shrink-0"
+                >
+                    <button
+                        onclick="switchTab('eq')"
+                        id="btn-eq"
+                        class="tab-btn active px-4 py-3 text-sm font-semibold text-slate-400 hover:text-cyan-300 transition-colors whitespace-nowrap"
+                    >
+                        ইকুয়েশন
+                    </button>
+                    <button
+                        onclick="switchTab('axis')"
+                        id="btn-axis"
+                        class="tab-btn px-4 py-3 text-sm font-semibold text-slate-400 hover:text-cyan-300 transition-colors whitespace-nowrap"
+                    >
+                        অক্ষ ও গ্রিড
+                    </button>
+                    <button
+                        onclick="switchTab('labels')"
+                        id="btn-labels"
+                        class="tab-btn px-4 py-3 text-sm font-semibold text-slate-400 hover:text-cyan-300 transition-colors whitespace-nowrap"
+                    >
+                        লেবেল
+                    </button>
+                    <button
+                        onclick="switchTab('design')"
+                        id="btn-design"
+                        class="tab-btn px-4 py-3 text-sm font-semibold text-slate-400 hover:text-cyan-300 transition-colors whitespace-nowrap"
+                    >
+                        ডিজাইন
+                    </button>
+                </div>
+
+                <!-- Scrollable Content Area -->
+                <div
+                    class="flex-1 overflow-y-auto p-4 md:p-6 pb-24 relative"
+                    id="control-scroll-area"
+                >
+                    <!-- Tab 1: Equations -->
+                    <div id="tab-eq" class="tab-content active space-y-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <h2 class="text-lg font-semibold text-amber-400">
+                                ইকুয়েশন ও পয়েন্ট সেটিং
+                            </h2>
+                            <button
+                                onclick="resetTab('eq')"
+                                class="text-xs bg-slate-700 hover:bg-red-500/80 text-white px-3 py-1 rounded transition-colors"
+                                title="রিসেট"
+                            >
+                                Reset
+                            </button>
+                        </div>
+
+                        <div
+                            class="text-xs text-slate-400 mb-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700/50"
+                        >
+                            <span class="text-amber-400 font-semibold"
+                                >টিপস:</span
+                            >
+                            <ul class="list-disc pl-4 mt-1 space-y-1">
+                                <li>
+                                    ন্যাচারাল ম্যাথ: <code>2x</code>,
+                                    <code>x^2</code>, <code>sin(x)</code>,
+                                    <code>PI</code> সাপোর্ট করে।
+                                </li>
+                                <li>
+                                    শর্ত (Piecewise):
+                                    <code
+                                        >{0 <= x <= 1: x, x > 1: 1 / x^2}</code
+                                    >
+                                </li>
+                                <li>
+                                    অটো পয়েন্ট: শুধু <code>X</code> বা
+                                    <code>Y</code> দিন (যেমন
+                                    <code>0.5, P1; 1, P2;</code>)।
+                                </li>
+                            </ul>
+                        </div>
+
+                        <!-- Point Labels Global Options (Moved inside Equation Tab) -->
+                        <div
+                            class="bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 mb-6"
+                        >
+                            <div class="flex items-center gap-3 mb-3">
+                                <label class="text-sm text-cyan-300 font-medium"
+                                    >গ্রাফে পয়েন্ট লেবেল দেখান</label
+                                >
+                                <label
+                                    class="relative inline-flex items-center cursor-pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        id="showPointLabels"
+                                        class="sr-only peer"
+                                        checked
+                                        onchange="togglePointLabelOptions()"
+                                    />
+                                    <div
+                                        class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"
+                                    ></div>
+                                </label>
+                            </div>
+
+                            <div
+                                id="pointLabelOptions"
+                                class="flex flex-wrap gap-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700"
+                            >
+                                <label
+                                    class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        id="showPointLabelX"
+                                        checked
+                                        class="accent-cyan-500 w-4 h-4"
+                                        onchange="updateGraph()"
+                                    />
+                                    X মান
+                                </label>
+                                <label
+                                    class="flex items-center gap-2 text-sm text-slate-300 cursor-pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        id="showPointLabelY"
+                                        checked
+                                        class="accent-cyan-500 w-4 h-4"
+                                        onchange="updateGraph()"
+                                    />
+                                    Y মান
+                                </label>
+                                <label
+                                    class="flex items-center gap-2 text-sm text-amber-300 cursor-pointer border-l border-slate-600 pl-4"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        id="useCustomPointLabels"
+                                        checked
+                                        class="accent-amber-500 w-4 h-4"
+                                        onchange="updateGraph()"
+                                    />
+                                    কাস্টম লেবেল
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Accordion Equations Container -->
+                        <div id="eq-accordion-container" class="space-y-3">
+                            <!-- Injected via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Tab 2: Axis & Grid -->
+                    <div id="tab-axis" class="tab-content space-y-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <h2 class="text-lg font-semibold text-cyan-400">
+                                অক্ষের মান ও রেঞ্জ
+                            </h2>
+                            <button
+                                onclick="resetTab('axis')"
+                                class="text-xs bg-slate-700 hover:bg-red-500/80 text-white px-3 py-1 rounded transition-colors"
+                                title="রিসেট"
+                            >
+                                Reset
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="input-group">
+                                <label class="text-sm text-slate-400"
+                                    >X সর্বনিম্ন</label
+                                >
+                                <input
+                                    type="number"
+                                    id="xMin"
+                                    class="input-field"
+                                    value="0"
+                                    step="0.1"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                            <div class="input-group">
+                                <label class="text-sm text-slate-400"
+                                    >X সর্বোচ্চ</label
+                                >
+                                <input
+                                    type="number"
+                                    id="xMax"
+                                    class="input-field"
+                                    value="4"
+                                    step="0.1"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                            <div class="input-group">
+                                <label class="text-sm text-slate-400"
+                                    >Y সর্বনিম্ন</label
+                                >
+                                <input
+                                    type="number"
+                                    id="yMin"
+                                    class="input-field"
+                                    value="0"
+                                    step="0.1"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                            <div class="input-group">
+                                <label class="text-sm text-slate-400"
+                                    >Y সর্বোচ্চ</label
+                                >
+                                <input
+                                    type="number"
+                                    id="yMax"
+                                    class="input-field"
+                                    value="1.2"
+                                    step="0.1"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                        </div>
+
+                        <div
+                            class="grid grid-cols-2 gap-4 border-t border-slate-700/50 pt-4"
+                        >
+                            <div class="input-group col-span-2">
+                                <label class="text-sm text-slate-400"
+                                    >কার্ভের মসৃণতা (Line Step Size)</label
+                                >
+                                <input
+                                    type="number"
+                                    id="stepSize"
+                                    class="input-field"
+                                    value="0.001"
+                                    step="0.001"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                            <div class="input-group">
+                                <label class="text-sm text-slate-400"
+                                    >X গ্রিড গ্যাপ (Interval)</label
+                                >
+                                <input
+                                    type="number"
+                                    id="xGridInterval"
+                                    class="input-field"
+                                    value="1"
+                                    step="0.1"
+                                    placeholder="Auto"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                            <div class="input-group">
+                                <label class="text-sm text-slate-400"
+                                    >Y গ্রিড গ্যাপ (Interval)</label
+                                >
+                                <input
+                                    type="number"
+                                    id="yGridInterval"
+                                    class="input-field"
+                                    value="0.25"
+                                    step="0.05"
+                                    placeholder="Auto"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                        </div>
+
+                        <div class="border-t border-slate-700/50 pt-4">
+                            <div class="flex items-center gap-3 mb-4">
+                                <h3 class="text-sm font-medium text-cyan-300">
+                                    মূল অক্ষ রেখা দেখান (Origin Lines)
+                                </h3>
+                                <label
+                                    class="relative inline-flex items-center cursor-pointer"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        id="enableCustomAxis"
+                                        class="sr-only peer"
+                                        checked
+                                        onchange="
+                                            toggleCustomAxisSettings();
+                                            updateGraph();
+                                        "
+                                    />
+                                    <div
+                                        class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"
+                                    ></div>
+                                </label>
+                            </div>
+
+                            <div
+                                id="customAxisSettings"
+                                class="bg-slate-800/50 p-4 rounded-lg border border-slate-700 space-y-4"
+                            >
+                                <div
+                                    class="flex items-center justify-between border-b border-slate-700 pb-3"
+                                >
+                                    <label
+                                        class="text-sm text-slate-300 font-medium"
+                                        >শর্ট টেক্সট (Arrow Labels) দেখান</label
+                                    >
+                                    <label
+                                        class="relative inline-flex items-center cursor-pointer"
+                                    >
+                                        <input
+                                            type="checkbox"
+                                            id="keepMainLabels"
+                                            class="sr-only peer"
+                                            checked
+                                            onchange="updateGraph()"
+                                        />
+                                        <div
+                                            class="w-9 h-5 bg-slate-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"
+                                        ></div>
+                                    </label>
+                                </div>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <div class="input-group">
+                                        <label class="text-xs text-slate-400"
+                                            >X শর্ট টেক্সট (Arrow)</label
+                                        >
+                                        <input
+                                            type="text"
+                                            id="shortLabelX"
+                                            class="input-field text-sm"
+                                            value="$x$"
+                                            oninput="updateGraph()"
+                                        />
+                                    </div>
+                                    <div class="input-group">
+                                        <label class="text-xs text-slate-400"
+                                            >Y শর্ট টেক্সট (Arrow)</label
+                                        >
+                                        <input
+                                            type="text"
+                                            id="shortLabelY"
+                                            class="input-field text-sm"
+                                            value="$g^{\prime}$"
+                                            oninput="updateGraph()"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 3: Labels -->
+                    <div id="tab-labels" class="tab-content space-y-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <h2 class="text-lg font-semibold text-cyan-400">
+                                গ্রাফের টাইটেল ও সাফিক্স
+                            </h2>
+                            <button
+                                onclick="resetTab('labels')"
+                                class="text-xs bg-slate-700 hover:bg-red-500/80 text-white px-3 py-1 rounded transition-colors"
+                                title="রিসেট"
+                            >
+                                Reset
+                            </button>
+                        </div>
+
+                        <div class="space-y-4">
+                            <div class="input-group">
+                                <label class="text-sm text-slate-400"
+                                    >গ্রাফের টাইটেল (Top)</label
+                                >
+                                <input
+                                    type="text"
+                                    id="graphTitle"
+                                    class="input-field"
+                                    value="$(g)$ বনাম পৃথিবীর কেন্দ্র হতে বস্তুর দূরত্ব"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                            <div class="input-group">
+                                <label class="text-sm text-slate-400"
+                                    >X-অক্ষ লেবেল (Bottom)</label
+                                >
+                                <input
+                                    type="text"
+                                    id="xAxisLabel"
+                                    class="input-field"
+                                    value="কেন্দ্র হতে দূরত্ব ( $R$ এর গুণিতকে )"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                            <div class="input-group">
+                                <label class="text-sm text-slate-400"
+                                    >Y-অক্ষ লেবেল (Left)</label
+                                >
+                                <input
+                                    type="text"
+                                    id="yAxisLabel"
+                                    class="input-field"
+                                    value="অভিকর্ষজ ত্বরণ ( $g$ এর গুণিতকে )"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                        </div>
+
+                        <div
+                            class="grid grid-cols-2 gap-4 border-t border-slate-700/50 pt-4"
+                        >
+                            <!-- X Axis Mode -->
+                            <div
+                                class="bg-slate-800/50 p-3 rounded-lg border border-slate-700 flex flex-col gap-2"
+                            >
+                                <div class="input-group">
+                                    <label class="text-sm text-slate-400"
+                                        >X-অক্ষ সাফিক্স</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="xSuffix"
+                                        class="input-field text-sm"
+                                        value="$R$"
+                                        oninput="updateGraph()"
+                                    />
+                                </div>
+                                <label
+                                    class="flex items-center gap-2 text-xs text-amber-300 cursor-pointer mt-1"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        id="xPiMode"
+                                        class="accent-amber-500 w-4 h-4"
+                                        onchange="updateGraph()"
+                                    />
+                                    <span
+                                        title="মানগুলোকে π এর গুণিতক হিসেবে ব্যবহার করুন"
+                                        >$\pi$ মোড (Trigonometry)</span
+                                    >
+                                </label>
+                            </div>
+                            <!-- Y Axis Mode -->
+                            <div
+                                class="bg-slate-800/50 p-3 rounded-lg border border-slate-700 flex flex-col gap-2"
+                            >
+                                <div class="input-group">
+                                    <label class="text-sm text-slate-400"
+                                        >Y-অক্ষ সাফিক্স</label
+                                    >
+                                    <input
+                                        type="text"
+                                        id="ySuffix"
+                                        class="input-field text-sm"
+                                        value="$g$"
+                                        oninput="updateGraph()"
+                                    />
+                                </div>
+                                <label
+                                    class="flex items-center gap-2 text-xs text-amber-300 cursor-pointer mt-1"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        id="yPiMode"
+                                        class="accent-amber-500 w-4 h-4"
+                                        onchange="updateGraph()"
+                                    />
+                                    <span
+                                        title="মানগুলোকে π এর গুণিতক হিসেবে ব্যবহার করুন"
+                                        >$\pi$ মোড (Trigonometry)</span
+                                    >
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tab 4: Design -->
+                    <div id="tab-design" class="tab-content space-y-6">
+                        <div class="flex justify-between items-center mb-2">
+                            <h2 class="text-lg font-semibold text-cyan-400">
+                                ফন্ট, সাইজ এবং সাধারণ কালার
+                            </h2>
+                            <button
+                                onclick="resetTab('design')"
+                                class="text-xs bg-slate-700 hover:bg-red-500/80 text-white px-3 py-1 rounded transition-colors"
+                                title="রিসেট"
+                            >
+                                Reset
+                            </button>
+                        </div>
+
+                        <div class="input-group">
+                            <label class="text-sm text-slate-400"
+                                >গ্রাফের ফন্ট</label
+                            >
+                            <select
+                                id="graphFont"
+                                class="input-field"
+                                onchange="updateGraph()"
+                            >
+                                <option value="'Hind Siliguri', sans-serif">
+                                    Hind Siliguri (Modern)
+                                </option>
+                                <option
+                                    value="'Kalpurush', 'BCC Purno', 'Noto Sans Bengali', sans-serif"
+                                >
+                                    Kalpurush / Noto Sans
+                                </option>
+                                <option value="'Tiro Bangla', serif">
+                                    Tiro Bangla (Math Vibe)
+                                </option>
+                                <option value="Arial, sans-serif">
+                                    Arial / System Default
+                                </option>
+                            </select>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="input-group">
+                                <label class="text-xs text-slate-400"
+                                    >টাইটেল সাইজ</label
+                                ><input
+                                    type="number"
+                                    id="titleSize"
+                                    class="input-field text-sm"
+                                    value="25"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                            <div class="input-group">
+                                <label class="text-xs text-slate-400"
+                                    >অক্ষ লেবেল সাইজ</label
+                                ><input
+                                    type="number"
+                                    id="axisTitleSize"
+                                    class="input-field text-sm"
+                                    value="20"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                            <div class="input-group">
+                                <label class="text-xs text-slate-400"
+                                    >ভ্যালু (Tick) সাইজ</label
+                                ><input
+                                    type="number"
+                                    id="tickSize"
+                                    class="input-field text-sm"
+                                    value="18"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                            <div class="input-group">
+                                <label class="text-xs text-slate-400"
+                                    >পয়েন্ট সাইজ</label
+                                ><input
+                                    type="number"
+                                    id="pointSize"
+                                    class="input-field text-sm"
+                                    value="6"
+                                    oninput="updateGraph()"
+                                />
+                            </div>
+                        </div>
+
+                        <div
+                            class="flex items-center gap-3 border-t border-slate-700/50 pt-4"
+                        >
+                            <label class="text-sm text-slate-300 font-medium"
+                                >সাব-গ্রিড দেখান (Show Sub-grids)</label
+                            >
+                            <label
+                                class="relative inline-flex items-center cursor-pointer"
+                            >
+                                <input
+                                    type="checkbox"
+                                    id="enableSubGrid"
+                                    class="sr-only peer"
+                                    onchange="updateGraph()"
+                                />
+                                <div
+                                    class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-cyan-500"
+                                ></div>
+                            </label>
+                        </div>
+
+                        <h3
+                            class="text-md font-medium text-amber-400 border-b border-slate-700/50 pb-2 mt-6"
+                        >
+                            সাধারণ কালার কন্ট্রোল
+                        </h3>
+                        <div id="color-controls-container" class="space-y-4">
+                            <!-- Injected via JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sticky Update Button area at the bottom of the sidebar -->
+                <div
+                    class="absolute bottom-0 left-0 right-0 p-4 bg-slate-900/90 backdrop-blur-md border-t border-slate-700 shadow-[0_-10px_20px_rgba(0,0,0,0.3)] z-20 flex justify-between items-center gap-2"
+                >
+                    <button
+                        onclick="openSaveModal()"
+                        class="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-lg shadow-emerald-500/20 text-sm flex items-center justify-center gap-1"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <path
+                                d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"
+                            ></path>
+                            <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                            <polyline points="7 3 7 8 15 8"></polyline>
+                        </svg>
+                        সেভ
+                    </button>
+                    <button
+                        onclick="updateGraph()"
+                        class="flex-1 bg-cyan-600 hover:bg-cyan-500 text-white font-medium py-2.5 px-4 rounded-lg transition-colors shadow-lg shadow-cyan-500/20 text-sm flex items-center justify-center gap-1"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path
+                                d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+                            ></path>
+                        </svg>
+                        আপডেট
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Content: Graph Display Area -->
+            <div class="w-full xl:w-7/12 flex flex-col gap-4">
+                <div
+                    class="glass-panel p-4 flex flex-wrap justify-between items-center gap-4"
+                >
+                    <div
+                        class="flex items-center gap-2 bg-slate-800/50 px-3 py-1.5 rounded-lg border border-slate-700"
+                    >
+                        <label class="text-sm text-slate-400"
+                            >অনুপাত (H/W):</label
+                        >
+                        <input
+                            type="number"
+                            id="aspectRatio"
+                            class="bg-transparent border-b border-slate-500 text-white text-center w-12 text-sm outline-none focus:border-cyan-500"
+                            value="0.6"
+                            step="0.05"
+                            onchange="updateGraph()"
+                        />
+                    </div>
+
+                    <div class="flex gap-2 items-center">
+                        <div class="relative">
+                            <button
+                                onclick="toggleSvgCopyMenu()"
+                                class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm py-2 px-3 rounded transition-colors flex items-center gap-1"
+                                title="Copy SVG Code"
+                            >
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    width="14"
+                                    height="14"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    stroke-width="2"
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                >
+                                    <rect
+                                        x="9"
+                                        y="9"
+                                        width="13"
+                                        height="13"
+                                        rx="2"
+                                        ry="2"
+                                    ></rect>
+                                    <path
+                                        d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"
+                                    ></path>
+                                </svg>
+                                Copy Code
+                            </button>
+                            <div
+                                id="svgCopyMenu"
+                                class="hidden absolute right-0 mt-2 w-44 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 overflow-hidden"
+                            >
+                                <button
+                                    onclick="copySVGCode(true)"
+                                    class="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                                >
+                                    ব্যাকগ্রাউন্ড সহ
+                                </button>
+                                <button
+                                    onclick="copySVGCode(false)"
+                                    class="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors border-t border-slate-700"
+                                >
+                                    ব্যাকগ্রাউন্ড ছাড়া
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="relative">
+                            <button
+                                onclick="toggleSvgDownloadMenu()"
+                                class="bg-indigo-600 hover:bg-indigo-500 text-white text-sm py-2 px-3 rounded transition-colors flex items-center gap-1"
+                                title="Download True Vector SVG"
+                            >
+                                SVG
+                            </button>
+                            <div
+                                id="svgDownloadMenu"
+                                class="hidden absolute right-0 mt-2 w-44 bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 overflow-hidden"
+                            >
+                                <button
+                                    onclick="downloadSVG(true)"
+                                    class="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors"
+                                >
+                                    ব্যাকগ্রাউন্ড সহ
+                                </button>
+                                <button
+                                    onclick="downloadSVG(false)"
+                                    class="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-700 transition-colors border-t border-slate-700"
+                                >
+                                    ব্যাকগ্রাউন্ড ছাড়া
+                                </button>
+                            </div>
+                        </div>
+
+                        <button
+                            onclick="downloadPNG()"
+                            class="bg-slate-700 hover:bg-slate-600 text-white text-sm py-2 px-3 rounded transition-colors flex items-center gap-1"
+                            title="Download High-Res PNG"
+                        >
+                            PNG
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Container for Export -->
+                <div
+                    id="export-container"
+                    class="w-full relative shadow-2xl transition-colors duration-300 overflow-hidden"
+                >
+                    <div
+                        id="canvas-container"
+                        class="relative w-full"
+                        style="aspect-ratio: 1 / 0.6"
+                    >
+                        <div id="customChart"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modals -->
+
+        <!-- 1. Equation Presets Modal -->
+        <div
+            id="presetsModal"
+            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4"
+        >
+            <div
+                class="glass-panel w-full max-w-2xl shadow-2xl shadow-cyan-900/20 max-h-[80vh] flex flex-col"
+            >
+                <div
+                    class="flex justify-between items-center mb-4 border-b border-slate-700 pb-2 shrink-0"
+                >
+                    <h2 class="text-xl font-bold text-cyan-400">
+                        সূত্র তালিকা (Equation Presets)
+                    </h2>
+                    <button
+                        onclick="closePresetsModal()"
+                        class="text-slate-400 hover:text-white transition-colors"
+                    >
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            width="24"
+                            height="24"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <line x1="18" y1="6" x2="6" y2="18"></line>
+                            <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                    </button>
+                </div>
+                <div
+                    class="overflow-y-auto pr-2 space-y-6"
+                    id="presetsContainer"
+                >
+                    <!-- Injected via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. Save Graph Modal -->
+        <div
+            id="saveModal"
+            class="fixed inset-0 bg-slate-900/80 backdrop-blur-sm hidden items-center justify-center z-50 p-4"
+        >
+            <div
+                class="glass-panel w-full max-w-md shadow-2xl shadow-emerald-900/20"
+            >
+                <h2
+                    class="text-xl font-bold text-emerald-400 mb-4 border-b border-slate-700 pb-2"
+                >
+                    গ্রাফ সেভ করুন
+                </h2>
+                <div class="space-y-4 mb-6">
+                    <div class="input-group">
+                        <label class="text-sm text-slate-300"
+                            >গ্রাফের নাম (Name)</label
+                        >
+                        <input
+                            type="text"
+                            id="saveName"
+                            class="input-field w-full"
+                            placeholder="যেমন: অভিকর্ষজ ত্বরণের গ্রাফ"
+                        />
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="input-group">
+                            <label class="text-sm text-slate-300"
+                                >বিষয় (Subject)</label
+                            >
+                            <select id="saveSubject" class="input-field w-full">
+                                <option value="P1">Physics 1 (P1)</option>
+                                <option value="P2">Physics 2 (P2)</option>
+                                <option value="C1">Chemistry 1 (C1)</option>
+                                <option value="C2">Chemistry 2 (C2)</option>
+                                <option value="M1">Math 1 (M1)</option>
+                                <option value="M2">Math 2 (M2)</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label class="text-sm text-slate-300"
+                                >অধ্যায় (Chapter)</label
+                            >
+                            <select id="saveChapter" class="input-field w-full">
+                                <option value="C01">Chapter 01 (C01)</option>
+                                <option value="C02">Chapter 02 (C02)</option>
+                                <option value="C03">Chapter 03 (C03)</option>
+                                <option value="C04">Chapter 04 (C04)</option>
+                                <option value="C05">Chapter 05 (C05)</option>
+                                <option value="C06">Chapter 06 (C06)</option>
+                                <option value="C07">Chapter 07 (C07)</option>
+                                <option value="C08">Chapter 08 (C08)</option>
+                                <option value="C09">Chapter 09 (C09)</option>
+                                <option value="C10">Chapter 10 (C10)</option>
+                                <option value="C11">Chapter 11 (C11)</option>
+                                <option value="C12">Chapter 12 (C12)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-end gap-3">
+                    <button
+                        onclick="closeSaveModal()"
+                        class="bg-slate-700 hover:bg-slate-600 text-white py-2 px-4 rounded transition-colors"
+                    >
+                        বাতিল
+                    </button>
+                    <button
+                        onclick="saveGraphAction()"
+                        class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2 px-6 rounded transition-colors"
+                    >
+                        সেভ করুন
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. Saved Graphs List Modal -->
+        <div
+            id="savedListModal"
+            class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm hidden flex-col items-center justify-center z-50 p-4 md:p-8"
+        >
+            <div
+                class="glass-panel w-full max-w-4xl h-full max-h-[85vh] flex flex-col shadow-2xl shadow-amber-900/20"
+            >
+                <div
+                    class="flex justify-between items-center mb-4 border-b border-slate-700 pb-4"
+                >
+                    <h2 class="text-2xl font-bold text-amber-400">
+                        আপনার সেভ করা গ্রাফসমূহ
+                    </h2>
+                    <div class="flex items-center gap-3">
+                        <button
+                            onclick="exportGraphsToJSON()"
+                            class="bg-blue-600 hover:bg-blue-500 text-white text-sm py-1.5 px-3 rounded transition-colors flex items-center gap-1"
+                            title="সব ডেটা JSON ফাইলে সেভ করুন"
+                        >
+                            Backup (JSON)
+                        </button>
+                        <label
+                            class="bg-emerald-600 hover:bg-emerald-500 text-white text-sm py-1.5 px-3 rounded transition-colors cursor-pointer flex items-center gap-1"
+                            title="JSON ফাইল থেকে ডেটা লোড করুন"
+                        >
+                            Restore
+                            <input
+                                type="file"
+                                accept=".json"
+                                class="hidden"
+                                onchange="importGraphsFromJSON(event)"
+                            />
+                        </label>
+                        <button
+                            onclick="closeSavedGraphsModal()"
+                            class="text-slate-400 hover:text-white transition-colors ml-2"
+                        >
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                width="24"
+                                height="24"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                            >
+                                <line x1="18" y1="6" x2="6" y2="18"></line>
+                                <line x1="6" y1="6" x2="18" y2="18"></line>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div
+                    class="flex flex-wrap gap-4 mb-6 bg-slate-800/50 p-3 rounded-lg border border-slate-700"
+                >
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm text-slate-400"
+                            >বিষয় ফিল্টার:</label
+                        >
+                        <select
+                            id="filterSubject"
+                            class="input-field py-1 px-2 text-sm"
+                            onchange="renderSavedGraphsList()"
+                        >
+                            <option value="All">সব বিষয় (All)</option>
+                            <option value="P1">P1</option>
+                            <option value="P2">P2</option>
+                            <option value="C1">C1</option>
+                            <option value="C2">C2</option>
+                            <option value="M1">M1</option>
+                            <option value="M2">M2</option>
+                            <option value="Other">Other</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <label class="text-sm text-slate-400"
+                            >অধ্যায় ফিল্টার:</label
+                        >
+                        <select
+                            id="filterChapter"
+                            class="input-field py-1 px-2 text-sm"
+                            onchange="renderSavedGraphsList()"
+                        >
+                            <option value="All">সব অধ্যায় (All)</option>
+                            <option value="C01">C01</option>
+                            <option value="C02">C02</option>
+                            <option value="C03">C03</option>
+                            <option value="C04">C04</option>
+                            <option value="C05">C05</option>
+                            <option value="C06">C06</option>
+                            <option value="C07">C07</option>
+                            <option value="C08">C08</option>
+                            <option value="C09">C09</option>
+                            <option value="C10">C10</option>
+                            <option value="C11">C11</option>
+                            <option value="C12">C12</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div
+                    class="flex-1 overflow-y-auto pr-2"
+                    id="savedGraphsContainer"
+                ></div>
+            </div>
+        </div>
+
+        <script>
+            let myChart = null;
+            let activeEqTarget = 1; // To track which equation gets the preset
+
+            // --- Tabs Logic ---
+            function switchTab(tabId) {
+                document
+                    .querySelectorAll(".tab-content")
+                    .forEach((el) => el.classList.remove("active"));
+                document
+                    .querySelectorAll(".tab-btn")
+                    .forEach((el) => el.classList.remove("active"));
+
+                document.getElementById("tab-" + tabId).classList.add("active");
+                document.getElementById("btn-" + tabId).classList.add("active");
+
+                // Re-render accordion or pickers if needed visually
+            }
+
+            // --- Accordion Logic ---
+            function toggleAccordion(id) {
+                const content = document.getElementById(id);
+                const icon = document.getElementById(id + "-icon");
+                if (content.classList.contains("hidden")) {
+                    content.classList.remove("hidden");
+                    icon.style.transform = "rotate(180deg)";
+                } else {
+                    content.classList.add("hidden");
+                    icon.style.transform = "rotate(0deg)";
+                }
+            }
+
+            // --- Math Vibe logic ---
+            function parseMathVibe(text) {
+                if (typeof text !== "string") return text;
+                const mathItalic = {
+                    a: "𝑎",
+                    b: "𝑏",
+                    c: "𝑐",
+                    d: "𝑑",
+                    e: "𝑒",
+                    f: "𝑓",
+                    g: "𝑔",
+                    h: "ℎ",
+                    i: "𝑖",
+                    j: "𝑗",
+                    k: "𝑘",
+                    l: "𝑙",
+                    m: "𝑚",
+                    n: "𝑛",
+                    o: "𝑜",
+                    p: "𝑝",
+                    q: "𝑞",
+                    r: "𝑟",
+                    s: "𝑠",
+                    t: "𝑡",
+                    u: "𝑢",
+                    v: "𝑣",
+                    w: "𝑤",
+                    x: "𝑥",
+                    y: "𝑦",
+                    z: "𝑧",
+                    A: "𝐴",
+                    B: "𝐵",
+                    C: "𝐶",
+                    D: "𝐷",
+                    E: "𝐸",
+                    F: "𝐹",
+                    G: "𝐺",
+                    H: "𝐻",
+                    I: "𝐼",
+                    J: "𝐽",
+                    K: "𝐾",
+                    L: "𝐿",
+                    M: "𝑀",
+                    N: "𝑁",
+                    O: "𝑂",
+                    P: "𝑃",
+                    Q: "𝑄",
+                    R: "𝑅",
+                    S: "𝑆",
+                    T: "𝑇",
+                    U: "𝑈",
+                    V: "𝑉",
+                    W: "𝑊",
+                    X: "𝑋",
+                    Y: "𝑌",
+                    Z: "𝑍",
+                };
+                const superscripts = {
+                    0: "⁰",
+                    1: "¹",
+                    2: "²",
+                    3: "³",
+                    4: "⁴",
+                    5: "⁵",
+                    6: "⁶",
+                    7: "⁷",
+                    8: "⁸",
+                    9: "⁹",
+                    "+": "⁺",
+                    "-": "⁻",
+                    "=": "⁼",
+                    "(": "⁽",
+                    ")": "⁾",
+                    n: "ⁿ",
+                    x: "ˣ",
+                    y: "ʸ",
+                };
+                const subscripts = {
+                    0: "₀",
+                    1: "₁",
+                    2: "₂",
+                    3: "₃",
+                    4: "₄",
+                    5: "₅",
+                    6: "₆",
+                    7: "₇",
+                    8: "₈",
+                    9: "₉",
+                    "+": "₊",
+                    "-": "₋",
+                    "=": "₌",
+                    "(": "₍",
+                    ")": "₎",
+                    x: "ₓ",
+                    y: "ᵧ",
+                };
+                const greek = {
+                    "\\alpha": "α",
+                    "\\beta": "β",
+                    "\\gamma": "γ",
+                    "\\delta": "δ",
+                    "\\epsilon": "ε",
+                    "\\zeta": "ζ",
+                    "\\eta": "η",
+                    "\\theta": "θ",
+                    "\\iota": "ι",
+                    "\\kappa": "κ",
+                    "\\lambda": "λ",
+                    "\\mu": "μ",
+                    "\\nu": "ν",
+                    "\\xi": "ξ",
+                    "\\omicron": "ο",
+                    "\\pi": "π",
+                    "\\rho": "ρ",
+                    "\\sigma": "σ",
+                    "\\tau": "τ",
+                    "\\upsilon": "υ",
+                    "\\phi": "φ",
+                    "\\chi": "χ",
+                    "\\psi": "ψ",
+                    "\\omega": "ω",
+                    "\\Gamma": "Γ",
+                    "\\Delta": "Δ",
+                    "\\Theta": "Θ",
+                    "\\Lambda": "Λ",
+                    "\\Xi": "Ξ",
+                    "\\Pi": "Π",
+                    "\\Sigma": "Σ",
+                    "\\Phi": "Φ",
+                    "\\Psi": "Ψ",
+                    "\\Omega": "Ω",
+                    "\\prime": "′",
+                    "\\circ": "°",
+                    "\\infty": "∞",
+                };
+
+                return text.replace(/\$(.*?)\$/g, function (match, mathExpr) {
+                    let res = mathExpr;
+                    for (let key in greek)
+                        res = res.split(key).join(greek[key]);
+                    res = res.replace(/\^\{([^}]+)\}/g, (m, p1) =>
+                        p1
+                            .split("")
+                            .map((c) => superscripts[c] || c)
+                            .join(""),
+                    );
+                    res = res.replace(
+                        /\^([a-zA-Z0-9+\-()=])/g,
+                        (m, p1) => superscripts[p1] || p1,
+                    );
+                    res = res.replace(/_\{([^}]+)\}/g, (m, p1) =>
+                        p1
+                            .split("")
+                            .map((c) => subscripts[c] || c)
+                            .join(""),
+                    );
+                    res = res.replace(
+                        /_([a-zA-Z0-9+\-()=])/g,
+                        (m, p1) => subscripts[p1] || p1,
+                    );
+                    res = res.replace(
+                        /[a-zA-Z]/g,
+                        (char) => mathItalic[char] || char,
+                    );
+                    return res;
+                });
+            }
+
+            // --- Smart Math Preprocessor (Natural Math to JS Math) ---
+            function preprocessMathString(str) {
+                let processed = str;
+                // Handle implied multiplication: 2x -> 2*x
+                processed = processed.replace(/(\d)([a-zA-Z])/g, "$1*$2");
+                // Handle power: x^2 -> Math.pow(x, 2)
+                processed = processed.replace(
+                    /([a-zA-Z0-9_.]+)\^([a-zA-Z0-9_.]+)/g,
+                    "Math.pow($1, $2)",
+                );
+                // Constants
+                processed = processed.replace(/\bPI\b/gi, "Math.PI");
+                processed = processed.replace(/\bE\b/g, "Math.E");
+                // Standard Math functions
+                const mathFuncs = [
+                    "sin",
+                    "cos",
+                    "tan",
+                    "asin",
+                    "acos",
+                    "atan",
+                    "log",
+                    "log10",
+                    "log2",
+                    "exp",
+                    "abs",
+                    "sqrt",
+                    "ceil",
+                    "floor",
+                    "round",
+                ];
+                mathFuncs.forEach((func) => {
+                    const regex = new RegExp(`\\b${func}\\b`, "gi");
+                    processed = processed.replace(regex, `Math.${func}`);
+                });
+                // Custom Log base: logBase(x, base) -> Math.log(x)/Math.log(base)
+                processed = processed.replace(
+                    /logBase\(([^,]+),([^)]+)\)/g,
+                    "(Math.log($1)/Math.log($2))",
+                );
+                return processed;
+            }
+
+            // --- Configuration Arrays ---
+            const colorConfigs = [
+                {
+                    id: "bgColor",
+                    label: "ব্যাকগ্রাউন্ড (Background)",
+                    default: "#0f172a",
+                },
+                {
+                    id: "titleColor",
+                    label: "টাইটেল (Title)",
+                    default: "#22d3ee",
+                },
+                {
+                    id: "gridColor",
+                    label: "গ্রিড লাইন (Grid Lines)",
+                    default: USER_DEFAULTS.gridLineColor,
+                    dualAlpha: true,
+                    defaultAlphaX: USER_DEFAULTS.gridLineOpacity,
+                    defaultAlphaY: USER_DEFAULTS.gridLineOpacity,
+                },
+                {
+                    id: "axisTitleColor",
+                    label: "অক্ষের নাম (Axis Labels)",
+                    default: "#94a3b8",
+                    dualAlpha: true,
+                },
+                {
+                    id: "tickColor",
+                    label: "অক্ষের মান (Axis Ticks)",
+                    default: "#94a3b8",
+                    dualAlpha: true,
+                },
+            ];
+
+            const presetColors = [
+                "#0f172a",
+                "#ffffff",
+                "#94a3b8",
+                "#06b6d4",
+                "#ec4899",
+                "#a855f7",
+                "#22c55e",
+                "#f59e0b",
+                "#f43f5e",
+                "#3b82f6",
+            ];
+            const eqDefaultColors = [
+                "#06b6d4",
+                "#ec4899",
+                "#a855f7",
+                "#22c55e",
+                "#f59e0b",
+                "#ef4444",
+                "#3b82f6",
+                "#14b8a6",
+                "#f43f5e",
+                "#8b5cf6",
+            ];
+
+            function renderColorPickers() {
+                // General Pickers (Design Tab)
+                const container = document.getElementById(
+                    "color-controls-container",
+                );
+                let html = "";
+                colorConfigs.forEach((cfg) => {
+                    let swatchesHtml = presetColors
+                        .map(
+                            (color) =>
+                                `<div class="color-swatch" style="background-color: ${color}" onclick="updateColorInput('${cfg.id}', '${color}')" title="${color}"></div>`,
+                        )
+                        .join("");
+
+                    let alphaHtml = "";
+                    if (cfg.dualAlpha) {
+                        let aX =
+                            cfg.defaultAlphaX !== undefined
+                                ? cfg.defaultAlphaX
+                                : 1;
+                        let aY =
+                            cfg.defaultAlphaY !== undefined
+                                ? cfg.defaultAlphaY
+                                : 1;
+                        alphaHtml = `
+                    <div class="mt-3 flex flex-col gap-2 border-t border-slate-700/50 pt-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-slate-400 w-16">X-স্বচ্ছতা:</span>
+                            <input type="range" id="${cfg.id}-alphaX" min="0" max="1" step="0.05" value="${aX}" class="flex-1 cursor-pointer accent-cyan-500" oninput="document.getElementById('${cfg.id}-alphaX-input').value = this.value; updateGraph();">
+                            <input type="number" id="${cfg.id}-alphaX-input" min="0" max="1" step="0.05" value="${aX}" class="input-field py-0.5 px-1 w-16 text-xs text-center" oninput="document.getElementById('${cfg.id}-alphaX').value = this.value; updateGraph();">
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-xs text-slate-400 w-16">Y-স্বচ্ছতা:</span>
+                            <input type="range" id="${cfg.id}-alphaY" min="0" max="1" step="0.05" value="${aY}" class="flex-1 cursor-pointer accent-cyan-500" oninput="document.getElementById('${cfg.id}-alphaY-input').value = this.value; updateGraph();">
+                            <input type="number" id="${cfg.id}-alphaY-input" min="0" max="1" step="0.05" value="${aY}" class="input-field py-0.5 px-1 w-16 text-xs text-center" oninput="document.getElementById('${cfg.id}-alphaY').value = this.value; updateGraph();">
+                        </div>
+                    </div>`;
+                    } else {
+                        let aVal =
+                            cfg.defaultAlpha !== undefined
+                                ? cfg.defaultAlpha
+                                : 1;
+                        alphaHtml = `
+                    <div class="mt-3 flex items-center gap-2 border-t border-slate-700/50 pt-2">
+                        <span class="text-xs text-slate-400 w-16">স্বচ্ছতা:</span>
+                        <input type="range" id="${cfg.id}-alpha" min="0" max="1" step="0.05" value="${aVal}" class="flex-1 cursor-pointer accent-cyan-500" oninput="document.getElementById('${cfg.id}-alpha-input').value = this.value; updateGraph();">
+                        <input type="number" id="${cfg.id}-alpha-input" min="0" max="1" step="0.05" value="${aVal}" class="input-field py-0.5 px-1 w-16 text-xs text-center" oninput="document.getElementById('${cfg.id}-alpha').value = this.value; updateGraph();">
+                    </div>`;
+                    }
+
+                    html += `
+                <div class="bg-slate-800/50 p-3 rounded-lg border border-slate-700">
+                    <div class="flex justify-between items-center mb-2">
+                        <label class="text-sm text-slate-300 font-medium">${cfg.label}</label>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="${cfg.id}-toggle" class="sr-only peer" checked onchange="updateGraph()">
+                            <div class="w-8 h-4 bg-slate-600 rounded-full peer peer-checked:bg-cyan-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                        </label>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="color" id="${cfg.id}-picker" value="${cfg.default}" oninput="document.getElementById('${cfg.id}').value = this.value; updateGraph();" class="w-8 h-8 rounded cursor-pointer bg-transparent border-0 p-0 block" style="transform: scale(1.5); clip-path: inset(16.6% round 10%);">
+                        <input type="text" id="${cfg.id}" class="input-field text-xs w-20 px-2 py-1 uppercase text-center" value="${cfg.default}" oninput="document.getElementById('${cfg.id}-picker').value = this.value; updateGraph();">
+                        <div class="flex gap-1 ml-auto flex-wrap justify-end">
+                            ${swatchesHtml}
+                        </div>
+                    </div>
+                    ${alphaHtml}
+                </div>`;
+                });
+                container.innerHTML = html;
+
+                // Equations Pickers (Equation Tab)
+                const eqContainer = document.getElementById(
+                    "eq-accordion-container",
+                );
+                let eqHtml = "";
+                for (let i = 1; i <= 10; i++) {
+                    let defaultC = eqDefaultColors[i - 1];
+                    let ptFillC = i === 1 ? "#ec4899" : defaultC; // Eq 1 point default pink
+                    let isFillChecked = i === 1 ? "checked" : "";
+                    let isEnabled = i === 1 ? "checked" : ""; // ONLY EQ 1 is enabled by default
+                    let accState = i === 1 ? "block" : "hidden";
+                    let iconRot = i === 1 ? "rotate(180deg)" : "rotate(0deg)";
+
+                    let defEq = i === 1 ? "{ x <= 1: x, x > 1: 1/x^2 }" : "";
+                    let defPts = i === 1 ? "0.5, A; 1, B; 1.5, C" : "";
+
+                    eqHtml += `
+                <div class="bg-slate-800/40 rounded-xl border border-slate-700/50 shadow-sm overflow-hidden">
+                    
+                    <!-- Accordion Header -->
+                    <div class="flex items-center justify-between p-3 bg-slate-800/60 cursor-pointer" onclick="toggleAccordion('eq-body-${i}')">
+                        <div class="flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full shadow-sm" style="background-color: ${defaultC}"></span>
+                            <h4 class="font-bold text-slate-200 text-sm">ইকুয়েশন ${i}</h4>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <label class="relative inline-flex items-center cursor-pointer" onclick="event.stopPropagation();" title="Enable/Disable this Equation">
+                                <input type="checkbox" id="eq${i}-enable" class="sr-only peer" ${isEnabled} onchange="updateGraph()">
+                                <div class="w-8 h-4 bg-slate-600 rounded-full peer peer-checked:bg-emerald-500 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all"></div>
+                            </label>
+                            <svg id="eq-body-${i}-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="transition: transform 0.2s; transform: ${iconRot};" class="text-slate-400"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </div>
+                    </div>
+                    
+                    <!-- Accordion Body -->
+                    <div id="eq-body-${i}" class="${accState} p-4 border-t border-slate-700/50 space-y-4">
+                        
+                        <!-- Top Row: Equation & Presets -->
+                        <div class="flex flex-col md:flex-row gap-4">
+                            <div class="input-group flex-1">
+                                <label class="text-xs text-slate-400 font-medium">ইকুয়েশন (y = ?)</label>
+                                <textarea id="eq${i}-formula" rows="1" class="input-field font-mono text-sm border-slate-600 bg-slate-900/50 focus:border-[${defaultC}] py-2" oninput="updateGraph()">${defEq}</textarea>
+                            </div>
+                            <div class="shrink-0 flex items-end">
+                                <button onclick="openPresetsModal(${i})" class="bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/50 text-indigo-300 text-xs py-2 px-3 rounded transition-colors flex items-center gap-1 h-[38px]">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                                    সূত্র তালিকা
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Points -->
+                        <div class="input-group">
+                            <div class="flex flex-wrap justify-between items-center gap-2 mb-1">
+                                <label class="text-xs text-slate-400 font-medium">পয়েন্ট ইনপুট</label>
+                                <select id="eq${i}-calcMode" class="bg-slate-700 text-[10px] text-white px-2 py-1 rounded border border-slate-600 outline-none hover:border-cyan-500 cursor-pointer" onchange="updateGraph()">
+                                    <option value="autoY">অটো Y (X দিন)</option>
+                                    <option value="autoX">অটো X (Y দিন)</option>
+                                    <option value="manual">ম্যানুয়াল (X,Y দিন)</option>
+                                </select>
+                            </div>
+                            <textarea id="eq${i}-points" rows="1" class="input-field font-mono text-sm border-slate-600 bg-slate-900/50 focus:border-[${defaultC}] py-2" oninput="updateGraph()">${defPts}</textarea>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Left: Labels & Line -->
+                            <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700 space-y-3">
+                                <div>
+                                    <label class="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">পয়েন্ট লেবেল সেটিং</label>
+                                    <div class="flex gap-3">
+                                        <label class="flex items-center gap-1 text-xs text-slate-300 cursor-pointer"><input type="checkbox" id="eq${i}-lblX" checked class="accent-[${defaultC}] w-3 h-3" onchange="updateGraph()"> X</label>
+                                        <label class="flex items-center gap-1 text-xs text-slate-300 cursor-pointer"><input type="checkbox" id="eq${i}-lblY" checked class="accent-[${defaultC}] w-3 h-3" onchange="updateGraph()"> Y</label>
+                                        <label class="flex items-center gap-1 text-xs text-amber-300 cursor-pointer"><input type="checkbox" id="eq${i}-lblCustom" checked class="accent-amber-500 w-3 h-3" onchange="updateGraph()"> Custom</label>
+                                    </div>
+                                    <div class="flex items-center gap-2 mt-2">
+                                        <input type="color" id="eq${i}-lblColor" value="#ffffff" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0 p-0 block" style="transform: scale(1.5); clip-path: inset(16.6% round 10%);" oninput="updateGraph()">
+                                        <span class="text-[10px] text-slate-500">স্বচ্ছতা:</span>
+                                        <input type="range" id="eq${i}-lblAlpha" min="0" max="1" step="0.05" value="1" class="flex-1 accent-cyan-500 h-1" oninput="updateGraph()">
+                                    </div>
+                                </div>
+                                <div class="border-t border-slate-700/50 pt-2">
+                                    <label class="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">লাইন স্টাইল</label>
+                                    <div class="flex items-center gap-2">
+                                        <input type="color" id="eq${i}-lineColor" value="${defaultC}" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0 p-0 block" style="transform: scale(1.5); clip-path: inset(16.6% round 10%);" oninput="updateGraph()">
+                                        <span class="text-[10px] text-slate-500">স্বচ্ছতা:</span>
+                                        <input type="range" id="eq${i}-lineAlpha" min="0" max="1" step="0.05" value="1" class="flex-1 accent-cyan-500 h-1" oninput="updateGraph()">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Fill & Point Style -->
+                            <div class="bg-slate-900/40 p-3 rounded-lg border border-slate-700 space-y-3">
+                                <div>
+                                    <div class="flex items-center justify-between mb-1">
+                                        <label class="text-[10px] text-slate-500 uppercase tracking-wider">এরিয়া ফিল (Area Fill)</label>
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" id="eq${i}-fillToggle" class="sr-only peer" ${isFillChecked} onchange="updateGraph()">
+                                            <div class="w-6 h-3 bg-slate-600 rounded-full peer peer-checked:bg-[${defaultC}] peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[1px] after:left-[1px] after:bg-white after:rounded-full after:h-2.5 after:w-2.5 after:transition-all"></div>
+                                        </label>
+                                    </div>
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <input type="color" id="eq${i}-fillColor" value="${defaultC}" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0 p-0 block" style="transform: scale(1.5); clip-path: inset(16.6% round 10%);" oninput="updateGraph()">
+                                        <span class="text-[10px] text-slate-500">স্বচ্ছতা:</span>
+                                        <input type="range" id="eq${i}-fillAlpha" min="0" max="1" step="0.05" value="0.8" class="flex-1 accent-[${defaultC}] h-1" oninput="updateGraph()">
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-[10px] text-slate-500 w-12">গ্রেডিয়েন্ট:</span>
+                                        <input type="range" id="eq${i}-fillGradient" min="0" max="1" step="0.05" value="0.55" class="flex-1 accent-[${defaultC}] h-1" title="0=None, 1=Solid" oninput="updateGraph()">
+                                    </div>
+                                </div>
+                                <div class="border-t border-slate-700/50 pt-2">
+                                    <label class="text-[10px] text-slate-500 uppercase tracking-wider block mb-1">পয়েন্ট ডিজাইন (Fill & Border)</label>
+                                    <div class="flex items-center gap-3">
+                                        <input type="color" id="eq${i}-ptFill" value="${ptFillC}" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0 p-0 block" title="Point Fill" style="transform: scale(1.5); clip-path: inset(16.6% round 10%);" oninput="updateGraph()">
+                                        <input type="color" id="eq${i}-ptStroke" value="#ffffff" class="w-5 h-5 rounded cursor-pointer bg-transparent border-0 p-0 block" title="Point Border" style="transform: scale(1.5); clip-path: inset(16.6% round 10%);" oninput="updateGraph()">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>`;
+                }
+                eqContainer.innerHTML = eqHtml;
+            }
+
+            function updateColorInput(id, color) {
+                document.getElementById(id).value = color;
+                document.getElementById(id + "-picker").value = color;
+                updateGraph();
+            }
+
+            function hexToRgba(hex, alpha) {
+                let r = parseInt(hex.slice(1, 3), 16),
+                    g = parseInt(hex.slice(3, 5), 16),
+                    b = parseInt(hex.slice(5, 7), 16);
+                return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+            }
+
+            function getColor(cfg, axis = null) {
+                if (!cfg.enabled) return "rgba(0, 0, 0, 0)";
+                let alpha = cfg.alpha;
+                if (axis === "x" && cfg.alphaX !== undefined)
+                    alpha = cfg.alphaX;
+                if (axis === "y" && cfg.alphaY !== undefined)
+                    alpha = cfg.alphaY;
+                return hexToRgba(cfg.hex, alpha);
+            }
+
+            // --- UI Logic ---
+            function toggleCustomAxisSettings() {
+                const isChecked =
+                    document.getElementById("enableCustomAxis").checked;
+                const settingsDiv =
+                    document.getElementById("customAxisSettings");
+                if (isChecked) settingsDiv.classList.remove("hidden");
+                else settingsDiv.classList.add("hidden");
+            }
+
+            function togglePointLabelOptions() {
+                const isChecked =
+                    document.getElementById("showPointLabels").checked;
+                const optsDiv = document.getElementById("pointLabelOptions");
+                if (isChecked) {
+                    optsDiv.classList.remove("hidden");
+                    optsDiv.classList.add("flex");
+                } else {
+                    optsDiv.classList.remove("flex");
+                    optsDiv.classList.add("hidden");
+                }
+                updateGraph();
+            }
+
+            function updateAndScrollToGraph() {
+                updateGraph();
+                // document.getElementById('graph-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+
+            function formatAxisTick(value, suffix, isPiMode) {
+                if (isPiMode) {
+                    // Determine representation based on PI multiple
+                    let mult = value / Math.PI;
+                    // Clean up float errors
+                    mult = Math.round(mult * 10000) / 10000;
+
+                    if (mult === 0) return "0";
+                    if (mult === 1) return "$\\pi$";
+                    if (mult === -1) return "$-\\pi$";
+                    return mult + "$\\pi$";
+                }
+
+                let numStr = parseFloat(value.toFixed(4)).toString();
+                if (!suffix) return numStr;
+                if (numStr === "1") return suffix;
+                if (numStr === "-1") return "-" + suffix;
+                if (numStr === "0") return "0";
+                return numStr + suffix;
+            }
+
+            // --- Resets ---
+            function resetTab(tabName) {
+                if (tabName === "eq") {
+                    for (let i = 1; i <= 10; i++) {
+                        if (document.getElementById(`eq${i}-enable`))
+                            document.getElementById(`eq${i}-enable`).checked =
+                                i === 1;
+                        if (document.getElementById(`eq${i}-formula`))
+                            document.getElementById(`eq${i}-formula`).value =
+                                i === 1
+                                    ? "{0 <= x <= 1: x, x > 1: 1 / x^2}"
+                                    : "";
+                        if (document.getElementById(`eq${i}-points`))
+                            document.getElementById(`eq${i}-points`).value =
+                                i === 1 ? "0.5, A; 1, B; 1.5, C" : "";
+                        if (document.getElementById(`eq${i}-calcMode`))
+                            document.getElementById(`eq${i}-calcMode`).value =
+                                "autoY";
+
+                        if (document.getElementById(`eq${i}-lineColor`)) {
+                            document.getElementById(`eq${i}-lineColor`).value =
+                                eqDefaultColors[i - 1];
+                            document.getElementById(`eq${i}-lineAlpha`).value =
+                                1;
+                            document.getElementById(`eq${i}-ptFill`).value =
+                                i === 1 ? "#ec4899" : eqDefaultColors[i - 1];
+                            document.getElementById(`eq${i}-ptStroke`).value =
+                                "#ffffff";
+
+                            document.getElementById(`eq${i}-lblColor`).value =
+                                "#ffffff";
+                            document.getElementById(`eq${i}-lblAlpha`).value =
+                                1;
+
+                            document.getElementById(`eq${i}-lblX`).checked =
+                                true;
+                            document.getElementById(`eq${i}-lblY`).checked =
+                                true;
+                            document.getElementById(
+                                `eq${i}-lblCustom`,
+                            ).checked = true;
+
+                            document.getElementById(
+                                `eq${i}-fillToggle`,
+                            ).checked = i === 1;
+                            document.getElementById(`eq${i}-fillColor`).value =
+                                eqDefaultColors[i - 1];
+                            document.getElementById(`eq${i}-fillAlpha`).value =
+                                0.8;
+                            document.getElementById(
+                                `eq${i}-fillGradient`,
+                            ).value = 0.55;
+                        }
+                    }
+                    document.getElementById("showPointLabels").checked = true;
+                    document.getElementById("showPointLabelX").checked = true;
+                    document.getElementById("showPointLabelY").checked = true;
+                    document.getElementById("useCustomPointLabels").checked =
+                        true;
+                    togglePointLabelOptions();
+                } else if (tabName === "axis") {
+                    document.getElementById("xMin").value = "0";
+                    document.getElementById("xMax").value = "4";
+                    document.getElementById("yMin").value = "0";
+                    document.getElementById("yMax").value = "1.2";
+                    document.getElementById("stepSize").value = "0.001";
+                    document.getElementById("xGridInterval").value = "1";
+                    document.getElementById("yGridInterval").value = "0.25";
+                    document.getElementById("enableCustomAxis").checked = true;
+                    document.getElementById("keepMainLabels").checked = true;
+                    document.getElementById("shortLabelY").value =
+                        "$g^{\\prime}$";
+                    document.getElementById("shortLabelX").value = "$x$";
+                    toggleCustomAxisSettings();
+                } else if (tabName === "labels") {
+                    document.getElementById("graphTitle").value =
+                        "$(g)$ বনাম পৃথিবীর কেন্দ্র হতে বস্তুর দূরত্ব";
+                    document.getElementById("xAxisLabel").value =
+                        "কেন্দ্র হতে দূরত্ব ( $R$ এর গুণিতকে )";
+                    document.getElementById("yAxisLabel").value =
+                        "অভিকর্ষজ ত্বরণ ( $g$ এর গুণিতকে )";
+                    document.getElementById("xSuffix").value = "$R$";
+                    document.getElementById("ySuffix").value = "$g$";
+                    document.getElementById("xPiMode").checked = false;
+                    document.getElementById("yPiMode").checked = false;
+                } else if (tabName === "design") {
+                    document.getElementById("graphFont").value =
+                        USER_DEFAULTS.font;
+                    document.getElementById("titleSize").value = "25";
+                    document.getElementById("axisTitleSize").value = "20";
+                    document.getElementById("tickSize").value = "18";
+                    document.getElementById("pointSize").value = "6";
+                    document.getElementById("enableSubGrid").checked = false;
+
+                    colorConfigs.forEach((cfg) => {
+                        document.getElementById(cfg.id).value = cfg.default;
+                        document.getElementById(cfg.id + "-picker").value =
+                            cfg.default;
+                        document.getElementById(cfg.id + "-toggle").checked =
+                            true;
+
+                        if (cfg.dualAlpha) {
+                            let aX =
+                                cfg.defaultAlphaX !== undefined
+                                    ? cfg.defaultAlphaX
+                                    : 1;
+                            let aY =
+                                cfg.defaultAlphaY !== undefined
+                                    ? cfg.defaultAlphaY
+                                    : 1;
+                            document.getElementById(cfg.id + "-alphaX").value =
+                                aX;
+                            document.getElementById(
+                                cfg.id + "-alphaX-input",
+                            ).value = aX;
+                            document.getElementById(cfg.id + "-alphaY").value =
+                                aY;
+                            document.getElementById(
+                                cfg.id + "-alphaY-input",
+                            ).value = aY;
+                        } else {
+                            let aVal =
+                                cfg.defaultAlpha !== undefined
+                                    ? cfg.defaultAlpha
+                                    : 1;
+                            document.getElementById(cfg.id + "-alpha").value =
+                                aVal;
+                            document.getElementById(
+                                cfg.id + "-alpha-input",
+                            ).value = aVal;
+                        }
+                    });
+                }
+                updateGraph();
+            }
+
+            // --- Save, Load, Backup and Restore System ---
+            const STORAGE_KEY = "custom_graphs_storage_v1";
+
+            function openSaveModal() {
+                document.getElementById("saveModal").classList.remove("hidden");
+                document.getElementById("saveModal").classList.add("flex");
+                let currentTitle = document.getElementById("graphTitle").value;
+                if (currentTitle)
+                    document.getElementById("saveName").value = currentTitle;
+            }
+
+            function closeSaveModal() {
+                document.getElementById("saveModal").classList.remove("flex");
+                document.getElementById("saveModal").classList.add("hidden");
+            }
+
+            function openSavedGraphsModal() {
+                document
+                    .getElementById("savedListModal")
+                    .classList.remove("hidden");
+                document.getElementById("savedListModal").classList.add("flex");
+                renderSavedGraphsList();
+            }
+
+            function closeSavedGraphsModal() {
+                document
+                    .getElementById("savedListModal")
+                    .classList.remove("flex");
+                document
+                    .getElementById("savedListModal")
+                    .classList.add("hidden");
+            }
+
+            function exportGraphsToJSON() {
+                const data = localStorage.getItem(STORAGE_KEY) || "[]";
+                const blob = new Blob([data], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "custom_graphs_backup.json";
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+
+            function importGraphsFromJSON(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    try {
+                        const importedData = JSON.parse(e.target.result);
+                        if (Array.isArray(importedData)) {
+                            const merge = confirm(
+                                "আপনি কি বর্তমান গ্রাফগুলোর সাথে নতুন গ্রাফগুলো যোগ (Merge) করতে চান? \n\n'OK' দিলে আগেরগুলোর সাথে যোগ হবে। \n'Cancel' দিলে আগেরগুলো মুছে গিয়ে শুধু নতুনগুলো বসবে।",
+                            );
+
+                            let finalData = importedData;
+                            if (merge) {
+                                const existingData = JSON.parse(
+                                    localStorage.getItem(STORAGE_KEY) || "[]",
+                                );
+                                finalData = [...existingData, ...importedData];
+                            }
+
+                            localStorage.setItem(
+                                STORAGE_KEY,
+                                JSON.stringify(finalData),
+                            );
+                            renderSavedGraphsList();
+                            alert(
+                                "সফলভাবে গ্রাফ ব্যাকআপ ফাইলটি রিস্টোর করা হয়েছে!",
+                            );
+                        } else {
+                            alert(
+                                "ভুল ফাইল ফরম্যাট! দয়া করে সঠিক JSON ব্যাকআপ ফাইল নির্বাচন করুন।",
+                            );
+                        }
+                    } catch (err) {
+                        alert(
+                            "ফাইল রিড করতে সমস্যা হয়েছে! ফাইলটি করাপ্টেড হতে পারে।",
+                        );
+                    }
+                    event.target.value = "";
+                };
+                reader.readAsText(file);
+            }
+
+            function getCurrentState() {
+                const state = {
+                    inputs: {
+                        xMin: document.getElementById("xMin").value,
+                        xMax: document.getElementById("xMax").value,
+                        yMin: document.getElementById("yMin").value,
+                        yMax: document.getElementById("yMax").value,
+                        stepSize: document.getElementById("stepSize").value,
+                        xGridInterval:
+                            document.getElementById("xGridInterval").value,
+                        yGridInterval:
+                            document.getElementById("yGridInterval").value,
+                        xSuffix: document.getElementById("xSuffix").value,
+                        ySuffix: document.getElementById("ySuffix").value,
+                        aspectRatio:
+                            document.getElementById("aspectRatio").value,
+                        shortLabelY:
+                            document.getElementById("shortLabelY").value,
+                        shortLabelX:
+                            document.getElementById("shortLabelX").value,
+                        graphTitle: document.getElementById("graphTitle").value,
+                        xAxisLabel: document.getElementById("xAxisLabel").value,
+                        yAxisLabel: document.getElementById("yAxisLabel").value,
+                        graphFont: document.getElementById("graphFont").value,
+                        titleSize: document.getElementById("titleSize").value,
+                        axisTitleSize:
+                            document.getElementById("axisTitleSize").value,
+                        tickSize: document.getElementById("tickSize").value,
+                        pointSize: document.getElementById("pointSize").value,
+                    },
+                    checkboxes: {
+                        showPointLabels:
+                            document.getElementById("showPointLabels").checked,
+                        showPointLabelX:
+                            document.getElementById("showPointLabelX").checked,
+                        showPointLabelY:
+                            document.getElementById("showPointLabelY").checked,
+                        useCustomPointLabels: document.getElementById(
+                            "useCustomPointLabels",
+                        ).checked,
+                        enableCustomAxis:
+                            document.getElementById("enableCustomAxis").checked,
+                        keepMainLabels:
+                            document.getElementById("keepMainLabels").checked,
+                        enableSubGrid:
+                            document.getElementById("enableSubGrid").checked,
+                        xPiMode: document.getElementById("xPiMode").checked,
+                        yPiMode: document.getElementById("yPiMode").checked,
+                    },
+                    colors: {},
+                    eqConfigs: [],
+                };
+
+                colorConfigs.forEach((cfg) => {
+                    let colorState = {
+                        hex: document.getElementById(cfg.id).value,
+                        enabled: document.getElementById(cfg.id + "-toggle")
+                            .checked,
+                    };
+                    if (cfg.dualAlpha) {
+                        colorState.alphaX = document.getElementById(
+                            cfg.id + "-alphaX",
+                        ).value;
+                        colorState.alphaY = document.getElementById(
+                            cfg.id + "-alphaY",
+                        ).value;
+                    } else {
+                        colorState.alpha = document.getElementById(
+                            cfg.id + "-alpha",
+                        ).value;
+                    }
+                    state.colors[cfg.id] = colorState;
+                });
+
+                for (let i = 1; i <= 10; i++) {
+                    state.eqConfigs.push({
+                        enabled: document.getElementById(`eq${i}-enable`)
+                            .checked,
+                        formula: document.getElementById(`eq${i}-formula`)
+                            .value,
+                        pointsStr: document.getElementById(`eq${i}-points`)
+                            .value,
+                        calcMode: document.getElementById(`eq${i}-calcMode`)
+                            .value,
+                        lblX: document.getElementById(`eq${i}-lblX`).checked,
+                        lblY: document.getElementById(`eq${i}-lblY`).checked,
+                        lblCustom: document.getElementById(`eq${i}-lblCustom`)
+                            .checked,
+                        lineHex: document.getElementById(`eq${i}-lineColor`)
+                            .value,
+                        lineAlpha: parseFloat(
+                            document.getElementById(`eq${i}-lineAlpha`).value,
+                        ),
+                        ptFill: document.getElementById(`eq${i}-ptFill`).value,
+                        ptStroke: document.getElementById(`eq${i}-ptStroke`)
+                            .value,
+                        lblColor: document.getElementById(`eq${i}-lblColor`)
+                            .value,
+                        lblAlpha: parseFloat(
+                            document.getElementById(`eq${i}-lblAlpha`).value,
+                        ),
+                        fillEnabled: document.getElementById(
+                            `eq${i}-fillToggle`,
+                        ).checked,
+                        fillHex: document.getElementById(`eq${i}-fillColor`)
+                            .value,
+                        fillAlpha: parseFloat(
+                            document.getElementById(`eq${i}-fillAlpha`).value,
+                        ),
+                        fillGradient: parseFloat(
+                            document.getElementById(`eq${i}-fillGradient`)
+                                .value,
+                        ),
+                    });
+                }
+
+                return state;
+            }
+
+            function saveGraphAction() {
+                const name = document.getElementById("saveName").value.trim();
+                const subject = document.getElementById("saveSubject").value;
+                const chapter = document.getElementById("saveChapter").value;
+
+                if (!name) {
+                    alert("দয়া করে গ্রাফের একটি নাম দিন!");
+                    return;
+                }
+
+                let savedGraphs = JSON.parse(
+                    localStorage.getItem(STORAGE_KEY) || "[]",
+                );
+
+                const newGraph = {
+                    id: Date.now().toString(),
+                    name: name,
+                    subject: subject,
+                    chapter: chapter,
+                    date: new Date().toLocaleDateString("bn-BD", {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                    }),
+                    state: getCurrentState(),
+                };
+
+                savedGraphs.push(newGraph);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(savedGraphs));
+
+                closeSaveModal();
+                alert("গ্রাফ সফলভাবে সেভ হয়েছে!");
+            }
+
+            function renderSavedGraphsList() {
+                const container = document.getElementById(
+                    "savedGraphsContainer",
+                );
+                const filterSub =
+                    document.getElementById("filterSubject").value;
+                const filterChap =
+                    document.getElementById("filterChapter").value;
+
+                let savedGraphs = JSON.parse(
+                    localStorage.getItem(STORAGE_KEY) || "[]",
+                );
+
+                if (filterSub !== "All")
+                    savedGraphs = savedGraphs.filter(
+                        (g) => g.subject === filterSub,
+                    );
+                if (filterChap !== "All")
+                    savedGraphs = savedGraphs.filter(
+                        (g) => g.chapter === filterChap,
+                    );
+
+                savedGraphs.sort((a, b) => b.id - a.id);
+
+                if (savedGraphs.length === 0) {
+                    container.innerHTML = `<div class="text-center py-10 text-slate-500">কোনো সেভ করা গ্রাফ পাওয়া যায়নি।</div>`;
+                    return;
+                }
+
+                let html = "";
+                savedGraphs.forEach((graph) => {
+                    html += `
+                <div class="bg-slate-800/80 border border-slate-700 p-4 rounded-xl mb-3 flex flex-col md:flex-row justify-between md:items-center gap-4 hover:border-cyan-500/50 transition-colors">
+                    <div>
+                        <h3 class="font-bold text-lg text-white mb-1">${graph.name}</h3>
+                        <div class="flex gap-2 text-xs">
+                            <span class="bg-cyan-900/50 text-cyan-300 px-2 py-1 rounded">সাবজেক্ট: ${graph.subject}</span>
+                            <span class="bg-indigo-900/50 text-indigo-300 px-2 py-1 rounded">চ্যাপ্টার: ${graph.chapter}</span>
+                            <span class="text-slate-500 py-1 ml-2">${graph.date}</span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2 shrink-0">
+                        <button onclick="loadGraph('${graph.id}')" class="bg-cyan-600 hover:bg-cyan-500 text-white text-sm py-1.5 px-4 rounded transition-colors">লোড করুন</button>
+                        <button onclick="deleteGraph('${graph.id}')" class="bg-red-900/50 hover:bg-red-600 text-red-200 text-sm py-1.5 px-3 rounded transition-colors">ডিলিট</button>
+                    </div>
+                </div>`;
+                });
+                container.innerHTML = html;
+            }
+
+            function loadGraph(id) {
+                let savedGraphs = JSON.parse(
+                    localStorage.getItem(STORAGE_KEY) || "[]",
+                );
+                const graph = savedGraphs.find((g) => g.id === id);
+
+                if (!graph) return;
+                const state = graph.state;
+
+                for (const key in state.inputs) {
+                    if (document.getElementById(key))
+                        document.getElementById(key).value = state.inputs[key];
+                }
+
+                for (const key in state.checkboxes) {
+                    if (document.getElementById(key))
+                        document.getElementById(key).checked =
+                            state.checkboxes[key];
+                }
+
+                colorConfigs.forEach((cfg) => {
+                    let cState = state.colors[cfg.id];
+                    if (cState && document.getElementById(cfg.id)) {
+                        document.getElementById(cfg.id).value = cState.hex;
+                        document.getElementById(cfg.id + "-picker").value =
+                            cState.hex;
+                        document.getElementById(cfg.id + "-toggle").checked =
+                            cState.enabled;
+
+                        if (cfg.dualAlpha && cState.alphaX !== undefined) {
+                            document.getElementById(cfg.id + "-alphaX").value =
+                                cState.alphaX;
+                            document.getElementById(
+                                cfg.id + "-alphaX-input",
+                            ).value = cState.alphaX;
+                            document.getElementById(cfg.id + "-alphaY").value =
+                                cState.alphaY;
+                            document.getElementById(
+                                cfg.id + "-alphaY-input",
+                            ).value = cState.alphaY;
+                        } else if (
+                            !cfg.dualAlpha &&
+                            cState.alpha !== undefined
+                        ) {
+                            document.getElementById(cfg.id + "-alpha").value =
+                                cState.alpha;
+                            document.getElementById(
+                                cfg.id + "-alpha-input",
+                            ).value = cState.alpha;
+                        }
+                    }
+                });
+
+                if (state.eqConfigs && state.eqConfigs.length > 0) {
+                    state.eqConfigs.forEach((eq, index) => {
+                        let i = index + 1;
+                        if (document.getElementById(`eq${i}-enable`)) {
+                            document.getElementById(`eq${i}-enable`).checked =
+                                eq.enabled;
+                            document.getElementById(`eq${i}-formula`).value =
+                                eq.formula || "";
+                            document.getElementById(`eq${i}-points`).value =
+                                eq.pointsStr || "";
+                            document.getElementById(`eq${i}-calcMode`).value =
+                                eq.calcMode || "autoY";
+                            document.getElementById(`eq${i}-lblX`).checked =
+                                eq.lblX;
+                            document.getElementById(`eq${i}-lblY`).checked =
+                                eq.lblY;
+                            document.getElementById(
+                                `eq${i}-lblCustom`,
+                            ).checked = eq.lblCustom;
+                            document.getElementById(`eq${i}-lineColor`).value =
+                                eq.lineHex;
+                            document.getElementById(`eq${i}-lineAlpha`).value =
+                                eq.lineAlpha;
+                            document.getElementById(`eq${i}-ptFill`).value =
+                                eq.ptFill;
+                            document.getElementById(`eq${i}-ptStroke`).value =
+                                eq.ptStroke;
+                            document.getElementById(`eq${i}-lblColor`).value =
+                                eq.lblColor;
+                            document.getElementById(`eq${i}-lblAlpha`).value =
+                                eq.lblAlpha;
+                            document.getElementById(
+                                `eq${i}-fillToggle`,
+                            ).checked = eq.fillEnabled;
+                            document.getElementById(`eq${i}-fillColor`).value =
+                                eq.fillHex;
+                            document.getElementById(`eq${i}-fillAlpha`).value =
+                                eq.fillAlpha;
+                            document.getElementById(
+                                `eq${i}-fillGradient`,
+                            ).value = eq.fillGradient;
+                        }
+                    });
+                }
+
+                togglePointLabelOptions();
+                toggleCustomAxisSettings();
+
+                closeSavedGraphsModal();
+                updateAndScrollToGraph();
+                alert(`"${graph.name}" সফলভাবে লোড হয়েছে!`);
+            }
+
+            function deleteGraph(id) {
+                if (!confirm("আপনি কি নিশ্চিত যে এই গ্রাফটি মুছে ফেলতে চান?"))
+                    return;
+                let savedGraphs = JSON.parse(
+                    localStorage.getItem(STORAGE_KEY) || "[]",
+                );
+                savedGraphs = savedGraphs.filter((g) => g.id !== id);
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(savedGraphs));
+                renderSavedGraphsList();
+            }
+
+            // ================= Presets System =================
+            const EQUATION_PRESETS = [
+                {
+                    category: "Trigonometry",
+                    items: [
+                        { label: "$\\sin(x)$", value: "Math.sin(x)" },
+                        { label: "$\\cos(x)$", value: "Math.cos(x)" },
+                        { label: "$\\tan(x)$", value: "Math.tan(x)" },
+                        { label: "$\\sec(x)$", value: "1 / Math.cos(x)" },
+                        { label: "$\\csc(x)$", value: "1 / Math.sin(x)" },
+                        { label: "$\\cot(x)$", value: "1 / Math.tan(x)" },
+                    ],
+                },
+                {
+                    category: "Inverse Trigonometry",
+                    items: [
+                        { label: "$\\sin^{-1}(x)$", value: "Math.asin(x)" },
+                        { label: "$\\cos^{-1}(x)$", value: "Math.acos(x)" },
+                        { label: "$\\tan^{-1}(x)$", value: "Math.atan(x)" },
+                    ],
+                },
+                {
+                    category: "Logarithm & Exponential",
+                    items: [
+                        { label: "$\\ln(x)$ (Base e)", value: "Math.log(x)" },
+                        { label: "$\\log_{10}(x)$", value: "Math.log10(x)" },
+                        { label: "$\\log_2(x)$", value: "Math.log2(x)" },
+                        {
+                            label: "$\\log_b(x)$ (Custom Base)",
+                            value: "logBase(x, 2)",
+                        },
+                        { label: "$e^x$", value: "Math.exp(x)" },
+                    ],
+                },
+                {
+                    category: "Polynomial & Roots",
+                    items: [
+                        { label: "$x^2$", value: "x^2" },
+                        { label: "$x^3$", value: "x^3" },
+                        { label: "$\\sqrt{x}$", value: "Math.sqrt(x)" },
+                        { label: "$\\sqrt[3]{x}$", value: "Math.pow(x, 1/3)" },
+                        { label: "$|x|$ (Absolute)", value: "Math.abs(x)" },
+                    ],
+                },
+                {
+                    category: "Piecewise & Advanced",
+                    items: [
+                        {
+                            label: "Piecewise Example",
+                            value: "{x < 0: -x, 0 <= x <= 2: x^2, x > 2: 4}",
+                        },
+                        {
+                            label: "Gravity $g^{\\prime}$ Example",
+                            value: "{x <= 1: x, x > 1: 1/x^2}",
+                        },
+                        {
+                            label: "Step Function (Floor)",
+                            value: "Math.floor(x)",
+                        },
+                    ],
+                },
+            ];
+
+            function openPresetsModal(eqId) {
+                activeEqTarget = eqId;
+                const container = document.getElementById("presetsContainer");
+                let html = "";
+
+                EQUATION_PRESETS.forEach((cat) => {
+                    html += `<div class="mb-6">
+                    <h3 class="text-lg font-semibold text-amber-400 mb-3 border-b border-slate-700/50 pb-1">${cat.category}</h3>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">`;
+
+                    cat.items.forEach((item) => {
+                        html += `<button onclick="applyPreset('${item.value.replace(/'/g, "\\'")}')" class="bg-slate-800/80 hover:bg-cyan-900/40 border border-slate-700 hover:border-cyan-500/50 p-3 rounded-lg text-center transition-all text-slate-200">
+                        ${parseMathVibe(item.label)}
+                    </button>`;
+                    });
+
+                    html += `</div></div>`;
+                });
+
+                container.innerHTML = html;
+                document
+                    .getElementById("presetsModal")
+                    .classList.remove("hidden");
+                document.getElementById("presetsModal").classList.add("flex");
+            }
+
+            function closePresetsModal() {
+                document.getElementById("presetsModal").classList.add("hidden");
+                document
+                    .getElementById("presetsModal")
+                    .classList.remove("flex");
+            }
+
+            function applyPreset(val) {
+                document.getElementById(`eq${activeEqTarget}-formula`).value =
+                    val;
+                closePresetsModal();
+                updateGraph();
+            }
+
+            // ================= Core Render Engine (ECharts SVG) =================
+            function updateGraph() {
+                try {
+                    const title = document.getElementById("graphTitle").value;
+                    const xAxisLabel =
+                        document.getElementById("xAxisLabel").value;
+                    const yAxisLabel =
+                        document.getElementById("yAxisLabel").value;
+                    const selectedFont =
+                        document.getElementById("graphFont").value;
+
+                    const sizes = {
+                        title:
+                            parseInt(
+                                document.getElementById("titleSize").value,
+                            ) || 25,
+                        axisTitle:
+                            parseInt(
+                                document.getElementById("axisTitleSize").value,
+                            ) || 20,
+                        tick:
+                            parseInt(
+                                document.getElementById("tickSize").value,
+                            ) || 18,
+                        point:
+                            parseInt(
+                                document.getElementById("pointSize").value,
+                            ) || 6,
+                    };
+
+                    const colors = {};
+                    colorConfigs.forEach((cfg) => {
+                        let colorObj = {
+                            hex: document.getElementById(cfg.id).value,
+                            enabled: document.getElementById(cfg.id + "-toggle")
+                                .checked,
+                        };
+                        if (cfg.dualAlpha) {
+                            colorObj.alphaX = parseFloat(
+                                document.getElementById(cfg.id + "-alphaX")
+                                    .value,
+                            );
+                            colorObj.alphaY = parseFloat(
+                                document.getElementById(cfg.id + "-alphaY")
+                                    .value,
+                            );
+                        } else {
+                            colorObj.alpha = parseFloat(
+                                document.getElementById(cfg.id + "-alpha")
+                                    .value,
+                            );
+                        }
+                        colors[cfg.id] = colorObj;
+                    });
+
+                    const eqConfigs = [];
+                    for (let i = 1; i <= 10; i++) {
+                        eqConfigs.push({
+                            enabled: document.getElementById(`eq${i}-enable`)
+                                .checked,
+                            formula: document.getElementById(`eq${i}-formula`)
+                                .value,
+                            pointsStr: document.getElementById(`eq${i}-points`)
+                                .value,
+                            calcMode: document.getElementById(`eq${i}-calcMode`)
+                                .value,
+                            lblX: document.getElementById(`eq${i}-lblX`)
+                                .checked,
+                            lblY: document.getElementById(`eq${i}-lblY`)
+                                .checked,
+                            lblCustom: document.getElementById(
+                                `eq${i}-lblCustom`,
+                            ).checked,
+                            lineHex: document.getElementById(`eq${i}-lineColor`)
+                                .value,
+                            lineAlpha: parseFloat(
+                                document.getElementById(`eq${i}-lineAlpha`)
+                                    .value,
+                            ),
+                            ptFill: document.getElementById(`eq${i}-ptFill`)
+                                .value,
+                            ptStroke: document.getElementById(`eq${i}-ptStroke`)
+                                .value,
+                            lblColor: document.getElementById(`eq${i}-lblColor`)
+                                .value,
+                            lblAlpha: parseFloat(
+                                document.getElementById(`eq${i}-lblAlpha`)
+                                    .value,
+                            ),
+                            fillEnabled: document.getElementById(
+                                `eq${i}-fillToggle`,
+                            ).checked,
+                            fillHex: document.getElementById(`eq${i}-fillColor`)
+                                .value,
+                            fillAlpha: parseFloat(
+                                document.getElementById(`eq${i}-fillAlpha`)
+                                    .value,
+                            ),
+                            fillGradient: parseFloat(
+                                document.getElementById(`eq${i}-fillGradient`)
+                                    .value,
+                            ),
+                        });
+                    }
+
+                    const exportContainer =
+                        document.getElementById("export-container");
+                    exportContainer.style.backgroundColor = getColor(
+                        colors.bgColor,
+                    );
+                    exportContainer.style.fontFamily = selectedFont;
+
+                    const aspectRatioValue =
+                        parseFloat(
+                            document.getElementById("aspectRatio").value,
+                        ) || 0.6;
+                    document.getElementById(
+                        "canvas-container",
+                    ).style.aspectRatio = `1 / ${aspectRatioValue}`;
+
+                    const showSubGrid =
+                        document.getElementById("enableSubGrid").checked;
+
+                    const isXPiMode =
+                        document.getElementById("xPiMode").checked;
+                    const isYPiMode =
+                        document.getElementById("yPiMode").checked;
+
+                    // Adjust logic for PI mode scaling
+                    let xMin = parseFloat(
+                        document.getElementById("xMin").value,
+                    );
+                    let xMax = parseFloat(
+                        document.getElementById("xMax").value,
+                    );
+                    let yMin = parseFloat(
+                        document.getElementById("yMin").value,
+                    );
+                    let yMax = parseFloat(
+                        document.getElementById("yMax").value,
+                    );
+                    let step = parseFloat(
+                        document.getElementById("stepSize").value,
+                    );
+
+                    let xGridIntervalStr =
+                        document.getElementById("xGridInterval").value;
+                    let yGridIntervalStr =
+                        document.getElementById("yGridInterval").value;
+                    let xGridInterval = xGridIntervalStr
+                        ? parseFloat(xGridIntervalStr)
+                        : null;
+                    let yGridInterval = yGridIntervalStr
+                        ? parseFloat(yGridIntervalStr)
+                        : null;
+
+                    // The ACTUAL values used for Math calculations
+                    let actualXMin = isXPiMode ? xMin * Math.PI : xMin;
+                    let actualXMax = isXPiMode ? xMax * Math.PI : xMax;
+                    let actualStep = isXPiMode ? step * Math.PI : step;
+
+                    let actualXInterval =
+                        isXPiMode && xGridInterval
+                            ? xGridInterval * Math.PI
+                            : xGridInterval;
+                    let actualYInterval =
+                        isYPiMode && yGridInterval
+                            ? yGridInterval * Math.PI
+                            : yGridInterval;
+
+                    const allSeriesData = [];
+
+                    eqConfigs.forEach((eq, idx) => {
+                        if (!eq.enabled || !eq.formula.trim()) return;
+
+                        let formulaStr = eq.formula.trim();
+                        let piecewiseSegments = [];
+                        let isPiecewise = false;
+
+                        // Parse Piecewise Logic {}
+                        if (
+                            formulaStr.startsWith("{") &&
+                            formulaStr.endsWith("}")
+                        ) {
+                            isPiecewise = true;
+                            let inner = formulaStr.slice(1, -1).trim();
+                            let parts = inner.split(",");
+
+                            parts.forEach((part) => {
+                                let splitPart = part.split(":");
+                                if (splitPart.length === 2) {
+                                    let condStr = splitPart[0].trim();
+                                    let exprStr = splitPart[1].trim();
+
+                                    // Parse double inequalities: 0 <= x <= 1  --> (x >= 0 && x <= 1)
+                                    let doubleIneqMatch = condStr.match(
+                                        /([a-zA-Z0-9_.\-]+)\s*(<=|<)\s*([a-zA-Z]+)\s*(<=|<)\s*([a-zA-Z0-9_.\-]+)/,
+                                    );
+                                    if (doubleIneqMatch) {
+                                        let v1 = doubleIneqMatch[1];
+                                        let op1 =
+                                            doubleIneqMatch[2] === "<="
+                                                ? ">="
+                                                : ">";
+                                        let vVar = doubleIneqMatch[3];
+                                        let op2 = doubleIneqMatch[4];
+                                        let v2 = doubleIneqMatch[5];
+                                        condStr = `(${vVar} ${op1} ${v1} && ${vVar} ${op2} ${v2})`;
+                                    }
+
+                                    // Handle logical substitution for simple cases: 0 <= x  -> x >= 0
+                                    condStr = condStr.replace(
+                                        /^([a-zA-Z0-9_.\-]+)\s*(<=|<)\s*([a-zA-Z]+)$/,
+                                        "$3 " +
+                                            (RegExp.$2 === "<=" ? ">=" : ">") +
+                                            " $1",
+                                    );
+
+                                    piecewiseSegments.push({
+                                        condition:
+                                            preprocessMathString(condStr),
+                                        expr: preprocessMathString(exprStr),
+                                    });
+                                }
+                            });
+                        } else {
+                            formulaStr = preprocessMathString(formulaStr);
+                        }
+
+                        // Build the Math Function
+                        let mathFunc;
+                        try {
+                            if (isPiecewise) {
+                                let funcBody = "";
+                                piecewiseSegments.forEach((seg) => {
+                                    funcBody += `if (${seg.condition}) return ${seg.expr};\n`;
+                                });
+                                funcBody += "return NaN;";
+                                mathFunc = new Function("x", funcBody);
+                            } else {
+                                mathFunc = new Function(
+                                    "x",
+                                    `return ${formulaStr};`,
+                                );
+                            }
+                        } catch (e) {
+                            return;
+                        }
+
+                        const lineData = [];
+                        let prevY = null;
+
+                        for (
+                            let x = actualXMin;
+                            x <= actualXMax;
+                            x += actualStep
+                        ) {
+                            let calcX = parseFloat(x.toFixed(4));
+                            try {
+                                let calcY = mathFunc(calcX);
+
+                                // Transform Output if Y is in Pi Mode
+                                if (isYPiMode && !isNaN(calcY))
+                                    calcY = calcY * Math.PI;
+
+                                if (!isNaN(calcY) && isFinite(calcY)) {
+                                    // Asymptote Fix
+                                    if (prevY !== null) {
+                                        let diff = Math.abs(calcY - prevY);
+                                        let visualYRange = isYPiMode
+                                            ? (yMax - yMin) * Math.PI
+                                            : yMax - yMin;
+                                        if (
+                                            diff > visualYRange * 2 &&
+                                            diff / actualStep > 1000
+                                        ) {
+                                            lineData.push([
+                                                calcX - actualStep / 2,
+                                                NaN,
+                                            ]);
+                                        }
+                                    }
+                                    lineData.push([calcX, calcY]);
+                                    prevY = calcY;
+                                } else {
+                                    lineData.push([calcX, NaN]);
+                                    prevY = null;
+                                }
+                            } catch (e) {
+                                lineData.push([calcX, NaN]);
+                                prevY = null;
+                            }
+                        }
+
+                        // Smart Point Calculation Logic
+                        const pointsData = [];
+                        if (eq.pointsStr.trim() !== "") {
+                            const pairs = eq.pointsStr.split(";");
+                            let mode = eq.calcMode || "autoY";
+
+                            pairs.forEach((pair) => {
+                                const pData = pair.split(",");
+
+                                if (mode === "manual" && pData.length >= 2) {
+                                    let px = parseFloat(pData[0].trim());
+                                    let py = parseFloat(pData[1].trim());
+                                    if (isXPiMode) px = px * Math.PI;
+                                    if (isYPiMode) py = py * Math.PI;
+
+                                    let pLabel = pData[2]
+                                        ? pData[2].trim()
+                                        : "";
+                                    if (!isNaN(px) && !isNaN(py))
+                                        pointsData.push([px, py, pLabel]);
+                                } else if (
+                                    mode === "autoY" &&
+                                    pData.length >= 1
+                                ) {
+                                    let px = parseFloat(pData[0].trim());
+                                    if (isXPiMode) px = px * Math.PI;
+
+                                    let pLabel = pData[1]
+                                        ? pData[1].trim()
+                                        : "";
+                                    if (!isNaN(px)) {
+                                        try {
+                                            let py = mathFunc(px);
+                                            if (isYPiMode && !isNaN(py))
+                                                py = py * Math.PI;
+
+                                            if (!isNaN(py) && isFinite(py))
+                                                pointsData.push([
+                                                    px,
+                                                    py,
+                                                    pLabel,
+                                                ]);
+                                        } catch (e) {}
+                                    }
+                                } else if (
+                                    mode === "autoX" &&
+                                    pData.length >= 1
+                                ) {
+                                    let targetY = parseFloat(pData[0].trim());
+                                    if (isYPiMode) targetY = targetY * Math.PI;
+
+                                    let pLabel = pData[1]
+                                        ? pData[1].trim()
+                                        : "";
+                                    if (!isNaN(targetY)) {
+                                        for (
+                                            let k = 1;
+                                            k < lineData.length;
+                                            k++
+                                        ) {
+                                            let p1 = lineData[k - 1];
+                                            let p2 = lineData[k];
+                                            if (isNaN(p1[1]) || isNaN(p2[1]))
+                                                continue;
+
+                                            let min_y = Math.min(p1[1], p2[1]);
+                                            let max_y = Math.max(p1[1], p2[1]);
+
+                                            if (
+                                                targetY >= min_y &&
+                                                targetY <= max_y
+                                            ) {
+                                                let px;
+                                                if (p1[1] === p2[1]) px = p1[0];
+                                                else
+                                                    px =
+                                                        p1[0] +
+                                                        (p2[0] - p1[0]) *
+                                                            ((targetY - p1[1]) /
+                                                                (p2[1] -
+                                                                    p1[1]));
+
+                                                if (
+                                                    pointsData.length > 0 &&
+                                                    Math.abs(
+                                                        pointsData[
+                                                            pointsData.length -
+                                                                1
+                                                        ][0] - px,
+                                                    ) < 1e-6
+                                                )
+                                                    continue;
+                                                pointsData.push([
+                                                    px,
+                                                    targetY,
+                                                    pLabel,
+                                                ]);
+                                            }
+                                        }
+                                    }
+                                }
+                            });
+                        }
+
+                        allSeriesData.push({
+                            config: eq,
+                            lineData: lineData,
+                            pointsData: pointsData,
+                        });
+                    });
+
+                    const customAxisOpts = {
+                        enabled:
+                            document.getElementById("enableCustomAxis").checked,
+                        keepMain: document.getElementById("keepMainLabels")
+                            ? document.getElementById("keepMainLabels").checked
+                            : true,
+                        labelY: document.getElementById("shortLabelY").value,
+                        labelX: document.getElementById("shortLabelX").value,
+                        xSuffix: document.getElementById("xSuffix").value,
+                        ySuffix: document.getElementById("ySuffix").value,
+                        xGridInterval: actualXInterval,
+                        yGridInterval: actualYInterval,
+                        isXPiMode: isXPiMode,
+                        isYPiMode: isYPiMode,
+                    };
+
+                    const pointLabelOpts = {
+                        enabled:
+                            document.getElementById("showPointLabels").checked,
+                        showX: document.getElementById("showPointLabelX")
+                            .checked,
+                        showY: document.getElementById("showPointLabelY")
+                            .checked,
+                        useCustom: document.getElementById(
+                            "useCustomPointLabels",
+                        ).checked,
+                    };
+
+                    renderECharts(
+                        allSeriesData,
+                        title,
+                        xAxisLabel,
+                        yAxisLabel,
+                        actualXMin,
+                        actualXMax,
+                        yMin,
+                        yMax,
+                        sizes,
+                        colors,
+                        customAxisOpts,
+                        selectedFont,
+                        showSubGrid,
+                        pointLabelOpts,
+                    );
+                } catch (error) {
+                    console.error(error);
+                    // Silenced alert to prevent continuous popup during fast typing
+                }
+            }
+
+            function renderECharts(
+                allSeriesData,
+                title,
+                xLabel,
+                yLabel,
+                xMin,
+                xMax,
+                rawYMin,
+                rawYMax,
+                sizes,
+                colors,
+                customAxisOpts,
+                font,
+                showSubGrid,
+                pointLabelOpts,
+            ) {
+                const chartDom = document.getElementById("customChart");
+
+                if (
+                    myChart != null &&
+                    myChart !== "" &&
+                    myChart !== undefined
+                ) {
+                    myChart.dispose();
+                }
+
+                myChart = echarts.init(chartDom, null, { renderer: "svg" });
+
+                let actualYMin = customAxisOpts.isYPiMode
+                    ? rawYMin * Math.PI
+                    : rawYMin;
+                let actualYMax = customAxisOpts.isYPiMode
+                    ? rawYMax * Math.PI
+                    : rawYMax;
+
+                const finalEchartsSeries = [];
+
+                allSeriesData.forEach((seriesObj) => {
+                    let eq = seriesObj.config;
+                    let cLineColor = hexToRgba(eq.lineHex, eq.lineAlpha);
+
+                    let areaColor = "transparent";
+                    if (eq.fillEnabled) {
+                        let baseAlpha = eq.fillAlpha;
+                        let gradFactor = eq.fillGradient;
+                        let topAlpha = 0,
+                            bottomAlpha = 0;
+
+                        if (gradFactor <= 0.5) {
+                            topAlpha = baseAlpha * (gradFactor / 0.5);
+                            bottomAlpha = 0;
+                        } else {
+                            topAlpha = baseAlpha;
+                            bottomAlpha =
+                                baseAlpha * ((gradFactor - 0.5) / 0.5);
+                        }
+
+                        areaColor = new echarts.graphic.LinearGradient(
+                            0,
+                            0,
+                            0,
+                            1,
+                            [
+                                {
+                                    offset: 0,
+                                    color: hexToRgba(eq.fillHex, topAlpha),
+                                },
+                                {
+                                    offset: 1,
+                                    color: hexToRgba(eq.fillHex, bottomAlpha),
+                                },
+                            ],
+                        );
+                    }
+
+                    finalEchartsSeries.push({
+                        type: "line",
+                        data: seriesObj.lineData,
+                        smooth: 0.4,
+                        showSymbol: false,
+                        lineStyle: { color: cLineColor, width: 3 },
+                        areaStyle: { color: areaColor },
+                        zlevel: 1,
+                    });
+
+                    if (seriesObj.pointsData.length > 0) {
+                        finalEchartsSeries.push({
+                            type: "scatter",
+                            data: seriesObj.pointsData,
+                            symbolSize: sizes.point * 2,
+                            itemStyle: {
+                                color: eq.ptFill,
+                                borderColor: eq.ptStroke,
+                                borderWidth: 2,
+                            },
+                            zlevel: 2,
+                            label: {
+                                show: Boolean(
+                                    pointLabelOpts.enabled &&
+                                    (eq.lblX || eq.lblY || eq.lblCustom),
+                                ),
+                                position: "top",
+                                distance: 10,
+                                hideOverlap: false,
+                                color: hexToRgba(eq.lblColor, eq.lblAlpha),
+                                fontSize: sizes.tick,
+                                fontFamily: font,
+                                formatter: function (params) {
+                                    if (
+                                        pointLabelOpts.useCustom &&
+                                        eq.lblCustom &&
+                                        params.value[2]
+                                    ) {
+                                        return parseMathVibe(params.value[2]);
+                                    }
+                                    let xF = formatAxisTick(
+                                        params.value[0],
+                                        customAxisOpts.xSuffix,
+                                        customAxisOpts.isXPiMode,
+                                    );
+                                    let yF = formatAxisTick(
+                                        params.value[1],
+                                        customAxisOpts.ySuffix,
+                                        customAxisOpts.isYPiMode,
+                                    );
+
+                                    if (
+                                        pointLabelOpts.showX &&
+                                        pointLabelOpts.showY &&
+                                        eq.lblX &&
+                                        eq.lblY
+                                    )
+                                        return parseMathVibe(`(${xF}, ${yF})`);
+                                    if (pointLabelOpts.showX && eq.lblX)
+                                        return parseMathVibe(`${xF}`);
+                                    if (pointLabelOpts.showY && eq.lblY)
+                                        return parseMathVibe(`${yF}`);
+                                    return "";
+                                },
+                            },
+                        });
+                    }
+                });
+
+                let gridAlphaX =
+                    colors.gridColor.alphaX !== undefined
+                        ? colors.gridColor.alphaX
+                        : colors.gridColor.alpha;
+                let gridAlphaY =
+                    colors.gridColor.alphaY !== undefined
+                        ? colors.gridColor.alphaY
+                        : colors.gridColor.alpha;
+
+                // Zero check function
+                function isZero(val) {
+                    return Math.abs(val) < 1e-6;
+                }
+
+                const option = {
+                    backgroundColor: "transparent",
+                    animation: false,
+                    title: {
+                        text: parseMathVibe(title),
+                        left: "center",
+                        top: 10,
+                        textStyle: {
+                            color: getColor(colors.titleColor),
+                            fontSize: sizes.title,
+                            fontFamily: font,
+                            fontWeight: "bold",
+                        },
+                    },
+                    grid: {
+                        top: sizes.title + (customAxisOpts.enabled ? (customAxisOpts.keepMain ? 65 : 50) : 50),
+                        bottom: 95, // Main labels always kept now, so padding is constant
+                        left: 120, // Main labels always kept now, so padding is constant
+                        right: customAxisOpts.enabled ? (customAxisOpts.keepMain ? 90 : 50) : 50,
+                        containLabel: false,
+                    },
+                    tooltip: {
+                        trigger: "axis",
+                        backgroundColor: "rgba(15, 23, 42, 0.9)",
+                        borderColor: "#334155",
+                        textStyle: { color: "#fff" },
+                        formatter: function (params) {
+                            let pt = params[0].value;
+                            return `(x: ${formatAxisTick(pt[0], "", customAxisOpts.isXPiMode)}, y: ${formatAxisTick(pt[1], "", customAxisOpts.isYPiMode)})`;
+                        },
+                    },
+                    xAxis: [
+                        {
+                            type: "value",
+                            min: xMin,
+                            max: xMax,
+                            minInterval: customAxisOpts.xGridInterval || undefined,
+                            maxInterval: customAxisOpts.xGridInterval || undefined,
+                            name: parseMathVibe(xLabel),
+                            nameLocation: "middle",
+                            nameGap: 50,
+                            nameTextStyle: {
+                                color: getColor(colors.axisTitleColor, "x"),
+                                fontSize: sizes.axisTitle,
+                                fontFamily: font,
+                            },
+                            axisLine: {
+                                show: customAxisOpts.enabled,
+                                onZero: true,
+                                symbol: ["none", "arrow"],
+                                symbolSize: [12, 18],
+                                symbolOffset: [0, 15],
+                                lineStyle: {
+                                    color: getColor(colors.axisTitleColor, "x"),
+                                    width: 3,
+                                },
+                            },
+                            axisTick: { show: false },
+                            axisLabel: {
+                                color: getColor(colors.tickColor, "x"),
+                                fontSize: sizes.tick,
+                                fontFamily: font,
+                                margin: 15,
+                                formatter: function (value) {
+                                    // Double Zero Fix: If it's 0, only render if Y axis doesn't cross at 0
+                                    if (
+                                        isZero(value) &&
+                                        customAxisOpts.enabled &&
+                                        actualYMin <= 0 &&
+                                        actualYMax >= 0
+                                    ) {
+                                        return ""; // Let Y-axis render the 0
+                                    }
+                                    return parseMathVibe(
+                                        formatAxisTick(
+                                            value,
+                                            customAxisOpts.xSuffix,
+                                            customAxisOpts.isXPiMode,
+                                        ),
+                                    );
+                                },
+                            },
+                            splitLine: {
+                                show: colors.gridColor.enabled,
+                                lineStyle: {
+                                    color: hexToRgba(
+                                        colors.gridColor.hex,
+                                        gridAlphaX * 1,
+                                    ),
+                                    width: 2,
+                                },
+                            },
+                            minorSplitLine: {
+                                show: showSubGrid && colors.gridColor.enabled,
+                                lineStyle: {
+                                    color: hexToRgba(
+                                        colors.gridColor.hex,
+                                        gridAlphaX *
+                                            USER_DEFAULTS.subGridMultiplier,
+                                    ),
+                                    width: 1,
+                                },
+                            },
+                        },
+                        {
+                            type: "value",
+                            min: xMin,
+                            max: xMax,
+                            minInterval: customAxisOpts.xGridInterval || undefined,
+                            maxInterval: customAxisOpts.xGridInterval || undefined,
+                            name:
+                                customAxisOpts.enabled &&
+                                customAxisOpts.keepMain
+                                    ? parseMathVibe(customAxisOpts.labelX)
+                                    : "",
+                            nameLocation: "end",
+                            nameGap: 20,
+                            nameTextStyle: {
+                                color: getColor(colors.axisTitleColor, "x"),
+                                fontSize: sizes.axisTitle,
+                                fontFamily: font,
+                            },
+                            axisLine: { show: false },
+                            axisTick: { show: false },
+                            axisLabel: { show: false },
+                            splitLine: { show: false },
+                        },
+                    ],
+                    yAxis: [
+                        {
+                            type: "value",
+                            min: actualYMin,
+                            max: actualYMax,
+                            minInterval: customAxisOpts.yGridInterval || undefined,
+                            maxInterval: customAxisOpts.yGridInterval || undefined,
+                            name: parseMathVibe(yLabel),
+                            nameLocation: "middle",
+                            nameGap: 75,
+                            nameTextStyle: {
+                                color: getColor(colors.axisTitleColor, "y"),
+                                fontSize: sizes.axisTitle,
+                                fontFamily: font,
+                            },
+                            axisLine: {
+                                show: customAxisOpts.enabled,
+                                onZero: true,
+                                symbol: ["none", "arrow"],
+                                symbolSize: [12, 18],
+                                symbolOffset: [0, 15],
+                                lineStyle: {
+                                    color: getColor(colors.axisTitleColor, "y"),
+                                    width: 3,
+                                },
+                            },
+                            axisTick: { show: false },
+                            axisLabel: {
+                                color: getColor(colors.tickColor, "y"),
+                                fontSize: sizes.tick,
+                                fontFamily: font,
+                                margin: 15,
+                                formatter: function (value) {
+                                    if (isZero(value)) return "0";
+                                    return parseMathVibe(
+                                        formatAxisTick(
+                                            value,
+                                            customAxisOpts.ySuffix,
+                                            customAxisOpts.isYPiMode,
+                                        ),
+                                    );
+                                },
+                            },
+                            splitLine: {
+                                show: colors.gridColor.enabled,
+                                lineStyle: {
+                                    color: hexToRgba(
+                                        colors.gridColor.hex,
+                                        gridAlphaY * 1,
+                                    ),
+                                    width: 2,
+                                },
+                            },
+                            minorSplitLine: {
+                                show: showSubGrid && colors.gridColor.enabled,
+                                lineStyle: {
+                                    color: hexToRgba(
+                                        colors.gridColor.hex,
+                                        gridAlphaY *
+                                            USER_DEFAULTS.subGridMultiplier,
+                                    ),
+                                    width: 1,
+                                },
+                            },
+                        },
+                        {
+                            type: "value",
+                            min: actualYMin,
+                            max: actualYMax,
+                            minInterval: customAxisOpts.yGridInterval || undefined,
+                            maxInterval: customAxisOpts.yGridInterval || undefined,
+                            name:
+                                customAxisOpts.enabled &&
+                                customAxisOpts.keepMain
+                                    ? parseMathVibe(customAxisOpts.labelY)
+                                    : "",
+                            nameLocation: "end",
+                            nameGap: 25,
+                            nameTextStyle: {
+                                color: getColor(colors.axisTitleColor, "y"),
+                                fontSize: sizes.axisTitle,
+                                fontFamily: font,
+                            },
+                            axisLine: { show: false },
+                            axisTick: { show: false },
+                            axisLabel: { show: false },
+                            splitLine: { show: false },
+                        },
+                    ],
+                    series: finalEchartsSeries,
+                };
+
+                myChart.setOption(option);
+            }
+
+            // ================= Downloads =================
+            function downloadSVG(withBg = true) {
+                const svgElement = document.querySelector("#customChart svg");
+                if (!svgElement) {
+                    alert("SVG গ্রাফ খুঁজে পাওয়া যায়নি!");
+                    return;
+                }
+
+                let exportBg = "transparent";
+                if (withBg) {
+                    const bgToggle =
+                        document.getElementById("bgColor-toggle").checked;
+                    const bgAlpha = parseFloat(
+                        document.getElementById("bgColor-alpha").value,
+                    );
+                    if (bgToggle && bgAlpha > 0)
+                        exportBg = document.getElementById("bgColor").value;
+                }
+
+                const svgClone = svgElement.cloneNode(true);
+                svgClone.style.backgroundColor = exportBg;
+
+                const serializer = new XMLSerializer();
+                let source = serializer.serializeToString(svgClone);
+                if (
+                    !source.match(
+                        /^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/,
+                    )
+                ) {
+                    source = source.replace(
+                        /^<svg/,
+                        '<svg xmlns="http://www.w3.org/2000/svg"',
+                    );
+                }
+                source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+                const url =
+                    "data:image/svg+xml;charset=utf-8," +
+                    encodeURIComponent(source);
+
+                const link = document.createElement("a");
+                link.download = "graph-vector.svg";
+                link.href = url;
+                link.click();
+
+                document
+                    .getElementById("svgDownloadMenu")
+                    .classList.add("hidden");
+            }
+
+            function downloadPNG() {
+                const container = document.getElementById("export-container");
+                const bgToggle =
+                    document.getElementById("bgColor-toggle").checked;
+                const bgAlpha = parseFloat(
+                    document.getElementById("bgColor-alpha").value,
+                );
+                const exportBg =
+                    bgToggle && bgAlpha === 1
+                        ? document.getElementById("bgColor").value
+                        : null;
+
+                html2canvas(container, {
+                    backgroundColor: exportBg,
+                    scale: 4,
+                    useCORS: true,
+                    logging: false,
+                }).then((canvas) => {
+                    const link = document.createElement("a");
+                    link.download = "graph-highres.png";
+                    link.href = canvas.toDataURL("image/png");
+                    link.click();
+                });
+            }
+
+            // ================= Copy SVG Code Functionality =================
+            function toggleSvgCopyMenu() {
+                document
+                    .getElementById("svgCopyMenu")
+                    .classList.toggle("hidden");
+            }
+
+            function toggleSvgDownloadMenu() {
+                document
+                    .getElementById("svgDownloadMenu")
+                    .classList.toggle("hidden");
+            }
+
+            document.addEventListener("click", function (event) {
+                const copyMenu = document.getElementById("svgCopyMenu");
+                const copyBtn = copyMenu
+                    ? copyMenu.previousElementSibling
+                    : null;
+                if (
+                    copyMenu &&
+                    !copyMenu.classList.contains("hidden") &&
+                    !copyMenu.contains(event.target) &&
+                    !copyBtn.contains(event.target)
+                ) {
+                    copyMenu.classList.add("hidden");
+                }
+
+                const downloadMenu = document.getElementById("svgDownloadMenu");
+                const downloadBtn = downloadMenu
+                    ? downloadMenu.previousElementSibling
+                    : null;
+                if (
+                    downloadMenu &&
+                    !downloadMenu.classList.contains("hidden") &&
+                    !downloadMenu.contains(event.target) &&
+                    !downloadBtn.contains(event.target)
+                ) {
+                    downloadMenu.classList.add("hidden");
+                }
+            });
+
+            function copySVGCode(withBg) {
+                const svgElement = document.querySelector("#customChart svg");
+                if (!svgElement) {
+                    alert("SVG গ্রাফ খুঁজে পাওয়া যায়নি!");
+                    return;
+                }
+
+                let exportBg = "transparent";
+                if (withBg) {
+                    const bgToggle =
+                        document.getElementById("bgColor-toggle").checked;
+                    const bgAlpha = parseFloat(
+                        document.getElementById("bgColor-alpha").value,
+                    );
+                    if (bgToggle && bgAlpha > 0)
+                        exportBg = document.getElementById("bgColor").value;
+                }
+
+                const svgClone = svgElement.cloneNode(true);
+                svgClone.style.backgroundColor = exportBg;
+
+                const serializer = new XMLSerializer();
+                let source = serializer.serializeToString(svgClone);
+                if (
+                    !source.match(
+                        /^<svg[^>]+xmlns="http\:\/\/www\.w3\.org\/2000\/svg"/,
+                    )
+                ) {
+                    source = source.replace(
+                        /^<svg/,
+                        '<svg xmlns="http://www.w3.org/2000/svg"',
+                    );
+                }
+                source = '<?xml version="1.0" standalone="no"?>\r\n' + source;
+
+                const textArea = document.createElement("textarea");
+                textArea.value = source;
+                textArea.style.position = "fixed";
+                textArea.style.left = "-999999px";
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                try {
+                    document.execCommand("copy");
+                    alert("SVG কোড সফলভাবে কপি হয়েছে!");
+                } catch (err) {
+                    alert("কোড কপি করতে সমস্যা হয়েছে!");
+                }
+
+                document.body.removeChild(textArea);
+                document.getElementById("svgCopyMenu").classList.add("hidden");
+            }
+
+            window.addEventListener("resize", function () {
+                if (myChart) myChart.resize();
+            });
+
+            window.onload = () => {
+                renderColorPickers();
+                updateGraph();
+            };
+        </script>
+    </body>
+</html>
