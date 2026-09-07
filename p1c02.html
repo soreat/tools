@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vector Toolkit 3D - HSC Physics</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- KaTeX for perfect Math rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js" onload="renderAllMath()"></script>
+
+    <style>
+        :root {
+            --bg-color: #020617; --bg-grad-1: #0f172a; --bg-grad-2: #020617;
+            --text-main: #f8fafc; --text-muted: #94a3b8;
+            --accent-1: #38bdf8; --accent-2: #ec4899; --accent-3: #8b5cf6; --accent-yellow: #eab308;
+            --glass-bg: rgba(255, 255, 255, 0.03); --glass-border: rgba(255, 255, 255, 0.08);
+            --nav-height: 70px;
+        }
+
+        body.light-mode {
+            --bg-grad-1: #e2e8f0; --bg-grad-2: #f8fafc;
+            --text-main: #0f172a; --text-muted: #475569;
+            --accent-1: #0284c7; --accent-2: #db2777;
+            --glass-bg: rgba(255, 255, 255, 0.7); --glass-border: rgba(0, 0, 0, 0.1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
+        body { font-family: system-ui, -apple-system, sans-serif; background: radial-gradient(circle at 50% 0%, var(--bg-grad-1), var(--bg-grad-2)); color: var(--text-main); min-height: 100vh; overflow: hidden; transition: background 0.3s, color 0.3s; }
+        .glass { background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 12px; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.2); }
+
+        .global-toolbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; padding: 8px 15px; z-index: 200; border-radius: 30px; align-items: center; width: 95%; max-width: 900px; flex-wrap: wrap; justify-content: center; }
+        .tool-btn { background: transparent; border: 1px solid var(--glass-border); color: var(--text-main); cursor: pointer; padding: 6px 12px; border-radius: 20px; transition: 0.2s; display: flex; align-items: center; gap: 5px; font-weight: 600; font-size: 0.85rem; white-space: nowrap;}
+        .tool-btn:hover { background: rgba(125,125,125,0.2); }
+        .tool-btn.active { color: var(--accent-1); border-color: var(--accent-1); background: rgba(56, 189, 248, 0.15); }
+        .tool-btn.pan-active { color: var(--accent-yellow); border-color: var(--accent-yellow); background: rgba(234, 179, 8, 0.15); }
+        
+        .toolbar-group { display: flex; align-items: center; gap: 5px; background: rgba(0,0,0,0.2); padding: 4px 10px; border-radius: 20px; border: 1px solid var(--glass-border); position: relative; }
+        .toolbar-group label { margin: 0; font-size: 0.8rem; font-weight: bold; color: var(--text-muted); cursor: pointer;}
+        
+        .popover-menu { position: fixed; top: 70px; left: 50%; transform: translateX(-50%); background: var(--glass-bg); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 12px; padding: 15px; width: 250px; display: none; flex-direction: column; gap: 10px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 9999; }
+        .popover-menu.open { display: flex; }
+
+        .app-container { height: calc(100vh - var(--nav-height)); position: relative; overflow: hidden; }
+        .view { display: none; width: 100%; height: 100%; animation: fadeIn 0.3s ease-out; position: relative; }
+        .view.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .canvas-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; touch-action: none;}
+        canvas { display: block; width: 100%; height: 100%; outline: none; }
+
+        .math-overlay { position: absolute; top: 80px; left: 15px; background: var(--glass-bg); padding: 15px 20px; border-radius: 12px; border: 1px solid var(--glass-border); pointer-events: none; z-index: 10; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); box-shadow: 0 8px 32px 0 rgba(0,0,0,0.2); max-width: 380px; }
+        .math-title { font-weight: bold; margin-bottom: 8px; font-size: 1.1rem; color: var(--accent-yellow); border-bottom: 1px solid var(--glass-border); padding-bottom: 5px; }
+        .latex { font-size: 1.1rem; margin: 5px 0; color: var(--text-main); }
+        
+        .axis-label { position: absolute; font-weight: bold; background: rgba(0,0,0,0.8); color: #fff; padding: 4px 8px; border-radius: 6px; pointer-events: none; z-index: 100; transform: translate(-50%, -50%); font-family: monospace; display: none; border: 1px solid rgba(255,255,255,0.4); backdrop-filter: blur(4px); font-size: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.5); }
+        .light-mode .axis-label { background: rgba(255,255,255,0.95); color: #000; border-color: rgba(0,0,0,0.4); }
+
+        .floating-controls { position: absolute; top: 80px; right: 15px; width: 340px; z-index: 100; pointer-events: auto; }
+        .floating-controls details { background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 12px; box-shadow: 0 8px 32px 0 rgba(0,0,0,0.2); }
+        .floating-controls summary { padding: 12px 15px; font-weight: bold; color: var(--accent-1); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; outline: none; }
+        .floating-controls summary::-webkit-details-marker { display: none; }
+        .floating-controls .details-content { padding: 15px; border-top: 1px solid var(--glass-border); max-height: calc(100vh - 200px); overflow-y: auto; display: flex; flex-direction: column; gap: 12px; scrollbar-width: thin;}
+        
+        .adv-settings { background: rgba(125,125,125,0.1); border-radius: 8px; padding: 8px; border: 1px solid var(--glass-border); margin-top: 5px; }
+        .adv-summary { font-size: 0.85rem; color: var(--accent-3); font-weight: bold; cursor: pointer; list-style: none;}
+        .adv-summary::-webkit-details-marker { display: none; }
+
+        .river-hud { position: absolute; top: 80px; right: 370px; background: rgba(0,0,0,0.8); border: 1px solid var(--accent-1); padding: 15px; border-radius: 12px; pointer-events: none; z-index: 90; display: none; color: #fff; font-family: monospace; }
+        .light-mode .river-hud { background: rgba(255,255,255,0.9); color: #000; }
+        
+        @media (max-width: 768px) {
+            .global-toolbar { top: 10px; width: 95%; max-width: 100%; justify-content: center; padding: 8px; }
+            .floating-controls { width: calc(100% - 30px); right: 15px; top: 100px;}
+            .math-overlay { top: 130px; font-size: 0.9rem; max-width: 250px; }
+            .river-hud { top: auto; bottom: 80px; right: 15px; width: calc(100% - 30px); }
+        }
+
+        .control-group { display: flex; flex-direction: column; gap: 4px; }
+        .control-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 0.85rem; color: var(--text-muted); font-weight: 500;}
+        label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; display:flex; justify-content: space-between; width:100%; align-items:center;}
+        
+        input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 5px 0; }
+        input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 14px; width: 14px; border-radius: 50%; background: var(--accent-1); cursor: pointer; margin-top: -5px; box-shadow: 0 0 10px rgba(56, 189, 248, 0.5); }
+        input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(125,125,125,0.4); border-radius: 2px; }
+
+        input[type=text], input[type=number], select { background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); color: var(--text-main); padding: 6px; border-radius: 6px; font-size: 0.9rem; outline: none; width: 100%; font-family: monospace; }
+        input[type=color] { border: none; background: transparent; height: 25px; width: 35px; cursor: pointer; padding: 0; }
+        .light-mode input[type=text], .light-mode input[type=number], .light-mode select { background: rgba(255,255,255,0.5); color: #000; }
+
+        button.action-btn { background: rgba(56, 189, 248, 0.2); border: 1px solid var(--accent-1); color: var(--text-main); padding: 8px 12px; border-radius: 8px; cursor: pointer; transition: 0.2s; font-weight: 600; width: 100%;}
+        button.action-btn:active { transform: scale(0.95); }
+        button.action-btn.active { background: rgba(34, 197, 94, 0.3); border-color: #22c55e; }
+        button.danger-btn { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; color: #ef4444; }
+
+        .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: var(--nav-height); background: var(--glass-bg); backdrop-filter: blur(20px); border-top: 1px solid var(--glass-border); display: flex; justify-content: flex-start; align-items: center; padding: 0 10px; z-index: 100; overflow-x: auto; scrollbar-width: none; }
+        .bottom-nav::-webkit-scrollbar { display: none; }
+        .nav-item { display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; padding: 5px 15px; transition: color 0.3s; flex-shrink: 0; min-width: 80px;}
+        .nav-item svg { width: 24px; height: 24px; margin-bottom: 4px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;}
+        .nav-item.active { color: var(--accent-1); }
+        .nav-text { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        .val-display { color: var(--text-main); font-weight: bold; font-family: monospace; font-size: 0.95rem;}
+        .vector-list-item { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 8px; margin-bottom: 8px; border-left: 3px solid var(--accent-1);}
+        .vector-list-item input[type=text] { width: 100%; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="global-toolbar glass">
+        <button class="tool-btn" onclick="toggleTheme()" title="Toggle Theme">🌓</button>
+        <button class="tool-btn" id="btn-slowmo" onclick="toggleSlowMo()" title="Toggle Slow Motion">⏱️</button>
+        <button class="tool-btn" id="btn-pan" onclick="togglePan()" title="Pan / Move Canvas">🖐 Pan</button>
+        <button class="tool-btn danger-btn" onclick="resetApp()" title="Reset All Settings">⟲ Reset</button>
+        
+        <div class="toolbar-group" title="Global Zoom">
+            <label>🔍</label>
+            <input type="range" id="global-zoom" min="0.3" max="3.0" step="0.1" value="1.0" style="width: 60px;" oninput="updateState('global', 'zoom', this.value); applyGlobalTransforms();">
+        </div>
+        <div class="toolbar-group" title="Global Text Size">
+            <label>Tt</label>
+            <input type="range" id="global-textSize" min="0.5" max="2.5" step="0.1" value="1.0" style="width: 60px;" oninput="updateState('global', 'textSize', this.value); rebuildHome3D(); applyGlobalTransforms();">
+        </div>
+        <div class="toolbar-group" title="Arrowhead Settings">
+            <label onclick="toggleArrowMenu()">➤ <span style="font-size:0.6rem">⚙</span></label>
+        </div>
+    </div>
+
+    <!-- Arrow Settings Popover Fixed on Screen -->
+    <div id="arrow-menu" class="popover-menu">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--glass-border); padding-bottom:5px;">
+            <div style="font-weight:bold; color:var(--accent-1);">Arrowhead Shape</div>
+            <button style="background:transparent; color:#fff; border:none; cursor:pointer;" onclick="toggleArrowMenu()">✖</button>
+        </div>
+        <div class="control-group"><label>Base Size (Scale): <span id="global-arrowSize-val">1.0</span></label><input type="range" id="global-arrowSize" min="0.2" max="3.0" step="0.1" value="1.0" oninput="updateState('global', 'arrowSize', this.value); triggerRebuilds();"></div>
+        <div class="control-group"><label>Cone Length: <span id="global-arrowHl-val">1.2</span></label><input type="range" id="global-arrowHl" min="0.5" max="4.0" step="0.1" value="1.2" oninput="updateState('global', 'arrowHl', this.value); triggerRebuilds();"></div>
+        <div class="control-group"><label>Cone Radius: <span id="global-arrowHw-val">0.6</span></label><input type="range" id="global-arrowHw" min="0.2" max="2.0" step="0.1" value="0.6" oninput="updateState('global', 'arrowHw', this.value); triggerRebuilds();"></div>
+    </div>
+
+    <div class="app-container">
+        
+        <main id="view-home" class="view active">
+            <div id="canvas-home-container" class="canvas-container">
+                <div id="axis-lbl-x" class="axis-label"><span style="color:#ef4444;">X</span></div>
+                <div id="axis-lbl-y" class="axis-label"><span style="color:#22c55e;">Y</span></div>
+                <div id="axis-lbl-z" class="axis-label"><span style="color:#38bdf8;">Z</span></div>
+            </div>
+            <div class="math-overlay">
+                <div class="math-title">3D Vector Space</div>
+                <div class="latex" data-latex="\vec{A} = x\hat{i} + y\hat{j} + z\hat{k}"></div>
+                <div style="font-size: 0.85rem; margin-top:10px; color: var(--text-muted);">
+                    Interactive 3D Graph.<br>Drag to Rotate. Use "Pan" tool to move.
+                </div>
+            </div>
+            
+            <div class="floating-controls">
+                <details open>
+                    <summary>⚙️ Vector List & Settings <span class="arrow">▼</span></summary>
+                    <div class="details-content">
+                        <div id="home-vector-list" style="max-height: 250px; overflow-y: auto; padding-right:5px;"></div>
+                        <div style="margin-top: 5px;"><button class="action-btn" onclick="addHomeVector()">+ Add New Vector</button></div>
+                        
+                        <details class="adv-settings">
+                            <summary class="adv-summary">Advanced Customization</summary>
+                            <div style="margin-top:8px; display:flex; flex-direction:column; gap:5px;">
+                                <div class="control-row">
+                                    <label>Show 3D Box</label>
+                                    <div style="display:flex; gap:5px; align-items:center;">
+                                        <input type="number" id="home-boxSize" value="10" style="width: 50px;" onchange="updateState('home', 'boxSize', this.value); updateHomeBox();">
+                                        <input type="checkbox" id="home-showBox" onchange="updateState('home', 'showBox', this.checked); updateHomeBox();">
+                                    </div>
+                                </div>
+                                <div class="control-row"><label>Show Grid</label><input type="checkbox" id="home-showGrid" checked onchange="updateState('home', 'showGrid', this.checked); updateHome3DColors();"></div>
+                                <div class="control-row"><label>X Axis Color</label><input type="color" id="home-colX" value="#ef4444" onchange="updateState('home', 'colX', this.value); updateHome3DColors();"></div>
+                                <div class="control-row"><label>Y Axis Color</label><input type="color" id="home-colY" value="#22c55e" onchange="updateState('home', 'colY', this.value); updateHome3DColors();"></div>
+                                <div class="control-row"><label>Z Axis Color</label><input type="color" id="home-colZ" value="#38bdf8" onchange="updateState('home', 'colZ', this.value); updateHome3DColors();"></div>
+                            </div>
+                        </details>
+                    </div>
+                </details>
+            </div>
+        </main>
+
+        <main id="view-add" class="view">
+            <div id="canvas-add-container" class="canvas-container"><canvas id="canvas-add"></canvas></div>
+            <div class="math-overlay">
+                <div class="math-title">সামান্তরিক সূত্র (Parallelogram Law)</div>
+                <div class="latex" data-latex="R = \sqrt{P^2 + Q^2 + 2PQ \cos\alpha}" style="color: var(--accent-yellow);"></div>
+                <div class="latex" data-latex="\theta = \tan^{-1}\left(\frac{Q \sin\alpha}{P + Q \cos\alpha}\right)" style="color: var(--accent-3);"></div>
+                <div style="font-size: 0.85rem; margin-top:10px; color: var(--text-muted); border-top: 1px solid var(--glass-border); padding-top: 5px;">
+                    Resultant (R): <strong id="add-R-val" style="color:var(--text-main);">0.0</strong><br>
+                    Angle (θ): <strong id="add-theta-val" style="color:var(--text-main);">0.0°</strong>
+                </div>
+            </div>
+            
+            <div class="floating-controls">
+                <details open>
+                    <summary>⚙️ Controls <span class="arrow">▼</span></summary>
+                    <div class="details-content">
+                        <div class="control-group"><label>Vector P: <span id="add-P-val" class="val-display" style="color:var(--accent-1);">10</span></label><input type="range" id="add-P" min="2" max="25" value="10" oninput="updateState('add', 'P', this.value)"></div>
+                        <div class="control-group"><label>Vector Q: <span id="add-Q-val" class="val-display" style="color:var(--accent-2);">8</span></label><input type="range" id="add-Q" min="2" max="25" value="8" oninput="updateState('add', 'Q', this.value)"></div>
+                        <div class="control-group"><label>Angle (α): <span id="add-alpha-val" class="val-display">60</span>°</label><input type="range" id="add-alpha" min="0" max="180" step="1" value="60" oninput="updateState('add', 'alpha', this.value)"></div>
+                        <details class="adv-settings">
+                            <summary class="adv-summary">Advanced Customization</summary>
+                            <div style="margin-top:8px; display:flex; flex-direction:column; gap:5px;">
+                                <div class="control-row"><label>Show Values on Canvas</label><input type="checkbox" id="add-showValues" checked onchange="updateState('add', 'showValues', this.checked)"></div>
+                                <div class="control-row"><label>Show Grid</label><input type="checkbox" id="add-showGrid" checked onchange="updateState('add', 'showGrid', this.checked)"></div>
+                                <div class="control-row"><label>Line Thickness</label><input type="range" id="add-thick" min="1" max="10" value="4" oninput="updateState('add', 'thick', this.value)"></div>
+                                <div class="control-row"><label>P Color</label><input type="color" id="add-colP" value="#38bdf8" onchange="updateState('add', 'colP', this.value)"></div>
+                                <div class="control-row"><label>Q Color</label><input type="color" id="add-colQ" value="#ec4899" onchange="updateState('add', 'colQ', this.value)"></div>
+                                <div class="control-row"><label>R Color</label><input type="color" id="add-colR" value="#eab308" onchange="updateState('add', 'colR', this.value)"></div>
+                            </div>
+                        </details>
+                    </div>
+                </details>
+            </div>
+        </main>
+
+        <main id="view-river" class="view">
+            <div id="canvas-river-container" class="canvas-container"><canvas id="canvas-river"></canvas></div>
+            <div class="math-overlay">
+                <div class="math-title">নদী পারাপার (River Crossing)</div>
+                <div class="latex" data-latex="v_x = u + v \cos\alpha"></div>
+                <div class="latex" data-latex="v_y = v \sin\alpha"></div>
+                <div style="font-size: 0.85rem; margin-top:10px; color: var(--text-muted); border-top: 1px solid var(--glass-border); padding-top: 5px;">
+                    Simulates multiple trajectory changes.<br>Boat aligns physically with Resultant (W).
+                </div>
+            </div>
+            
+            <div id="river-hud" class="river-hud">
+                <div style="font-weight:bold; color:var(--accent-yellow); margin-bottom:5px; font-size:1.1rem;">Live Telemetry</div>
+                <hr style="border-color: rgba(255,255,255,0.2); margin-bottom:5px;">
+                <div>Resultant (W): <span id="river-hud-w">0.0</span> m/s</div>
+                <div>Aim Angle (α): <span id="river-hud-alpha">0</span>°</div>
+                <div>Path Angle (θ): <span id="river-hud-theta">0</span>°</div>
+                <hr style="border-color: rgba(255,255,255,0.2); margin: 5px 0;">
+                <div style="color:var(--accent-1);">Total Drift (X): <span id="river-hud-x">0.0</span> m</div>
+                <div style="color:#22c55e;">Total Time (T): <span id="river-hud-t">0.0</span> s</div>
+            </div>
+            
+            <div class="floating-controls">
+                <details open>
+                    <summary>⚙️ Controls (Journey Segments) <span class="arrow">▼</span></summary>
+                    <div class="details-content">
+                        <button id="river-start-btn" class="action-btn" onclick="toggleRiverBoat()">🚀 Start Crossing</button>
+                        <div class="control-row" style="margin-top:5px;">
+                            <label>River Width (D)</label>
+                            <input type="number" id="river-width" value="100" style="width:80px;" onchange="updateState('river', 'width', this.value); calculateRiverPath();">
+                        </div>
+                        <hr style="border-color: var(--glass-border); margin: 5px 0;">
+                        <div id="river-legs-list" style="max-height: 250px; overflow-y: auto; padding-right:5px;"></div>
+                        <button class="action-btn" onclick="addRiverLeg()" style="background:rgba(255,255,255,0.1); border-color:var(--glass-border);">+ Add New Condition</button>
+                        
+                        <details class="adv-settings">
+                            <summary class="adv-summary">Advanced Customization</summary>
+                            <div style="margin-top:8px; display:flex; flex-direction:column; gap:5px;">
+                                <div class="control-row"><label>Show Vector Labels</label><input type="checkbox" id="river-showValues" checked onchange="updateState('river', 'showValues', this.checked)"></div>
+                                <div class="control-row"><label>Show Grid</label><input type="checkbox" id="river-showGrid" checked onchange="updateState('river', 'showGrid', this.checked)"></div>
+                                <div class="control-row"><label>U (Current) Color</label><input type="color" id="river-colU" value="#38bdf8" onchange="updateState('river', 'colU', this.value)"></div>
+                                <div class="control-row"><label>V (Boat Aim) Color</label><input type="color" id="river-colV" value="#ec4899" onchange="updateState('river', 'colV', this.value)"></div>
+                                <div class="control-row"><label>W (Resultant) Color</label><input type="color" id="river-colW" value="#eab308" onchange="updateState('river', 'colW', this.value)"></div>
+                            </div>
+                        </details>
+                    </div>
+                </details>
+            </div>
+        </main>
+
+        <main id="view-cross" class="view">
+            <div id="canvas-cross-container" class="canvas-container"></div>
+            <div class="math-overlay">
+                <div class="math-title">ক্রস গুণন (Cross Product)</div>
+                <div class="latex" data-latex="\vec{C} = \vec{A} \times \vec{B}" style="color: var(--accent-yellow);"></div>
+                <div class="latex" data-latex="|\vec{C}| = |\vec{A}||\vec{B}| \sin\theta"></div>
+                <div style="font-size: 0.85rem; margin-top:10px; color: var(--text-muted); border-top: 1px solid var(--glass-border); padding-top: 5px;">
+                    Direction follows Right-Hand Rule.<br>
+                    Magnitude |C|: <strong id="cross-mag" style="color:var(--accent-yellow);">0.00</strong>
+                </div>
+            </div>
+            
+            <div class="floating-controls">
+                <details open>
+                    <summary>⚙️ Controls <span class="arrow">▼</span></summary>
+                    <div class="details-content">
+                        <div class="control-group">
+                            <label style="color:var(--text-main);">Calculation Orientation</label>
+                            <select id="cross-plane" onchange="updateState('cross', 'plane', this.value); rebuildCross3D();">
+                                <option value="xy">Vector A on X, Vector B in XY</option>
+                                <option value="yz">Vector A on Y, Vector B in YZ</option>
+                                <option value="zx">Vector A on Z, Vector B in ZX</option>
+                            </select>
+                        </div>
+                        <hr style="border-color: var(--glass-border); margin: 5px 0;">
+                        <div class="control-group"><label>Vector A (Length): <span id="cross-A-val" class="val-display">10</span></label><input type="range" id="cross-A" min="2" max="15" value="10" oninput="updateState('cross', 'A', this.value)"></div>
+                        <div class="control-group"><label>Vector B (Length): <span id="cross-B-val" class="val-display">8</span></label><input type="range" id="cross-B" min="2" max="15" value="8" oninput="updateState('cross', 'B', this.value)"></div>
+                        <div class="control-group"><label>Angle (θ): <span id="cross-theta-val" class="val-display">45</span>°</label><input type="range" id="cross-theta" min="-180" max="180" step="1" value="45" oninput="updateState('cross', 'theta', this.value)"></div>
+                        
+                        <details class="adv-settings">
+                            <summary class="adv-summary">Advanced Customization</summary>
+                            <div style="margin-top:8px; display:flex; flex-direction:column; gap:5px;">
+                                <div class="control-row"><label>Show Values in 3D</label><input type="checkbox" id="cross-showValues" checked onchange="updateState('cross', 'showValues', this.checked); rebuildCross3D();"></div>
+                                <div class="control-row"><label>Show Reference Grid</label><input type="checkbox" id="cross-showGrid" checked onchange="updateState('cross', 'showGrid', this.checked); updateCross3DColors();"></div>
+                                <div class="control-row"><label>Plane Opacity</label><input type="range" id="cross-planeAlpha" min="0" max="1" step="0.1" value="0.3" oninput="updateState('cross', 'planeAlpha', this.value); rebuildCross3D();"></div>
+                            </div>
+                        </details>
+                    </div>
+                </details>
+            </div>
+        </main>
+
+        <main id="view-calc" class="view">
+            <div class="canvas-container" id="canvas-calc-container"><canvas id="canvas-calc"></canvas></div>
+            <div class="math-overlay">
+                <div class="math-title">ভেক্টর ক্যালকুলাস (Vector Fields)</div>
+                <div id="calc-math-div" class="latex" data-latex="\nabla \cdot \vec{V} \neq 0" style="color: var(--accent-1);"></div>
+                <div id="calc-math-curl" class="latex" data-latex="\nabla \times \vec{V} \neq 0" style="color: var(--accent-2); display:none;"></div>
+                <div style="font-size: 0.85rem; margin-top:10px; color: var(--text-muted); border-top: 1px solid var(--glass-border); padding-top: 5px;">
+                    <span id="calc-desc">...</span><br>
+                    <strong style="color:var(--accent-yellow); margin-top:5px; display:block;">Move/Touch the screen to actively set the field origin!</strong>
+                </div>
+            </div>
+            
+            <div class="floating-controls">
+                <details open>
+                    <summary>⚙️ Controls <span class="arrow">▼</span></summary>
+                    <div class="details-content">
+                        <div class="control-group">
+                            <label>Field Type</label>
+                            <select id="calc-type" onchange="updateState('calc', 'type', this.value); syncCalcUI();">
+                                <option value="source">Source (+ Divergence)</option>
+                                <option value="sink">Sink (- Divergence)</option>
+                                <option value="vortex">Vortex (Curl)</option>
+                                <option value="uniform">Uniform (Zero Div/Curl)</option>
+                            </select>
+                        </div>
+                        <div class="control-group"><label>Field Strength: <span id="calc-strength-val" class="val-display">1.0</span>x</label><input type="range" id="calc-strength" min="0.1" max="3.0" step="0.1" value="1.0" oninput="updateState('calc', 'strength', this.value)"></div>
+                        <div class="control-row" style="margin-top: 5px;"><label style="color:var(--text-main); font-weight:bold;">Animate Flow Particles</label><input type="checkbox" id="calc-particles" onchange="updateState('calc', 'particles', this.checked)"></div>
+                        
+                        <details class="adv-settings">
+                            <summary class="adv-summary">Advanced Customization</summary>
+                            <div style="margin-top:8px; display:flex; flex-direction:column; gap:5px;">
+                                <div class="control-row"><label>Show Grid</label><input type="checkbox" id="calc-showGrid" checked onchange="updateState('calc', 'showGrid', this.checked)"></div>
+                                <div class="control-group"><label>Vector Density</label><input type="range" id="calc-density" min="20" max="80" step="10" value="50" oninput="updateState('calc', 'density', this.value)"></div>
+                                <div class="control-row"><label>Arrow Color</label><input type="color" id="calc-colArrow" value="#38bdf8" onchange="updateState('calc', 'colArrow', this.value)"></div>
+                                <div class="control-row"><label>Particle Color</label><input type="color" id="calc-colPart" value="#eab308" onchange="updateState('calc', 'colPart', this.value)"></div>
+                            </div>
+                        </details>
+                    </div>
+                </details>
+            </div>
+        </main>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('home')"><svg viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2z"/></svg><span class="nav-text">3D Vectors</span></div>
+        <div class="nav-item" onclick="switchTab('add')"><svg viewBox="0 0 24 24"><path d="M4 12l8 8 8-8M12 20V4"/></svg><span class="nav-text">Addition</span></div>
+        <div class="nav-item" onclick="switchTab('river')"><svg viewBox="0 0 24 24"><path d="M2 12s3-3 5-3 5 3 5 3 2-3 5-3 5 3 5 3M2 18s3-3 5-3 5 3 5 3 2-3 5-3 5 3 5 3M5 6l5-3 5 3v5l-5 3-5-3z"/></svg><span class="nav-text">River Boat</span></div>
+        <div class="nav-item" onclick="switchTab('cross')"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg><span class="nav-text">Cross Prod</span></div>
+        <div class="nav-item" onclick="switchTab('calc')"><svg viewBox="0 0 24 24"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg><span class="nav-text">Calculus</span></div>
+    </nav>
+
+    <script>
+        const defaultState = {
+            global: { isLightMode: false, timeScale: 1.0, time: 0, arrowSize: 1.0, arrowHl: 1.2, arrowHw: 0.6, zoom: 1.0, textSize: 1.0, panMode: false, panX: 0, panY: 0 },
+            home: { showBox: false, boxSize: 10, showGrid: true, colX: '#ef4444', colY: '#22c55e', colZ: '#38bdf8', vectors: [ { id: 1, start: "0, 0, 0", end: "5, 5, 0", color: "#38bdf8", showAngles: true }, { id: 2, start: "2, 0, 0", end: "-3, 4, 2", color: "#ec4899", showAngles: false } ], nextId: 3 },
+            add: { P: 10, Q: 8, alpha: 60, colP: '#38bdf8', colQ: '#ec4899', colR: '#eab308', showValues: true, showGrid: true, thick: 4 },
+            river: { width: 100, boatActive: false, visProgress: 0, path: [], colU: '#38bdf8', colV: '#ec4899', colW: '#eab308', showValues: true, showGrid: true, legs: [ { id: 1, u: 3, v: 5, alpha: 120, limitType: 'dist', limitVal: 100 } ] },
+            cross: { A: 10, B: 8, theta: 45, plane: 'xy', showValues: true, showGrid: true, planeAlpha: 0.3 },
+            calc: { type: 'source', strength: 1.0, particles: true, colArrow: '#38bdf8', colPart: '#eab308', showGrid: true, density: 50 }
+        };
+
+        let state = JSON.parse(JSON.stringify(defaultState));
+        try { 
+            let saved = localStorage.getItem('vectorState3DFinalV9'); // Wiped cache to prevent blank screens
+            if(saved) { 
+                let parsed = JSON.parse(saved); 
+                Object.keys(defaultState).forEach(k => { state[k] = { ...defaultState[k], ...parsed[k] }; }); 
+            } 
+        } catch(e){}
+        function saveState() { localStorage.setItem('vectorState3DFinalV9', JSON.stringify(state)); }
+        function resetApp() { localStorage.removeItem('vectorState3DFinalV9'); location.reload(); }
+
+        let calcParticles = []; let calcMouse = { x: null, y: null };
+        let sceneHome, cameraHome, rendererHome, controlsHome, homeBoxHelper = null;
+        let sceneCross, cameraCross, rendererCross, controlsCross;
+        let homeArrows = [], crossMeshA = null, crossMeshB = null, crossMeshC = null, crossPlane = null;
+        let crossSprites = []; // Track 3D sprites for proper cleanup
+
+        // Render KaTeX from safe data-latex attribute
+        function renderAllMath() { 
+            if(window.katex) { 
+                document.querySelectorAll('.latex').forEach(el => { 
+                    try { 
+                        katex.render(el.getAttribute('data-latex'), el, {throwOnError: false, displayMode: true}); 
+                    } catch(e){ console.log("KaTeX Error: ", e); } 
+                }); 
+            } 
+        }
+
+        function toggleTheme() { state.global.isLightMode = !state.global.isLightMode; document.body.classList.toggle('light-mode', state.global.isLightMode); if(sceneHome) updateHome3DColors(); if(sceneCross) updateCross3DColors(); saveState(); }
+        function toggleSlowMo() { state.global.timeScale = state.global.timeScale === 1.0 ? 0.2 : 1.0; document.getElementById('btn-slowmo').classList.toggle('active'); }
+        function togglePan() { 
+            state.global.panMode = !state.global.panMode; 
+            document.getElementById('btn-pan').classList.toggle('pan-active', state.global.panMode); 
+            if(controlsHome) {
+                if(state.global.panMode) controlsHome.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+                else controlsHome.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+            }
+            if(controlsCross) {
+                if(state.global.panMode) controlsCross.mouseButtons = { LEFT: THREE.MOUSE.PAN, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+                else controlsCross.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
+            }
+        }
+        function toggleArrowMenu() { document.getElementById('arrow-menu').classList.toggle('open'); }
+        function takeSnapshot() { const c = document.querySelector(`#canvas-${currentTab}`) || document.querySelector(`#canvas-${currentTab}-container canvas`); if(c) { const l = document.createElement('a'); l.download = `Vector_${currentTab}.png`; l.href = c.toDataURL('image/png'); l.click(); } }
+
+        function triggerRebuilds() { rebuildHome3D(); rebuildCross3D(); saveState(); }
+
+        // --- STREAMING_CHUNK: Scaling and 2D Setup ---
+        function applyGlobalTransforms() {
+            const z = state.global.zoom || 1.0;
+            if(cameraHome) { cameraHome.zoom = z; cameraHome.updateProjectionMatrix(); }
+            if(cameraCross) { cameraCross.zoom = z; cameraCross.updateProjectionMatrix(); }
+            saveState();
+        }
+
+        function setupPanLogic(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            if(!canvas) return;
+            let isDragging = false; let lastPos = {x:0, y:0};
+            canvas.addEventListener('mousedown', e => { if(!state.global.panMode) return; isDragging = true; lastPos = {x: e.clientX, y: e.clientY}; });
+            canvas.addEventListener('mousemove', e => {
+                if(!isDragging || !state.global.panMode) return;
+                state.global.panX += (e.clientX - lastPos.x) / (state.global.zoom || 1);
+                state.global.panY += (e.clientY - lastPos.y) / (state.global.zoom || 1);
+                lastPos = {x: e.clientX, y: e.clientY};
+            });
+            window.addEventListener('mouseup', () => isDragging = false);
+            
+            canvas.addEventListener('touchstart', e => { if(!state.global.panMode) return; isDragging = true; lastPos = {x: e.touches[0].clientX, y: e.touches[0].clientY}; }, {passive: true});
+            canvas.addEventListener('touchmove', e => {
+                if(!isDragging || !state.global.panMode) return;
+                e.preventDefault();
+                state.global.panX += (e.touches[0].clientX - lastPos.x) / (state.global.zoom || 1);
+                state.global.panY += (e.touches[0].clientY - lastPos.y) / (state.global.zoom || 1);
+                lastPos = {x: e.touches[0].clientX, y: e.touches[0].clientY};
+            }, {passive: false});
+            window.addEventListener('touchend', () => isDragging = false);
+        }
+
+        // True Dynamic Grid mapping considering Pan and Zoom
+        function drawGrid2D(ctx, w, h, panX, panY) {
+            ctx.strokeStyle = state.global.isLightMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)';
+            let zoom = state.global.zoom || 1;
+            ctx.lineWidth = 1 / zoom;
+            ctx.beginPath();
+            
+            // Calculate absolute bounds based on zoom/pan transformations to draw infinite grid
+            let startX = -w/(2*zoom) - panX; let endX = w/(2*zoom) - panX;
+            let startY = -h/(2*zoom) - panY; let endY = h/(2*zoom) - panY;
+            startX = Math.floor(startX / 50) * 50; startY = Math.floor(startY / 50) * 50;
+
+            for (let x = startX; x <= endX; x += 50) { ctx.moveTo(x, -h/(2*zoom) - panY); ctx.lineTo(x, h/(2*zoom) - panY); }
+            for (let y = startY; y <= endY; y += 50) { ctx.moveTo(-w/(2*zoom) - panX, y); ctx.lineTo(w/(2*zoom) - panX, y); }
+            ctx.stroke();
+        }
+
+        // Mathematical Arrowhead - Doesn't overlap the vector line
+        function drawArrow2D(ctx, fromX, fromY, toX, toY, color, lineWidth = 3) {
+            const dx = toX - fromX; const dy = toY - fromY; const len = Math.sqrt(dx*dx + dy*dy);
+            if(len < 1) return; 
+            
+            // 2D arrows only rely on arrowSize, ignoring 3D cone specific shapes
+            const headlen = 15 * state.global.arrowSize; 
+            const headwid = 5 * state.global.arrowSize;
+            const angle = Math.atan2(dy, dx);
+            
+            const lineEndX = toX - headlen * Math.cos(angle); 
+            const lineEndY = toY - headlen * Math.sin(angle);
+
+            ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = lineWidth / (state.global.zoom || 1); ctx.lineCap = 'round';
+            ctx.beginPath(); ctx.moveTo(fromX, fromY); ctx.lineTo(lineEndX, lineEndY); ctx.stroke();
+            
+            ctx.beginPath(); ctx.moveTo(toX, toY);
+            ctx.lineTo(lineEndX - headwid * Math.sin(angle), lineEndY + headwid * Math.cos(angle));
+            ctx.lineTo(lineEndX + headwid * Math.sin(angle), lineEndY - headwid * Math.cos(angle));
+            ctx.closePath(); ctx.fill();
+        }
+
+        function drawLabelWithBg(ctx, text, x, y, bgCol, textCol) {
+            let scale = state.global.textSize / (state.global.zoom || 1);
+            ctx.font = `bold ${16 * scale}px sans-serif`;
+            let m = ctx.measureText(text); let tw = m.width; let th = 18 * scale;
+            ctx.fillStyle = bgCol; ctx.fillRect(x - tw/2 - 4*scale, y - th + 2*scale, tw + 8*scale, th + 4*scale);
+            ctx.fillStyle = textCol; ctx.textAlign = 'center'; ctx.fillText(text, x, y); ctx.textAlign = 'left'; 
+        }
+
+        function syncUIValues() {
+            Object.keys(state).forEach(mode => {
+                Object.keys(state[mode]).forEach(key => {
+                    const el = document.getElementById(`${mode}-${key}`);
+                    if(el) { if(el.type === 'checkbox') el.checked = state[mode][key]; else el.value = state[mode][key]; }
+                    const lbl = document.getElementById(`${mode}-${key}-val`);
+                    if(lbl) lbl.innerText = state[mode][key];
+                });
+            });
+            if(state.global.panMode) document.getElementById('btn-pan').classList.add('pan-active');
+            updateMathOverlays();
+        }
+
+        function updateState(mode, key, val) {
+            if (typeof val !== 'boolean' && key !== 'mode' && key !== 'type' && key !== 'plane' && key !== 'limitType' && typeof val !== 'string') val = parseFloat(val);
+            state[mode][key] = val;
+            const lbl = document.getElementById(`${mode}-${key}-val`); if(lbl) lbl.innerText = val;
+            
+            if (mode === 'river' && key !== 'boatActive') { state.river.boatActive = false; document.getElementById('river-start-btn').innerText = "🚀 Start Crossing"; document.getElementById('river-start-btn').classList.remove('active'); document.getElementById('river-hud').style.display = 'none'; }
+            if (mode === 'cross') rebuildCross3D();
+            updateMathOverlays(); saveState();
+        }
+
+        // --- STREAMING_CHUNK: River Path Logic ---
+        function calculateRiverPath() {
+            let path = [{ x: 0, y: 0, t: 0, w: 0, theta: 0, alpha: 0, u: state.river.legs[0].u, v: state.river.legs[0].v }];
+            let curX = 0, curY = 0, curT = 0;
+            const riverW = state.river.width;
+            
+            for (let i = 0; i < state.river.legs.length; i++) {
+                let leg = state.river.legs[i];
+                let aRad = leg.alpha * Math.PI / 180;
+                let vx = leg.u + leg.v * Math.cos(aRad);
+                let vy = leg.v * Math.sin(aRad);
+                let w = Math.sqrt(vx*vx + vy*vy);
+                let theta = Math.atan2(vy, vx) * 180 / Math.PI; if(theta < 0) theta += 360;
+                
+                let dt = 0;
+                if (leg.limitType === 'time') dt = leg.limitVal;
+                else if (leg.limitType === 'dist') { if (vy <= 0) dt = 999; else dt = leg.limitVal / vy; }
+                
+                let hitBank = false;
+                if (curY + vy * dt >= riverW) { dt = (riverW - curY) / vy; hitBank = true; }
+                
+                curX += vx * dt; curY += vy * dt; curT += dt;
+                path.push({ x: curX, y: curY, t: curT, w: w, theta: theta, alpha: leg.alpha, u: leg.u, v: leg.v });
+                if (hitBank) break;
+            }
+            state.river.path = path;
+        }
+
+        function renderRiverLegs() {
+            const list = document.getElementById('river-legs-list'); list.innerHTML = '';
+            state.river.legs.forEach((leg, i) => {
+                list.innerHTML += `
+                <div class="vector-list-item">
+                    <div style="font-weight:bold; font-size:0.8rem; color:var(--accent-1);">Condition ${i+1}</div>
+                    <div class="control-row"><label>Boat (v): <input type="number" value="${leg.v}" oninput="updateRiverLeg(${i}, 'v', this.value)" style="width:60px;"></label><label>River (u): <input type="number" value="${leg.u}" oninput="updateRiverLeg(${i}, 'u', this.value)" style="width:60px;"></label></div>
+                    <div class="control-row">
+                        <label>Aim (α): <input type="number" value="${leg.alpha}" oninput="updateRiverLeg(${i}, 'alpha', this.value)" style="width:60px;"></label>
+                        <label style="display:flex; gap:2px; align-items:center;">Limit: <select onchange="updateRiverLeg(${i}, 'limitType', this.value)" style="width:65px; padding:2px;"><option value="dist" ${leg.limitType==='dist'?'selected':''}>Dist(y)</option><option value="time" ${leg.limitType==='time'?'selected':''}>Time(s)</option></select><input type="number" value="${leg.limitVal}" oninput="updateRiverLeg(${i}, 'limitVal', this.value)" style="width:55px;"></label>
+                    </div>
+                    ${state.river.legs.length > 1 ? `<button class="action-btn danger-btn" onclick="removeRiverLeg(${i})" style="width:100%; margin-top:5px; padding:4px;">✖ Remove</button>` : ''}
+                </div>`;
+            });
+            updateMathOverlays(); saveState();
+        }
+
+        function addRiverLeg() { let last = state.river.legs[state.river.legs.length - 1]; state.river.legs.push({ ...last, id: Date.now() }); renderRiverLegs(); }
+        function removeRiverLeg(index) { state.river.legs.splice(index, 1); renderRiverLegs(); }
+        function updateRiverLeg(index, key, val) { let parsed = key === 'limitType' ? val : parseFloat(val); state.river.legs[index][key] = parsed; calculateRiverPath(); updateMathOverlays(); saveState(); }
+
+        function toggleRiverBoat() {
+            const btn = document.getElementById('river-start-btn'); const hud = document.getElementById('river-hud');
+            if (state.river.boatActive && state.river.visProgress >= 1) {
+                state.river.boatActive = false; state.river.visProgress = 0;
+                btn.innerText = "🚀 Start Crossing"; btn.classList.remove('active'); hud.style.display = 'none';
+            } else {
+                state.river.boatActive = true; calculateRiverPath(); state.river.visProgress = 0;
+                btn.innerText = "🛑 Reset Simulation"; btn.classList.add('active'); hud.style.display = 'block';
+            }
+        }
+
+        function syncCalcUI() {
+            const t = state.calc.type; 
+            document.getElementById('calc-math-div').style.display = (t === 'source' || t === 'sink' || t==='uniform') ? 'block' : 'none';
+            document.getElementById('calc-math-curl').style.display = (t === 'vortex') ? 'block' : 'none';
+            const desc = document.getElementById('calc-desc');
+            if(t === 'source') desc.innerHTML = "Positive Divergence (+): Flow expands outward."; else if(t === 'sink') desc.innerHTML = "Negative Divergence (-): Flow converges into sink."; else if(t === 'vortex') desc.innerHTML = "Curl (∇×V ≠ 0): Vectors create rotating vortex."; else if(t === 'uniform') desc.innerText = "Uniform Field: Divergence is 0. Curl is 0.";
+            calcParticles = []; saveState();
+        }
+
+        function updateMathOverlays() {
+            if (currentTab === 'add') {
+                let P = state.add.P, Q = state.add.Q, a = state.add.alpha * Math.PI / 180;
+                let R = Math.sqrt(P*P + Q*Q + 2*P*Q*Math.cos(a));
+                let theta = Math.atan2(Q*Math.sin(a), P + Q*Math.cos(a)) * 180 / Math.PI;
+                let elR = document.getElementById('add-R-val'); if(elR) elR.innerText = R.toFixed(2); 
+                let elTheta = document.getElementById('add-theta-val'); if(elTheta) elTheta.innerText = theta.toFixed(1) + "°";
+            }
+        }
+
+        // --- STREAMING_CHUNK: 3D Engine Setup ---
+        function init3D() {
+            const dpr = window.devicePixelRatio || 1;
+            const contHome = document.getElementById('canvas-home-container');
+            if(!contHome) return;
+            sceneHome = new THREE.Scene(); cameraHome = new THREE.PerspectiveCamera(45, contHome.clientWidth / contHome.clientHeight, 0.1, 1000); cameraHome.position.set(25, 20, 30);
+            rendererHome = new THREE.WebGLRenderer({ antialias: true, alpha: true }); rendererHome.setSize(contHome.clientWidth, contHome.clientHeight); rendererHome.setPixelRatio(dpr); contHome.appendChild(rendererHome.domElement);
+            controlsHome = new THREE.OrbitControls(cameraHome, rendererHome.domElement); controlsHome.enableDamping = true; controlsHome.dampingFactor = 0.05;
+
+            const contCross = document.getElementById('canvas-cross-container');
+            if(!contCross) return;
+            sceneCross = new THREE.Scene(); cameraCross = new THREE.PerspectiveCamera(45, contCross.clientWidth / contCross.clientHeight, 0.1, 1000); cameraCross.position.set(15, 10, 25);
+            rendererCross = new THREE.WebGLRenderer({ antialias: true, alpha: true }); rendererCross.setSize(contCross.clientWidth, contCross.clientHeight); rendererCross.setPixelRatio(dpr); contCross.appendChild(rendererCross.domElement);
+            controlsCross = new THREE.OrbitControls(cameraCross, rendererCross.domElement); controlsCross.enableDamping = true; controlsCross.dampingFactor = 0.05;
+
+            updateHome3DColors(); updateCross3DColors(); renderHomeVectorsUI(); rebuildHome3D(); rebuildCross3D();
+        }
+
+        function createCustomArrow(dir, start, len, color, hl, hw) {
+            const arr = new THREE.Group();
+            const lineMat = new THREE.LineBasicMaterial({color: color, linewidth: 2});
+            const pts = [new THREE.Vector3(0,0,0), new THREE.Vector3(0, len - hl, 0)];
+            const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), lineMat);
+            
+            const coneGeom = new THREE.ConeGeometry(hw, hl, 32); coneGeom.translate(0, hl/2, 0);
+            const coneMat = new THREE.MeshPhongMaterial({color: color, flatShading: false});
+            const cone = new THREE.Mesh(coneGeom, coneMat); cone.position.y = len - hl;
+            
+            arr.add(line); arr.add(cone);
+            const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0), dir);
+            arr.quaternion.copy(q); arr.position.copy(start);
+            return arr;
+        }
+
+        function updateHome3DColors() {
+            if(!sceneHome) return;
+            const isLight = state.global.isLightMode; sceneHome.background = null; 
+            let toRemove = [];
+            sceneHome.children.forEach(c => { if(c.type === 'GridHelper' || c.type === 'Line' || c.type === 'AmbientLight' || c.type === 'DirectionalLight') toRemove.push(c); });
+            toRemove.forEach(c => sceneHome.remove(c));
+            
+            if(state.home.showGrid) {
+                const gridHelper = new THREE.GridHelper(60, 60, isLight?0x000000:0xffffff, isLight?0xcccccc:0x333333); gridHelper.position.y = -0.01; sceneHome.add(gridHelper);
+            }
+            
+            let ptsX = [new THREE.Vector3(0,0,0), new THREE.Vector3(500,0,0)]; sceneHome.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsX), new THREE.LineBasicMaterial({color: state.home.colX, linewidth: 3})));
+            let ptsY = [new THREE.Vector3(0,0,0), new THREE.Vector3(0,500,0)]; sceneHome.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsY), new THREE.LineBasicMaterial({color: state.home.colY, linewidth: 3})));
+            let ptsZ = [new THREE.Vector3(0,0,0), new THREE.Vector3(0,0,500)]; sceneHome.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ptsZ), new THREE.LineBasicMaterial({color: state.home.colZ, linewidth: 3})));
+            
+            sceneHome.add(new THREE.AmbientLight(0xffffff, 0.6)); let dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(10, 20, 10); sceneHome.add(dirLight);
+            updateHomeBox();
+        }
+
+        function updateCross3DColors() {
+            if(!sceneCross) return;
+            const isLight = state.global.isLightMode; sceneCross.background = null; 
+            let toRemove = [];
+            sceneCross.children.forEach(c => { if(c.type === 'GridHelper' || c.type === 'AxesHelper' || c.type === 'AmbientLight' || c.type === 'DirectionalLight') toRemove.push(c); });
+            toRemove.forEach(c => sceneCross.remove(c));
+            if(state.cross.showGrid) sceneCross.add(new THREE.GridHelper(30, 30, isLight?0x000000:0xffffff, isLight?0xcccccc:0x333333)); 
+            sceneCross.add(new THREE.AxesHelper(15)); sceneCross.add(new THREE.AmbientLight(0xffffff, 0.6)); let dirLight = new THREE.DirectionalLight(0xffffff, 0.8); dirLight.position.set(10, 20, 10); sceneCross.add(dirLight);
+        }
+
+        function renderHomeVectorsUI() {
+            const list = document.getElementById('home-vector-list'); if(!list) return;
+            list.innerHTML = '';
+            state.home.vectors.forEach(v => {
+                list.innerHTML += `<div class="vector-list-item"><div style="display:flex; justify-content:space-between; width:100%;"><input type="color" value="${v.color}" onchange="updateHomeVector(${v.id}, 'color', this.value)"><button class="action-btn danger-btn" style="width:auto; padding:4px 8px;" onclick="removeHomeVector(${v.id})">✖</button></div><div style="display:flex; gap:5px; width:100%; margin-top:5px; align-items:center;"><input type="text" value="${v.start}" onchange="updateHomeVector(${v.id}, 'start', this.value)" placeholder="Start x,y,z"><span style="color:var(--text-muted);">→</span><input type="text" value="${v.end}" onchange="updateHomeVector(${v.id}, 'end', this.value)" placeholder="End x,y,z"></div><div style="width:100%; margin-top:5px; padding-top:5px; border-top:1px solid rgba(255,255,255,0.1);"><label style="font-size:0.75rem; display:flex; gap:5px; align-items:center; cursor:pointer;"><input type="checkbox" ${v.showAngles ? 'checked' : ''} onchange="updateHomeVector(${v.id}, 'showAngles', this.checked)">Show 3D Angles (α, β, γ)</label></div></div>`;
+            });
+            saveState();
+        }
+
+        function addHomeVector() { state.home.vectors.push({ id: state.home.nextId++, start: "0, 0, 0", end: "5, 5, 5", color: "#eab308", showAngles: false }); renderHomeVectorsUI(); rebuildHome3D(); }
+        function removeHomeVector(id) { state.home.vectors = state.home.vectors.filter(v => v.id !== id); renderHomeVectorsUI(); rebuildHome3D(); }
+        function updateHomeVector(id, key, val) { const vec = state.home.vectors.find(v => v.id === id); if(vec) vec[key] = val; rebuildHome3D(); saveState(); }
+
+        function updateHomeBox() {
+            if(!sceneHome) return;
+            if(homeBoxHelper) { sceneHome.remove(homeBoxHelper); homeBoxHelper = null; }
+            if(state.home.showBox) {
+                let s = parseFloat(state.home.boxSize) || 10; const geom = new THREE.BoxGeometry(s, s, s); geom.translate(s/2, s/2, s/2); 
+                homeBoxHelper = new THREE.LineSegments(new THREE.EdgesGeometry(geom), new THREE.LineBasicMaterial({ color: state.global.isLightMode?0x000000:0xffffff, transparent: true, opacity: 0.2 }));
+                sceneHome.add(homeBoxHelper);
+            }
+        }
+
+        // Fixed size sprites independent of zoom for legibility
+        function createTextSprite(message, color) {
+            let canvas = document.createElement('canvas'); let context = canvas.getContext('2d'); canvas.width = 256; canvas.height = 128;
+            context.font = "Bold 36px monospace"; context.textAlign = "center"; context.textBaseline = "middle";
+            context.fillStyle = state.global.isLightMode ? "rgba(255, 255, 255, 0.85)" : "rgba(0, 0, 0, 0.85)"; context.fillRect(128 - 110, 64 - 30, 220, 60);
+            context.fillStyle = color; context.fillText(message, 128, 64);
+            let spriteMat = new THREE.SpriteMaterial({ map: new THREE.Texture(canvas), depthTest: false, transparent: true, sizeAttenuation: false });
+            spriteMat.map.needsUpdate = true; let sprite = new THREE.Sprite(spriteMat); 
+            let tSize = 0.04 * state.global.textSize; sprite.scale.set(tSize * 2, tSize, 1); sprite.renderOrder = 999;
+            return sprite;
+        }
+
+        function createAngleArc(startPos, vDir, axisVec, color, labelText) {
+            let v = vDir.clone().normalize(); let a = axisVec.clone().normalize(); let angle = v.angleTo(a);
+            if(angle < 0.05 || angle > Math.PI - 0.05) return null; 
+            let R = 3.0; let pts = []; let rotAxis = new THREE.Vector3().crossVectors(a, v).normalize(); if(rotAxis.lengthSq() < 0.001) return null;
+            for(let i=0; i<=30; i++) pts.push(a.clone().applyAxisAngle(rotAxis, (i/30)*angle).multiplyScalar(R));
+            let line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({color: color, transparent: true, opacity: 0.8, linewidth: 2}));
+            let sprite = createTextSprite(labelText, color); sprite.position.copy(a.clone().applyAxisAngle(rotAxis, angle/2).multiplyScalar(R * 1.3)); line.add(sprite); line.position.copy(startPos);
+            return line;
+        }
+
+        function rebuildHome3D() {
+            if(!sceneHome) return;
+            homeArrows.forEach(a => sceneHome.remove(a)); homeArrows = [];
+            state.home.vectors.forEach((vData) => {
+                let p1 = vData.start.split(',').map(s => parseFloat(s.trim())); let p2 = vData.end.split(',').map(s => parseFloat(s.trim()));
+                if(p1.length === 3 && p2.length === 3 && !p1.some(isNaN) && !p2.some(isNaN)) {
+                    let startPos = new THREE.Vector3(p1[0], p1[1], p1[2]); let endPos = new THREE.Vector3(p2[0], p2[1], p2[2]);
+                    let dir = new THREE.Vector3().subVectors(endPos, startPos); let len = dir.length();
+                    if(len > 0) {
+                        dir.normalize(); let hl = state.global.arrowHl * state.global.arrowSize; let hw = state.global.arrowHw * state.global.arrowSize;
+                        let arrow = createCustomArrow(dir, startPos, len, vData.color, hl, hw);
+                        sceneHome.add(arrow); homeArrows.push(arrow);
+
+                        if (vData.showAngles) {
+                            let ax = Math.acos(dir.x)*(180/Math.PI); let ay = Math.acos(dir.y)*(180/Math.PI); let az = Math.acos(dir.z)*(180/Math.PI);
+                            let arcX = createAngleArc(startPos, dir, new THREE.Vector3(1,0,0), state.home.colX, `α=${ax.toFixed(1)}°`);
+                            let arcY = createAngleArc(startPos, dir, new THREE.Vector3(0,1,0), state.home.colY, `β=${ay.toFixed(1)}°`);
+                            let arcZ = createAngleArc(startPos, dir, new THREE.Vector3(0,0,1), state.home.colZ, `γ=${az.toFixed(1)}°`);
+                            if(arcX) { sceneHome.add(arcX); homeArrows.push(arcX); } if(arcY) { sceneHome.add(arcY); homeArrows.push(arcY); } if(arcZ) { sceneHome.add(arcZ); homeArrows.push(arcZ); }
+                        }
+                    }
+                }
+            });
+        }
+
+        function rebuildCross3D() {
+            if(!sceneCross) return;
+            if(crossMeshA) sceneCross.remove(crossMeshA); if(crossMeshB) sceneCross.remove(crossMeshB); if(crossMeshC) sceneCross.remove(crossMeshC); if(crossPlane) sceneCross.remove(crossPlane);
+            crossSprites.forEach(s => sceneCross.remove(s)); crossSprites = [];
+
+            let s = state.cross; let lenA = s.A; let lenB = s.B; let th = s.theta * Math.PI/180; let vecA, vecB;
+            if(s.plane === 'xy') { vecA = new THREE.Vector3(lenA, 0, 0); vecB = new THREE.Vector3(lenB * Math.cos(th), lenB * Math.sin(th), 0); } 
+            else if (s.plane === 'yz') { vecA = new THREE.Vector3(0, lenA, 0); vecB = new THREE.Vector3(0, lenB * Math.cos(th), lenB * Math.sin(th)); } 
+            else if (s.plane === 'zx') { vecA = new THREE.Vector3(0, 0, lenA); vecB = new THREE.Vector3(lenB * Math.sin(th), 0, lenB * Math.cos(th)); }
+
+            let vecC = new THREE.Vector3().crossVectors(vecA, vecB);
+            let hl = state.global.arrowHl * state.global.arrowSize; let hw = state.global.arrowHw * state.global.arrowSize;
+
+            crossMeshA = createCustomArrow(vecA.clone().normalize(), new THREE.Vector3(0,0,0), lenA, 0xef4444, hl, hw); sceneCross.add(crossMeshA);
+            crossMeshB = createCustomArrow(vecB.clone().normalize(), new THREE.Vector3(0,0,0), lenB, 0x3b82f6, hl, hw); sceneCross.add(crossMeshB);
+
+            let lenC = vecC.length();
+            if (lenC > 0) {
+                let visScaleC = Math.min(lenC, 15) / lenC; let vC = lenC * visScaleC;
+                crossMeshC = createCustomArrow(vecC.clone().normalize(), new THREE.Vector3(0,0,0), vC, 0xeab308, hl, hw); sceneCross.add(crossMeshC);
+            }
+            
+            let magEl = document.getElementById('cross-mag'); if(magEl) magEl.innerText = lenC.toFixed(2);
+
+            let geom = new THREE.BufferGeometry(); let pts = new Float32Array([0,0,0, vecA.x, vecA.y, vecA.z, vecA.x+vecB.x, vecA.y+vecB.y, vecA.z+vecB.z, 0,0,0, vecA.x+vecB.x, vecA.y+vecB.y, vecA.z+vecB.z, vecB.x, vecB.y, vecB.z]);
+            geom.setAttribute('position', new THREE.BufferAttribute(pts, 3)); crossPlane = new THREE.Mesh(geom, new THREE.MeshBasicMaterial({color: 0xeab308, transparent: true, opacity: s.planeAlpha, side: THREE.DoubleSide})); sceneCross.add(crossPlane);
+
+            if (s.showValues) {
+                // Attach directly to scene to avoid skewed local rotational spaces
+                let sA = createTextSprite(`|A|=${lenA.toFixed(1)}`, '#ef4444'); sA.position.copy(vecA).multiplyScalar(1.15); sceneCross.add(sA); crossSprites.push(sA);
+                let sB = createTextSprite(`|B|=${lenB.toFixed(1)}`, '#3b82f6'); sB.position.copy(vecB).multiplyScalar(1.15); sceneCross.add(sB); crossSprites.push(sB);
+                if(lenC > 0) { let sC = createTextSprite(`|A×B|=${lenC.toFixed(1)}`, '#eab308'); sC.position.copy(vecC.clone().normalize().multiplyScalar(vC * 1.15)); sceneCross.add(sC); crossSprites.push(sC); }
+            }
+        }
+
+        // --- STREAMING_CHUNK: App Navigation ---
+        let currentTab = 'home';
+        function switchTab(tabId) {
+            document.querySelectorAll('.view').forEach(v => v.classList.remove('active')); document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.getElementById(`view-${tabId}`).classList.add('active'); document.querySelectorAll('.nav-item').forEach(n => { if(n.getAttribute('onclick').includes(tabId)) n.classList.add('active'); });
+            currentTab = tabId; updateMathOverlays(); resizeCanvases();
+        }
+
+        const canvases = ['add', 'river', 'calc'].reduce((acc, id) => { acc[id] = document.getElementById(`canvas-${id}`); return acc; }, {});
+        const ctxs = Object.keys(canvases).reduce((acc, id) => { if(canvases[id]) acc[id] = canvases[id].getContext('2d'); return acc; }, {});
+
+        setupPanLogic('canvas-add'); setupPanLogic('canvas-river'); setupPanLogic('canvas-calc');
+
+        // Perfect Canvas Tracker
+        function updateCalcMouse(e) {
+            if(!canvases.calc) return;
+            const rect = canvases.calc.getBoundingClientRect(); let cx = e.touches ? e.touches[0].clientX : e.clientX; let cy = e.touches ? e.touches[0].clientY : e.clientY;
+            const dpr = window.devicePixelRatio || 1; 
+            
+            let xFromCenter = (cx - rect.left) * dpr - (canvases.calc.width / 2);
+            let yFromCenter = (cy - rect.top) * dpr - (canvases.calc.height / 2);
+            
+            calcMouse.x = (xFromCenter / (state.global.zoom || 1)) - state.global.panX; 
+            calcMouse.y = (yFromCenter / (state.global.zoom || 1)) - state.global.panY;
+        }
+        if(canvases.calc) {
+            canvases.calc.addEventListener('mousemove', updateCalcMouse); canvases.calc.addEventListener('touchmove', (e) => { if(!state.global.panMode){ e.preventDefault(); updateCalcMouse(e); } }, {passive: false});
+            canvases.calc.addEventListener('mouseleave', () => { calcMouse.x = null; calcMouse.y = null; }); canvases.calc.addEventListener('touchend', () => { calcMouse.x = null; calcMouse.y = null; });
+        }
+
+        function resizeCanvases() {
+            const dpr = window.devicePixelRatio || 1;
+            for (let key in canvases) { if(canvases[key]) { const cvs = canvases[key]; const rect = cvs.parentElement.getBoundingClientRect(); cvs.width = rect.width * dpr; cvs.height = rect.height * dpr; } }
+            if (cameraHome && rendererHome) { const contH = document.getElementById('canvas-home-container'); if(contH) { cameraHome.aspect = contH.clientWidth / contH.clientHeight; cameraHome.updateProjectionMatrix(); rendererHome.setSize(contH.clientWidth, contH.clientHeight); } }
+            if (cameraCross && rendererCross) { const contC = document.getElementById('canvas-cross-container'); if(contC) { cameraCross.aspect = contC.clientWidth / contC.clientHeight; cameraCross.updateProjectionMatrix(); rendererCross.setSize(contC.clientWidth, contC.clientHeight); } }
+        }
+        window.addEventListener('resize', resizeCanvases);
+
+        // --- STREAMING_CHUNK: Main Render Loop ---
+        function animate() {
+            let dt = 0.05 * state.global.timeScale; state.global.time += dt;
+            const dpr = window.devicePixelRatio || 1; const isLight = state.global.isLightMode;
+
+            // 3D Engine Updates and Tracking
+            if(currentTab === 'home' && controlsHome) { 
+                controlsHome.update(); rendererHome.render(sceneHome, cameraHome); 
+                
+                const contH = document.getElementById('canvas-home-container'); 
+                if(contH) {
+                    const hw = contH.clientWidth / 2, hh = contH.clientHeight / 2;
+                    const axes = [ {id: 'x', v: new THREE.Vector3(15,0,0)}, {id: 'y', v: new THREE.Vector3(0,15,0)}, {id: 'z', v: new THREE.Vector3(0,0,15)} ];
+                    
+                    axes.forEach(a => {
+                        let el = document.getElementById('axis-lbl-' + a.id); if(!el) return;
+                        let pos = a.v.clone().project(cameraHome);
+                        
+                        if (pos.z > 1.0) { el.style.display = 'none'; return; } 
+                        
+                        let finalX = hw + (pos.x * hw); let finalY = hh - (pos.y * hh);
+                        
+                        // Flawless Edge Clamping avoiding Top & Bottom toolbars
+                        let padX = 20, padTop = 100, padBot = 80;
+                        let clampedX = Math.max(padX, Math.min(contH.clientWidth - padX, finalX));
+                        let clampedY = Math.max(padTop, Math.min(contH.clientHeight - padBot, finalY));
+                        
+                        el.style.display = 'block'; el.style.left = clampedX + 'px'; el.style.top = clampedY + 'px';
+                    });
+                }
+            }
+            if(currentTab === 'cross' && controlsCross) { controlsCross.update(); rendererCross.render(sceneCross, cameraCross); }
+
+            if (currentTab === 'add') {
+                const cvs = canvases.add, ctx = ctxs.add, s = state.add; const w = cvs.width, h = cvs.height;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w/dpr, h/dpr);
+                
+                // Fixed Bottom Left Anchor for Vector Addition
+                ctx.translate(w/dpr * 0.2, h/dpr * 0.8); ctx.scale(state.global.zoom || 1, state.global.zoom || 1); ctx.translate(state.global.panX, state.global.panY);
+                
+                if(s.showGrid) drawGrid2D(ctx, w/dpr*2, h/dpr*2, state.global.panX, state.global.panY);
+
+                const cx = 0; const cy = 0;
+                const P = s.P; const Q = s.Q; const a = s.alpha * Math.PI / 180;
+                const scale = 15; const Px = P * scale, Py = 0; const Qx = Q * scale * Math.cos(a), Qy = Q * scale * Math.sin(a); const Rx = Px + Qx, Ry = Py + Qy; 
+
+                // Prominent Axes
+                ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.4)'; ctx.lineWidth = 2;
+                ctx.beginPath(); ctx.moveTo(cx - 50, cy); ctx.lineTo(w/dpr, cy); ctx.moveTo(cx, cy + 50); ctx.lineTo(cx, -h/dpr); ctx.stroke();
+                
+                const bgFill = isLight ? 'rgba(255,255,255,0.95)' : 'rgba(2,6,23,0.95)';
+                if(s.showValues) drawLabelWithBg(ctx, "0,0", cx - 20, cy + 25, isLight?'#fff':'#000', isLight?'#000':'#fff');
+
+                ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'; ctx.lineWidth = 2; ctx.setLineDash([5, 5]);
+                ctx.beginPath(); ctx.moveTo(cx + Px, cy - Py); ctx.lineTo(cx + Rx, cy - Ry); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(cx + Qx, cy - Qy); ctx.lineTo(cx + Rx, cy - Ry); ctx.stroke(); ctx.setLineDash([]);
+
+                drawArrow2D(ctx, cx, cy, cx + Px, cy - Py, s.colP, s.thick); 
+                drawArrow2D(ctx, cx, cy, cx + Qx, cy - Qy, s.colQ, s.thick); 
+                drawArrow2D(ctx, cx, cy, cx + Rx, cy - Ry, s.colR, s.thick + 1); 
+
+                if (s.showValues) {
+                    drawLabelWithBg(ctx, `P = ${P}`, cx + Px/2, cy - Py + 25, bgFill, s.colP);
+                    drawLabelWithBg(ctx, `Q = ${Q}`, cx + Qx/2 - 25, cy - Qy/2 - 15, bgFill, s.colQ);
+                    drawLabelWithBg(ctx, `R = ${Math.sqrt(P*P + Q*Q + 2*P*Q*Math.cos(a)).toFixed(1)}`, cx + Rx/2 + 10, cy - Ry/2, bgFill, s.colR);
+
+                    if(a > 0) {
+                        ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.5)' : 'rgba(255,255,255,0.5)';
+                        ctx.beginPath(); ctx.arc(cx, cy, 40, -a, 0); ctx.stroke();
+                        drawLabelWithBg(ctx, "α", cx + 55*Math.cos(-a/2), cy + 55*Math.sin(-a/2) + 5, bgFill, ctx.strokeStyle);
+                    }
+                }
+            }
+            else if (currentTab === 'river') {
+                const cvs = canvases.river, ctx = ctxs.river, s = state.river; const w = cvs.width/dpr, h = cvs.height/dpr;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+                ctx.translate(w/2, h/2); ctx.scale(state.global.zoom || 1, state.global.zoom || 1); ctx.translate(state.global.panX, state.global.panY);
+
+                if(s.showGrid) drawGrid2D(ctx, w*2, h*2, state.global.panX, state.global.panY);
+
+                const riverTop = -h * 0.3; const riverBot = h * 0.3; const riverH = riverBot - riverTop;
+                ctx.fillStyle = isLight ? '#bae6fd' : '#0f172a'; ctx.fillRect(-w*2, riverTop, w*4, riverH);
+                ctx.strokeStyle = isLight ? '#0ea5e9' : '#38bdf8'; ctx.lineWidth = 4;
+                ctx.beginPath(); ctx.moveTo(-w*2, riverTop); ctx.lineTo(w*4, riverTop); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(-w*2, riverBot); ctx.lineTo(w*4, riverBot); ctx.stroke();
+
+                const startX = 0; const riverScale = riverH / s.width; 
+
+                // River flow visual
+                ctx.strokeStyle = isLight ? 'rgba(14, 165, 233, 0.4)' : 'rgba(56, 189, 248, 0.3)'; ctx.lineWidth = 2;
+                let offset = (state.global.time * s.legs[0].u * 10) % 100;
+                for(let y = riverTop + 20; y < riverBot; y += 30) { ctx.beginPath(); for(let x = -w*2; x < w*2; x+=100) { ctx.moveTo(x + offset, y); ctx.lineTo(x + offset + 50, y); } ctx.stroke(); }
+
+                const scale = 25; ctx.strokeStyle = isLight ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.2)'; ctx.setLineDash([5,5]); ctx.beginPath(); ctx.moveTo(startX, riverBot+50); ctx.lineTo(startX, riverTop-50); ctx.stroke(); ctx.setLineDash([]);
+                
+                const bgFill = isLight ? 'rgba(255,255,255,0.95)' : 'rgba(2,6,23,0.95)';
+
+                // Draw Condition Vectors at each jump and stay
+                if (s.path && s.path.length > 0) {
+                    for(let i=0; i<s.path.length-1; i++) {
+                        let p = s.path[i]; let nextLeg = s.legs[i]; if (!nextLeg) continue;
+                        let px = startX + p.x * riverScale; let py = riverBot - p.y * riverScale;
+                        let aRad = nextLeg.alpha * Math.PI / 180; let vx = nextLeg.u + nextLeg.v * Math.cos(aRad); let vy = nextLeg.v * Math.sin(aRad); let thetaRad = Math.atan2(vy, vx);
+                        
+                        ctx.beginPath(); ctx.arc(px, py, 30, 0, -aRad, true); ctx.strokeStyle = s.colV; ctx.stroke();
+                        ctx.beginPath(); ctx.arc(px, py, 40, 0, -thetaRad, true); ctx.strokeStyle = s.colW; ctx.stroke();
+                        drawArrow2D(ctx, px, py, px + nextLeg.u*scale, py, s.colU, 3); 
+                        drawArrow2D(ctx, px, py, px + nextLeg.v*scale*Math.cos(aRad), py - nextLeg.v*scale*Math.sin(aRad), s.colV, 3); 
+                        drawArrow2D(ctx, px, py, px + vx*scale, py - vy*scale, s.colW, 4); 
+
+                        if(s.showValues) {
+                            drawLabelWithBg(ctx, `u=${nextLeg.u}`, px + nextLeg.u*scale/2, py + 20, bgFill, s.colU);
+                            drawLabelWithBg(ctx, `v=${nextLeg.v}`, px + nextLeg.v*scale*Math.cos(aRad)/2, py - nextLeg.v*scale*Math.sin(aRad)/2 - 10, bgFill, s.colV);
+                            drawLabelWithBg(ctx, `w=${Math.sqrt(vx*vx+vy*vy).toFixed(1)}`, px + vx*scale/2 + 10, py - vy*scale/2, bgFill, s.colW);
+                            drawLabelWithBg(ctx, "α", px + 35*Math.cos(-aRad/2), py + 35*Math.sin(-aRad/2), bgFill, s.colV);
+                            drawLabelWithBg(ctx, "θ", px + 45*Math.cos(-thetaRad/2), py + 45*Math.sin(-thetaRad/2), bgFill, s.colW);
+                        }
+                    }
+                } else {
+                    let leg = s.legs[0]; let aRad = leg.alpha * Math.PI / 180; let vx = leg.u + leg.v * Math.cos(aRad); let vy = leg.v * Math.sin(aRad); let thetaRad = Math.atan2(vy, vx);
+                    ctx.beginPath(); ctx.arc(startX, riverBot, 30, 0, -aRad, true); ctx.strokeStyle = s.colV; ctx.stroke();
+                    ctx.beginPath(); ctx.arc(startX, riverBot, 40, 0, -thetaRad, true); ctx.strokeStyle = s.colW; ctx.stroke();
+                    drawArrow2D(ctx, startX, riverBot, startX + leg.u*scale, riverBot, s.colU, 3); 
+                    drawArrow2D(ctx, startX, riverBot, startX + leg.v*scale*Math.cos(aRad), riverBot - leg.v*scale*Math.sin(aRad), s.colV, 3); 
+                    drawArrow2D(ctx, startX, riverBot, startX + vx*scale, riverBot - vy*scale, s.colW, 4); 
+                    
+                    if(s.showValues) {
+                        drawLabelWithBg(ctx, `u=${leg.u}`, startX + leg.u*scale/2, riverBot + 20, bgFill, s.colU);
+                        drawLabelWithBg(ctx, `v=${leg.v}`, startX + leg.v*scale*Math.cos(aRad)/2, riverBot - leg.v*scale*Math.sin(aRad)/2 - 10, bgFill, s.colV);
+                        drawLabelWithBg(ctx, `w=${Math.sqrt(vx*vx+vy*vy).toFixed(1)}`, startX + vx*scale/2 + 10, riverBot - vy*scale/2, bgFill, s.colW);
+                        drawLabelWithBg(ctx, "α", startX + 35*Math.cos(-aRad/2), riverBot + 35*Math.sin(-aRad/2), bgFill, s.colV);
+                        drawLabelWithBg(ctx, "θ", startX + 45*Math.cos(-thetaRad/2), riverBot + 45*Math.sin(-thetaRad/2), bgFill, s.colW);
+                    }
+                }
+
+                let visX = startX; let visY = riverBot; let currentTheta = s.legs[0].alpha * Math.PI/180;
+
+                if (s.boatActive && s.path.length > 0) {
+                    let totalVisTime = 5.0; s.visProgress += dt / totalVisTime;
+                    if (s.visProgress >= 1) { s.visProgress = 1; document.getElementById('river-start-btn').innerText = "🛑 Reset Simulation"; }
+                    
+                    let targetT = s.visProgress * s.path[s.path.length-1].t;
+                    
+                    for(let i=0; i<s.path.length-1; i++) {
+                        let p1 = s.path[i]; let p2 = s.path[i+1];
+                        if (targetT >= p1.t && targetT <= p2.t) {
+                            let fraction = (targetT - p1.t) / (p2.t - p1.t); let physX = p1.x + (p2.x - p1.x) * fraction; let physY = p1.y + (p2.y - p1.y) * fraction;
+                            visX = startX + physX * riverScale; visY = riverBot - physY * riverScale;
+                            currentTheta = p2.theta * Math.PI / 180; 
+                            
+                            let wEl = document.getElementById('river-hud-w'); if(wEl) wEl.innerText = p2.w.toFixed(2); 
+                            let aEl = document.getElementById('river-hud-alpha'); if(aEl) aEl.innerText = p2.alpha.toFixed(1);
+                            let tEl = document.getElementById('river-hud-theta'); if(tEl) tEl.innerText = p2.theta.toFixed(1); 
+                            let xEl = document.getElementById('river-hud-x'); if(xEl) xEl.innerText = physX.toFixed(1); 
+                            let tmEl = document.getElementById('river-hud-t'); if(tmEl) tmEl.innerText = targetT.toFixed(1);
+                            break;
+                        }
+                    }
+
+                    // Drawn Path lines
+                    ctx.strokeStyle = s.colW; ctx.lineWidth = 3; ctx.setLineDash([6,6]);
+                    ctx.beginPath(); ctx.moveTo(startX, riverBot);
+                    for(let i=1; i<s.path.length; i++) { if(targetT >= s.path[i].t) ctx.lineTo(startX + s.path[i].x * riverScale, riverBot - s.path[i].y * riverScale); }
+                    ctx.lineTo(visX, visY); ctx.stroke(); ctx.setLineDash([]);
+                }
+
+                // Draw Boat aligned with Resultant Path
+                if(visY <= riverBot || s.boatActive) {
+                    ctx.save(); ctx.translate(visX, visY); ctx.rotate(-currentTheta + Math.PI/2); 
+                    ctx.fillStyle = isLight ? '#0f172a' : '#f8fafc'; ctx.strokeStyle = s.colW; ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(0, -18); ctx.lineTo(8, -5); ctx.lineTo(8, 12); ctx.lineTo(-8, 12); ctx.lineTo(-8, -5); ctx.closePath();
+                    ctx.fill(); ctx.stroke();
+                    ctx.fillStyle = s.colW; ctx.beginPath(); ctx.arc(0,0,3,0,Math.PI*2); ctx.fill();
+                    ctx.restore();
+                }
+            }
+            else if (currentTab === 'calc') {
+                const cvs = canvases.calc, ctx = ctxs.calc, s = state.calc; const w = cvs.width/dpr, h = cvs.height/dpr;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, w, h);
+                ctx.translate(w/2, h/2); ctx.scale(state.global.zoom || 1, state.global.zoom || 1); ctx.translate(state.global.panX, state.global.panY);
+
+                if(s.showGrid) drawGrid2D(ctx, w*2, h*2, state.global.panX, state.global.panY);
+
+                const type = s.type; const str = s.strength;
+                let cx = calcMouse.x !== null ? calcMouse.x : 0; let cy = calcMouse.y !== null ? calcMouse.y : 0;
+                const spacing = 100 - parseInt(s.density);
+
+                for(let y = -h; y < h; y += spacing) {
+                    for(let x = -w; x < w; x += spacing) {
+                        let dx = x - cx; let dy = y - cy; let dist = Math.sqrt(dx*dx + dy*dy); if(dist < 5) continue;
+                        let vx = 0, vy = 0;
+                        if (type === 'source') { vx = dx / dist; vy = dy / dist; } else if (type === 'sink') { vx = -dx / dist; vy = -dy / dist; } else if (type === 'vortex') { vx = dy / dist; vy = -dx / dist; } else if (type === 'uniform') { vx = 1; vy = 0; }
+                        let vmag = 20 * str; 
+                        drawArrow2D(ctx, x, y, x + vx*vmag, y + vy*vmag, s.colArrow, 2);
+                    }
+                }
+
+                if(s.particles) {
+                    if(calcParticles.length < 150) { for(let i=0; i<10; i++) calcParticles.push({ x: (Math.random()-0.5)*w*2, y: (Math.random()-0.5)*h*2, life: Math.random()*150 }); }
+                    ctx.fillStyle = s.colPart;
+                    calcParticles.forEach(p => {
+                        let dx = p.x - cx; let dy = p.y - cy; let dist = Math.sqrt(dx*dx + dy*dy) || 1; let vx = 0, vy = 0;
+                        if (type === 'source') { vx = dx / dist; vy = dy / dist; } else if (type === 'sink') { vx = -dx / dist; vy = -dy / dist; } else if (type === 'vortex') { vx = dy / dist; vy = -dx / dist; } else if (type === 'uniform') { vx = 1; vy = 0; }
+                        p.x += vx * 4 * str; p.y += vy * 4 * str; p.life -= 1;
+                        if(p.life <= 0 || dist<15 && type==='sink') { 
+                            p.life = 150; 
+                            if(type === 'source') { p.x = cx + (Math.random()-0.5)*20; p.y = cy + (Math.random()-0.5)*20; } 
+                            else if(type === 'uniform') { p.x = -w/2; p.y = (Math.random()-0.5)*h*2; } 
+                            else { p.x = (Math.random()-0.5)*w*2; p.y = (Math.random()-0.5)*h*2; } 
+                        }
+                        ctx.beginPath(); ctx.arc(p.x, p.y, 3, 0, Math.PI*2); ctx.fill();
+                    });
+                }
+            }
+            requestAnimationFrame(animate);
+        }
+
+        try { init3D(); renderRiverLegs(); syncCalcUI(); applyGlobalTransforms(); syncUIValues(); } catch(e){ console.log("Init Error: ", e); }
+        setTimeout(() => { resizeCanvases(); renderAllMath(); }, 200);
+        requestAnimationFrame(animate);
+
+    </script>
+</body>
+</html>

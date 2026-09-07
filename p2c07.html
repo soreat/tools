@@ -1,0 +1,2813 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta
+            name="viewport"
+            content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+        />
+        <title>Physical Optics Toolkit - HSC Physics</title>
+        <style>
+            :root {
+                --bg-color: #020617;
+                --bg-grad-1: #0f172a;
+                --bg-grad-2: #020617;
+                --text-main: #f8fafc;
+                --text-muted: #94a3b8;
+                --accent-1: #38bdf8;
+                --accent-2: #ec4899;
+                --accent-3: #8b5cf6;
+                --accent-yellow: #eab308;
+                --glass-bg: rgba(255, 255, 255, 0.03);
+                --glass-border: rgba(255, 255, 255, 0.08);
+                --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+                --nav-height: 70px;
+                --grid-color: rgba(255, 255, 255, 0.1);
+            }
+
+            /* Light Mode Theme */
+            body.light-mode {
+                --bg-color: #f1f5f9;
+                --bg-grad-1: #e2e8f0;
+                --bg-grad-2: #f8fafc;
+                --text-main: #0f172a;
+                --text-muted: #475569;
+                --accent-1: #0284c7;
+                --accent-2: #db2777;
+                --accent-3: #7c3aed;
+                --accent-yellow: #ca8a04;
+                --glass-bg: rgba(255, 255, 255, 0.7);
+                --glass-border: rgba(0, 0, 0, 0.1);
+                --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
+                --grid-color: rgba(0, 0, 0, 0.1);
+            }
+
+            * {
+                box-sizing: border-box;
+                margin: 0;
+                padding: 0;
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
+            body {
+                font-family:
+                    system-ui,
+                    -apple-system,
+                    sans-serif;
+                background: radial-gradient(
+                    circle at 50% 0%,
+                    var(--bg-grad-1),
+                    var(--bg-grad-2)
+                );
+                color: var(--text-main);
+                min-height: 100vh;
+                overflow: hidden;
+                transition:
+                    background 0.3s,
+                    color 0.3s;
+            }
+
+            /* Glassmorphism Utilities */
+            .glass {
+                background: var(--glass-bg);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                border: 1px solid var(--glass-border);
+                border-radius: 12px;
+                box-shadow: var(--glass-shadow);
+                transition: all 0.3s;
+            }
+
+            /* Global Toolbar */
+            .global-toolbar {
+                position: absolute;
+                top: 15px;
+                left: 50%;
+                transform: translateX(-50%);
+                display: flex;
+                gap: 5px;
+                padding: 8px 15px;
+                z-index: 200;
+                border-radius: 30px;
+                white-space: nowrap;
+            }
+            .tool-btn {
+                background: transparent;
+                border: none;
+                color: var(--text-main);
+                font-size: 1.2rem;
+                cursor: pointer;
+                padding: 5px 10px;
+                border-radius: 20px;
+                transition: 0.2s;
+                display: flex;
+                align-items: center;
+                gap: 5px;
+                font-weight: 600;
+            }
+            .tool-btn:hover {
+                background: rgba(128, 128, 128, 0.2);
+            }
+            .tool-btn.active {
+                color: var(--accent-1);
+                background: rgba(56, 189, 248, 0.15);
+            }
+            .tool-icon {
+                font-size: 1.2rem;
+            }
+
+            /* Layout */
+            .app-container {
+                height: calc(100vh - var(--nav-height));
+                position: relative;
+                overflow: hidden;
+            }
+
+            .view {
+                display: none;
+                flex-direction: column;
+                width: 100%;
+                height: 100%;
+                animation: fadeIn 0.3s ease-out;
+                position: relative;
+            }
+            .view.active {
+                display: flex;
+            }
+
+            @keyframes fadeIn {
+                from {
+                    opacity: 0;
+                    transform: translateY(10px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateY(0);
+                }
+            }
+
+            /* Canvas Views */
+            .canvas-container {
+                flex: 1;
+                position: relative;
+                width: 100%;
+                overflow: hidden;
+            }
+            canvas {
+                display: block;
+                width: 100%;
+                height: 100%;
+                transform: scale(var(--canvas-zoom, 1));
+                transform-origin: center center;
+                transition: transform 0.3s ease;
+            }
+
+            /* Typography & Math */
+            .math-overlay {
+                position: absolute;
+                top: 70px;
+                left: 15px;
+                background: var(--glass-bg);
+                padding: 15px 20px;
+                border-radius: 12px;
+                border: 1px solid var(--glass-border);
+                pointer-events: none;
+                z-index: 10;
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                box-shadow: var(--glass-shadow);
+            }
+            .math-text {
+                font-family: "Times New Roman", serif;
+                font-size: 1.3rem;
+                font-style: italic;
+                letter-spacing: 1px;
+                line-height: 1.5;
+                color: var(--text-main);
+            }
+
+            .tooltip-trigger {
+                border-bottom: 1px dashed var(--accent-1);
+                cursor: help;
+                position: relative;
+                pointer-events: auto;
+            }
+            .tooltip-trigger:hover::after {
+                content: attr(data-tooltip);
+                position: absolute;
+                left: 0;
+                top: 100%;
+                margin-top: 5px;
+                background: rgba(0, 0, 0, 0.9);
+                color: #fff;
+                padding: 8px 12px;
+                border-radius: 6px;
+                font-size: 0.85rem;
+                white-space: nowrap;
+                font-family: system-ui;
+                font-style: normal;
+                z-index: 100;
+            }
+
+            /* Floating Controls */
+            .floating-controls {
+                position: absolute;
+                top: 70px;
+                right: 15px;
+                width: 320px;
+                z-index: 100;
+            }
+            .floating-controls details {
+                background: var(--glass-bg);
+                backdrop-filter: blur(16px);
+                -webkit-backdrop-filter: blur(16px);
+                border: 1px solid var(--glass-border);
+                border-radius: 12px;
+                box-shadow: var(--glass-shadow);
+            }
+            .floating-controls summary {
+                padding: 12px 15px;
+                font-weight: bold;
+                color: var(--accent-1);
+                cursor: pointer;
+                list-style: none;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            .floating-controls summary::-webkit-details-marker {
+                display: none;
+            }
+            .floating-controls summary .arrow {
+                transition: transform 0.3s;
+            }
+            .floating-controls details[open] summary .arrow {
+                transform: rotate(-180deg);
+            }
+            .floating-controls .details-content {
+                padding: 15px;
+                border-top: 1px solid var(--glass-border);
+                max-height: calc(100vh - 200px);
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 12px;
+            }
+
+            @media (max-width: 768px) {
+                .global-toolbar {
+                    width: 95%;
+                    max-width: 450px;
+                    justify-content: space-between;
+                    padding: 8px 5px;
+                }
+                .tool-btn {
+                    padding: 4px;
+                    font-size: 1rem;
+                }
+                .floating-controls {
+                    width: calc(100% - 30px);
+                    right: 15px;
+                    top: 70px;
+                }
+                .math-overlay {
+                    top: 120px;
+                    font-size: 0.9rem;
+                }
+            }
+
+            /* Inputs */
+            .control-group {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+            .control-row {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                gap: 10px;
+            }
+            label {
+                font-size: 0.85rem;
+                color: var(--text-muted);
+                font-weight: 500;
+            }
+            select {
+                background: rgba(0, 0, 0, 0.3);
+                border: 1px solid var(--glass-border);
+                color: var(--accent-1);
+                padding: 8px;
+                border-radius: 8px;
+                font-size: 0.9rem;
+                outline: none;
+            }
+            .light-mode select {
+                color: #0284c7;
+            }
+
+            input[type="range"] {
+                -webkit-appearance: none;
+                width: 100%;
+                background: transparent;
+                margin: 8px 0;
+            }
+            input[type="range"]::-webkit-slider-thumb {
+                -webkit-appearance: none;
+                height: 16px;
+                width: 16px;
+                border-radius: 50%;
+                background: var(--accent-1);
+                cursor: pointer;
+                margin-top: -6px;
+                box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+            }
+            input[type="range"]::-webkit-slider-runnable-track {
+                width: 100%;
+                height: 4px;
+                cursor: pointer;
+                background: var(--glass-border);
+                border-radius: 2px;
+            }
+
+            button.action-btn {
+                background: rgba(56, 189, 248, 0.2);
+                border: 1px solid var(--accent-1);
+                color: #fff;
+                padding: 8px 12px;
+                border-radius: 8px;
+                cursor: pointer;
+                transition: 0.2s;
+                font-weight: 600;
+            }
+            button.action-btn:active {
+                transform: scale(0.95);
+            }
+            .light-mode button.action-btn {
+                color: #0f172a;
+            }
+
+            .color-preview {
+                width: 100%;
+                height: 6px;
+                border-radius: 3px;
+                margin-top: -5px;
+                background: linear-gradient(
+                    to right,
+                    violet,
+                    blue,
+                    cyan,
+                    green,
+                    yellow,
+                    orange,
+                    red
+                );
+            }
+
+            /* Bottom Navigation */
+            .bottom-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                width: 100%;
+                height: var(--nav-height);
+                background: var(--glass-bg);
+                backdrop-filter: blur(20px);
+                border-top: 1px solid var(--glass-border);
+                display: flex;
+                justify-content: flex-start;
+                align-items: center;
+                padding: 0 10px;
+                z-index: 100;
+                overflow-x: auto;
+                scrollbar-width: none; /* Firefox */
+            }
+            .bottom-nav::-webkit-scrollbar {
+                display: none; /* Safari/Chrome */
+            }
+            .nav-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                color: var(--text-muted);
+                cursor: pointer;
+                padding: 5px 10px;
+                transition: color 0.3s;
+                flex: 1;
+                min-width: 75px;
+            }
+            .nav-item svg {
+                width: 22px;
+                height: 22px;
+                margin-bottom: 4px;
+                fill: currentColor;
+            }
+            .nav-item.active {
+                color: var(--accent-1);
+            }
+            .nav-text {
+                font-size: 0.65rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 0.5px;
+                text-align: center;
+            }
+
+            /* Output Values */
+            .val-display {
+                color: var(--text-main);
+                font-weight: bold;
+                font-family: monospace;
+                font-size: 0.95rem;
+            }
+
+            /* Interactive Data Box */
+            .data-box {
+                background: rgba(0, 0, 0, 0.1);
+                border-radius: 8px;
+                padding: 10px;
+                font-size: 0.85rem;
+                color: var(--text-main);
+                border: 1px solid var(--glass-border);
+                display: flex;
+                flex-direction: column;
+                gap: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <!-- GLOBAL TOOLBAR -->
+        <div class="global-toolbar glass">
+            <button
+                class="tool-btn"
+                onclick="toggleTheme()"
+                title="Toggle Light/Projector Mode"
+            >
+                <span class="tool-icon">🌓</span>
+                <span style="font-size: 0.8rem">Theme</span>
+            </button>
+            <button
+                class="tool-btn"
+                id="btn-slowmo"
+                onclick="toggleSlowMo()"
+                title="Toggle Slow Motion"
+            >
+                <span class="tool-icon">⏱️</span>
+                <span style="font-size: 0.8rem">Slow-Mo</span>
+            </button>
+            <button
+                class="tool-btn"
+                id="btn-zoom"
+                onclick="toggleGlobalZoom()"
+                title="Toggle Canvas Zoom"
+            >
+                <span class="tool-icon">🔍</span>
+                <span style="font-size: 0.8rem">1.0x</span>
+            </button>
+            <button
+                class="tool-btn"
+                onclick="takeSnapshot()"
+                title="Save Canvas as Image"
+            >
+                <span class="tool-icon">📸</span>
+                <span style="font-size: 0.8rem">Snapshot</span>
+            </button>
+        </div>
+
+        <div class="app-container">
+            <!-- MODE 0: HOME (EM WAVE) -->
+            <main id="view-home" class="view active">
+                <div class="canvas-container">
+                    <canvas id="canvas-home"></canvas>
+                    <div class="math-overlay">
+                        <div class="math-text" style="color: var(--accent-1)">
+                            E = E₀ sin(ωt - kx)
+                        </div>
+                        <div class="math-text" style="color: var(--accent-2)">
+                            B = B₀ sin(ωt - kx)
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.85rem;
+                                margin-top: 8px;
+                                color: var(--text-muted);
+                                border-top: 1px solid var(--glass-border);
+                                padding-top: 5px;
+                            "
+                        >
+                            Electromagnetic Wave<br />
+                            Transverse, mutually perpendicular fields
+                            propagating through space.
+                        </div>
+                    </div>
+
+                    <div class="floating-controls">
+                        <details open>
+                            <summary>
+                                ⚙️ Controls (EM Wave)
+                                <span class="arrow">▼</span>
+                            </summary>
+                            <div class="details-content">
+                                <button
+                                    class="action-btn"
+                                    onclick="resetEMWave()"
+                                >
+                                    ⟲ Restart Wave Propagation
+                                </button>
+                                <div
+                                    class="control-group"
+                                    style="margin-top: 5px"
+                                >
+                                    <label
+                                        >Amplitude:
+                                        <span
+                                            id="home-amp-val"
+                                            class="val-display"
+                                            >1.0</span
+                                        >x</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="home-amp"
+                                        min="0.1"
+                                        max="2.0"
+                                        step="0.1"
+                                        value="1.0"
+                                        oninput="
+                                            updateState(
+                                                'home',
+                                                'amp',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Wavelength (<span
+                                            class="tooltip-trigger"
+                                            data-tooltip="Lambda (λ)"
+                                            >λ</span
+                                        >):
+                                        <span
+                                            id="home-lambda-val"
+                                            class="val-display"
+                                            >500</span
+                                        >
+                                        nm</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="home-lambda"
+                                        min="380"
+                                        max="750"
+                                        value="500"
+                                        oninput="
+                                            updateState(
+                                                'home',
+                                                'lambda',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                    <div class="color-preview"></div>
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Wave Frequency (ω):
+                                        <span
+                                            id="home-speed-val"
+                                            class="val-display"
+                                            >2.0</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="home-speed"
+                                        min="0.5"
+                                        max="5.0"
+                                        step="0.5"
+                                        value="2.0"
+                                        oninput="
+                                            updateState(
+                                                'home',
+                                                'speed',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >3D View Angle (θ):
+                                        <span
+                                            id="home-angle-val"
+                                            class="val-display"
+                                            >45</span
+                                        >°</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="home-angle"
+                                        min="15"
+                                        max="85"
+                                        step="1"
+                                        value="45"
+                                        oninput="
+                                            updateState(
+                                                'home',
+                                                'angle',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                    <span
+                                        style="
+                                            font-size: 0.7rem;
+                                            color: var(--text-muted);
+                                        "
+                                        >Rotate the Magnetic Field
+                                        projection</span
+                                    >
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </main>
+
+            <!-- MODE 0.5: HUYGENS PRINCIPLE -->
+            <main id="view-huygens" class="view">
+                <div class="canvas-container">
+                    <canvas id="canvas-huygens"></canvas>
+                    <div class="math-overlay">
+                        <div class="math-text">Huygens' Principle</div>
+                        <div
+                            style="
+                                font-size: 0.85rem;
+                                margin-top: 8px;
+                                color: var(--text-muted);
+                                border-top: 1px solid var(--glass-border);
+                                padding-top: 5px;
+                                max-width: 250px;
+                            "
+                        >
+                            Every point on a primary wavefront acts as a source
+                            of secondary spherical wavelets. The new wavefront
+                            is the forward tangent envelope of these wavelets.
+                        </div>
+                    </div>
+
+                    <div class="floating-controls">
+                        <details open>
+                            <summary>
+                                ⚙️ Controls (Huygens)
+                                <span class="arrow">▼</span>
+                            </summary>
+                            <div class="details-content">
+                                <div class="control-group">
+                                    <label>Interaction Mode</label>
+                                    <select
+                                        id="huygens-mode"
+                                        onchange="
+                                            updateState(
+                                                'huygens',
+                                                'mode',
+                                                this.value,
+                                            );
+                                            syncHuygensUI();
+                                        "
+                                    >
+                                        <option value="manual">
+                                            Manual (Step-by-Step)
+                                        </option>
+                                        <option value="anim">
+                                            Animated (Continuous)
+                                        </option>
+                                    </select>
+                                </div>
+                                <div
+                                    class="control-group"
+                                    id="huygens-radius-container"
+                                >
+                                    <label
+                                        >Time / Radius (vt):
+                                        <span
+                                            id="huygens-radius-val"
+                                            class="val-display"
+                                            >60</span
+                                        >
+                                        px</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="huygens-radius"
+                                        min="0"
+                                        max="150"
+                                        step="1"
+                                        value="60"
+                                        oninput="
+                                            updateState(
+                                                'huygens',
+                                                'radius',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                    <span
+                                        style="
+                                            font-size: 0.7rem;
+                                            color: var(--text-muted);
+                                        "
+                                        >Expand the secondary wavelets
+                                        manually</span
+                                    >
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Secondary Sources (N):
+                                        <span
+                                            id="huygens-sources-val"
+                                            class="val-display"
+                                            >6</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="huygens-sources"
+                                        min="2"
+                                        max="15"
+                                        step="1"
+                                        value="6"
+                                        oninput="
+                                            updateState(
+                                                'huygens',
+                                                'sources',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Wavelength (Color):
+                                        <span
+                                            id="huygens-lambda-val"
+                                            class="val-display"
+                                            >500</span
+                                        >
+                                        nm</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="huygens-lambda"
+                                        min="380"
+                                        max="750"
+                                        value="500"
+                                        oninput="
+                                            updateState(
+                                                'huygens',
+                                                'lambda',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                    <div class="color-preview"></div>
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </main>
+
+            <!-- MODE 1: YOUNG'S DOUBLE SLIT (INTERFERENCE) -->
+            <main id="view-ydse" class="view">
+                <div class="canvas-container">
+                    <canvas id="canvas-ydse"></canvas>
+                    <div class="math-overlay">
+                        <div class="math-text">
+                            I = 4I₀ cos²(<span
+                                class="tooltip-trigger"
+                                data-tooltip="Phase Difference = (2π/λ) * Path Difference"
+                                >πdy / λD</span
+                            >)
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.85rem;
+                                margin-top: 8px;
+                                color: var(--text-muted);
+                                border-top: 1px solid var(--glass-border);
+                                padding-top: 5px;
+                            "
+                        >
+                            Fringe Width (β):
+                            <strong
+                                id="ydse-beta"
+                                style="color: var(--accent-1)"
+                                >5.00 mm</strong
+                            ><br />
+                            Path Diff (Δx):
+                            <strong style="color: var(--accent-2)"
+                                >d sinθ ≈ dy/D</strong
+                            >
+                        </div>
+                    </div>
+
+                    <div class="floating-controls">
+                        <details open>
+                            <summary>
+                                ⚙️ Controls (YDSE) <span class="arrow">▼</span>
+                            </summary>
+                            <div class="details-content">
+                                <div class="control-group">
+                                    <label
+                                        >Wavelength (<span
+                                            class="tooltip-trigger"
+                                            data-tooltip="Lambda (λ): Color of light"
+                                            >λ</span
+                                        >):
+                                        <span
+                                            id="ydse-lambda-val"
+                                            class="val-display"
+                                            >500</span
+                                        >
+                                        nm</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="ydse-lambda"
+                                        min="380"
+                                        max="750"
+                                        value="500"
+                                        oninput="
+                                            updateState(
+                                                'ydse',
+                                                'lambda',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                    <div class="color-preview"></div>
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Slit Separation (<span
+                                            class="tooltip-trigger"
+                                            data-tooltip="d: Distance between the two slits"
+                                            >d</span
+                                        >):
+                                        <span
+                                            id="ydse-d-val"
+                                            class="val-display"
+                                            >0.1</span
+                                        >
+                                        mm</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="ydse-d"
+                                        min="0.05"
+                                        max="0.5"
+                                        step="0.01"
+                                        value="0.1"
+                                        oninput="
+                                            updateState('ydse', 'd', this.value)
+                                        "
+                                    />
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Screen Distance (<span
+                                            class="tooltip-trigger"
+                                            data-tooltip="D: Distance from slits to screen"
+                                            >D</span
+                                        >):
+                                        <span
+                                            id="ydse-D-val"
+                                            class="val-display"
+                                            >1.0</span
+                                        >
+                                        m</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="ydse-D"
+                                        min="0.5"
+                                        max="3.0"
+                                        step="0.1"
+                                        value="1.0"
+                                        oninput="
+                                            updateState('ydse', 'D', this.value)
+                                        "
+                                    />
+                                </div>
+                                <hr
+                                    style="
+                                        border-color: var(--glass-border);
+                                        margin: 5px 0;
+                                    "
+                                />
+                                <div class="control-group">
+                                    <label
+                                        >Zoom (Scale):
+                                        <span
+                                            id="ydse-zoom-val"
+                                            class="val-display"
+                                            >1.0</span
+                                        >x</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="ydse-zoom"
+                                        min="0.5"
+                                        max="3.0"
+                                        step="0.1"
+                                        value="1.0"
+                                        oninput="
+                                            updateState(
+                                                'ydse',
+                                                'zoom',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Graph Amplitude:
+                                        <span
+                                            id="ydse-graphScale-val"
+                                            class="val-display"
+                                            >1.0</span
+                                        >x</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="ydse-graphScale"
+                                        min="0.1"
+                                        max="3.0"
+                                        step="0.1"
+                                        value="1.0"
+                                        oninput="
+                                            updateState(
+                                                'ydse',
+                                                'graphScale',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div
+                                    class="control-row"
+                                    style="margin-top: 5px"
+                                >
+                                    <label
+                                        style="
+                                            color: var(--text-main);
+                                            font-weight: bold;
+                                        "
+                                        >Top-Down 2D Animation</label
+                                    >
+                                    <input
+                                        type="checkbox"
+                                        id="ydse-show2D"
+                                        onchange="
+                                            updateState(
+                                                'ydse',
+                                                'show2D',
+                                                this.checked,
+                                            )
+                                        "
+                                    />
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </main>
+
+            <!-- MODE 2: SINGLE SLIT DIFFRACTION -->
+            <main id="view-single" class="view">
+                <div class="canvas-container">
+                    <canvas id="canvas-single"></canvas>
+                    <div class="math-overlay">
+                        <div class="math-text">I = I₀ [ sin(α) / α ]²</div>
+                        <div
+                            class="math-text"
+                            style="font-size: 1rem; color: var(--accent-yellow)"
+                        >
+                            where α =
+                            <span
+                                class="tooltip-trigger"
+                                data-tooltip="Phase parameter for single slit"
+                                >πay / λD</span
+                            >
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.85rem;
+                                margin-top: 8px;
+                                color: var(--text-muted);
+                                border-top: 1px solid var(--glass-border);
+                                padding-top: 5px;
+                            "
+                        >
+                            Central Max Width:
+                            <strong
+                                id="single-width"
+                                style="color: var(--accent-1)"
+                                >20.0 mm</strong
+                            ><br />
+                            Minima Condition:
+                            <strong style="color: var(--accent-2)"
+                                >a sinθ = nλ</strong
+                            >
+                        </div>
+                    </div>
+
+                    <div class="floating-controls">
+                        <details open>
+                            <summary>
+                                ⚙️ Controls (Single Slit)
+                                <span class="arrow">▼</span>
+                            </summary>
+                            <div class="details-content">
+                                <div class="control-group">
+                                    <label
+                                        >Wavelength (<span
+                                            class="tooltip-trigger"
+                                            data-tooltip="Lambda (λ)"
+                                            >λ</span
+                                        >):
+                                        <span
+                                            id="single-lambda-val"
+                                            class="val-display"
+                                            >500</span
+                                        >
+                                        nm</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="single-lambda"
+                                        min="380"
+                                        max="750"
+                                        value="500"
+                                        oninput="
+                                            updateState(
+                                                'single',
+                                                'lambda',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                    <div class="color-preview"></div>
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Slit Width (<span
+                                            class="tooltip-trigger"
+                                            data-tooltip="a: Width of the single opening"
+                                            >a</span
+                                        >):
+                                        <span
+                                            id="single-a-val"
+                                            class="val-display"
+                                            >0.05</span
+                                        >
+                                        mm</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="single-a"
+                                        min="0.01"
+                                        max="0.2"
+                                        step="0.01"
+                                        value="0.05"
+                                        oninput="
+                                            updateState(
+                                                'single',
+                                                'a',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Screen Distance (D):
+                                        <span
+                                            id="single-D-val"
+                                            class="val-display"
+                                            >1.0</span
+                                        >
+                                        m</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="single-D"
+                                        min="0.5"
+                                        max="3.0"
+                                        step="0.1"
+                                        value="1.0"
+                                        oninput="
+                                            updateState(
+                                                'single',
+                                                'D',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <hr
+                                    style="
+                                        border-color: var(--glass-border);
+                                        margin: 5px 0;
+                                    "
+                                />
+                                <div class="control-group">
+                                    <label
+                                        >Graph Multiplier (Vis):
+                                        <span
+                                            id="single-gain-val"
+                                            class="val-display"
+                                            >1</span
+                                        >x</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="single-gain"
+                                        min="1"
+                                        max="20"
+                                        step="1"
+                                        value="1"
+                                        oninput="
+                                            updateState(
+                                                'single',
+                                                'gain',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                    <span
+                                        style="
+                                            font-size: 0.7rem;
+                                            color: var(--text-muted);
+                                        "
+                                        >Boost to see faint secondary
+                                        maxima</span
+                                    >
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Graph Amplitude:
+                                        <span
+                                            id="single-graphScale-val"
+                                            class="val-display"
+                                            >1.0</span
+                                        >x</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="single-graphScale"
+                                        min="0.1"
+                                        max="3.0"
+                                        step="0.1"
+                                        value="1.0"
+                                        oninput="
+                                            updateState(
+                                                'single',
+                                                'graphScale',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div
+                                    class="control-row"
+                                    style="margin-top: 5px"
+                                >
+                                    <label
+                                        style="
+                                            color: var(--text-main);
+                                            font-weight: bold;
+                                        "
+                                        >Top-Down 2D Animation</label
+                                    >
+                                    <input
+                                        type="checkbox"
+                                        id="single-show2D"
+                                        onchange="
+                                            updateState(
+                                                'single',
+                                                'show2D',
+                                                this.checked,
+                                            )
+                                        "
+                                    />
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </main>
+
+            <!-- MODE 3: DIFFRACTION GRATING -->
+            <main id="view-grating" class="view">
+                <div class="canvas-container">
+                    <canvas id="canvas-grating"></canvas>
+                    <div class="math-overlay">
+                        <div class="math-text">d sinθ = nλ</div>
+                        <div
+                            class="math-text"
+                            style="font-size: 1rem; color: var(--accent-1)"
+                        >
+                            Grating Constant d = 1 / N
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.85rem;
+                                margin-top: 8px;
+                                color: var(--text-muted);
+                                border-top: 1px solid var(--glass-border);
+                                padding-top: 5px;
+                            "
+                        >
+                            Max Observable Order (n_max):
+                            <strong
+                                id="grating-nmax"
+                                style="color: var(--accent-2)"
+                                >4</strong
+                            ><br />
+                            Lines/m (N):
+                            <strong id="grating-Nm" style="color: #fff"
+                                >500,000</strong
+                            >
+                        </div>
+                    </div>
+
+                    <div class="floating-controls">
+                        <details open>
+                            <summary>
+                                ⚙️ Controls (Grating)
+                                <span class="arrow">▼</span>
+                            </summary>
+                            <div class="details-content">
+                                <div class="control-group">
+                                    <label
+                                        >Wavelength (λ):
+                                        <span
+                                            id="grating-lambda-val"
+                                            class="val-display"
+                                            >500</span
+                                        >
+                                        nm</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="grating-lambda"
+                                        min="380"
+                                        max="750"
+                                        value="500"
+                                        oninput="
+                                            updateState(
+                                                'grating',
+                                                'lambda',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                    <div class="color-preview"></div>
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Grating Lines (N):
+                                        <span
+                                            id="grating-N-val"
+                                            class="val-display"
+                                            >500</span
+                                        >
+                                        lines/mm</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="grating-N"
+                                        min="100"
+                                        max="1200"
+                                        step="50"
+                                        value="500"
+                                        oninput="
+                                            updateState(
+                                                'grating',
+                                                'N',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Screen Distance (D):
+                                        <span
+                                            id="grating-D-val"
+                                            class="val-display"
+                                            >1.0</span
+                                        >
+                                        m</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="grating-D"
+                                        min="0.1"
+                                        max="2.0"
+                                        step="0.1"
+                                        value="1.0"
+                                        oninput="
+                                            updateState(
+                                                'grating',
+                                                'D',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div class="control-group">
+                                    <label
+                                        >Graph Amplitude:
+                                        <span
+                                            id="grating-graphScale-val"
+                                            class="val-display"
+                                            >1.0</span
+                                        >x</label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="grating-graphScale"
+                                        min="0.1"
+                                        max="3.0"
+                                        step="0.1"
+                                        value="1.0"
+                                        oninput="
+                                            updateState(
+                                                'grating',
+                                                'graphScale',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div
+                                    class="control-row"
+                                    style="margin-top: 5px"
+                                >
+                                    <label
+                                        style="
+                                            color: var(--text-main);
+                                            font-weight: bold;
+                                        "
+                                        >Top-Down 2D Animation</label
+                                    >
+                                    <input
+                                        type="checkbox"
+                                        id="grating-show2D"
+                                        onchange="
+                                            updateState(
+                                                'grating',
+                                                'show2D',
+                                                this.checked,
+                                            )
+                                        "
+                                    />
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </main>
+
+            <!-- MODE 4: POLARIZATION (MALUS'S LAW) -->
+            <main id="view-polar" class="view">
+                <div class="canvas-container">
+                    <canvas id="canvas-polar"></canvas>
+                    <div class="math-overlay">
+                        <div class="math-text">I = I₀ cos²θ</div>
+                        <div
+                            class="math-text"
+                            style="font-size: 1rem; color: var(--accent-1)"
+                        >
+                            E = E₀ cosθ
+                        </div>
+                        <div
+                            style="
+                                font-size: 0.85rem;
+                                margin-top: 8px;
+                                color: var(--text-muted);
+                                border-top: 1px solid var(--glass-border);
+                                padding-top: 5px;
+                            "
+                        >
+                            Initial Intensity (I₀): <strong>100%</strong> (After
+                            P1)<br />
+                            Final Intensity (I):
+                            <strong id="polar-I" style="color: var(--accent-2)"
+                                >50.0%</strong
+                            >
+                        </div>
+                    </div>
+
+                    <div class="floating-controls">
+                        <details open>
+                            <summary>
+                                ⚙️ Controls (Malus's Law)
+                                <span class="arrow">▼</span>
+                            </summary>
+                            <div class="details-content">
+                                <div
+                                    class="data-box"
+                                    style="text-align: center"
+                                >
+                                    <div
+                                        style="
+                                            font-size: 2rem;
+                                            color: var(--accent-yellow);
+                                            font-weight: bold;
+                                        "
+                                    >
+                                        <span id="polar-theta-disp">45</span>°
+                                    </div>
+                                    Analyzer Angle (θ)
+                                </div>
+                                <div
+                                    class="control-group"
+                                    style="margin-top: 10px"
+                                >
+                                    <input
+                                        type="range"
+                                        id="polar-theta"
+                                        min="0"
+                                        max="180"
+                                        step="1"
+                                        value="45"
+                                        oninput="
+                                            updateState(
+                                                'polar',
+                                                'theta',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                    <div
+                                        style="
+                                            display: flex;
+                                            justify-content: space-between;
+                                            font-size: 0.75rem;
+                                            color: var(--text-muted);
+                                        "
+                                    >
+                                        <span>0° (Parallel)</span
+                                        ><span>90° (Crossed)</span
+                                        ><span>180°</span>
+                                    </div>
+                                </div>
+                                <hr
+                                    style="
+                                        border-color: var(--glass-border);
+                                        margin: 5px 0;
+                                    "
+                                />
+                                <div class="control-group">
+                                    <label
+                                        >Wave Speed (Vis):
+                                        <span
+                                            id="polar-speed-val"
+                                            class="val-display"
+                                            >2.0</span
+                                        ></label
+                                    >
+                                    <input
+                                        type="range"
+                                        id="polar-speed"
+                                        min="0.5"
+                                        max="5.0"
+                                        step="0.5"
+                                        value="2.0"
+                                        oninput="
+                                            updateState(
+                                                'polar',
+                                                'speed',
+                                                this.value,
+                                            )
+                                        "
+                                    />
+                                </div>
+                                <div
+                                    class="control-row"
+                                    style="margin-top: 5px"
+                                >
+                                    <label
+                                        style="
+                                            color: var(--text-main);
+                                            font-weight: bold;
+                                        "
+                                        >Unpolarized Mode V2</label
+                                    >
+                                    <input
+                                        type="checkbox"
+                                        id="polar-v2"
+                                        onchange="
+                                            updateState(
+                                                'polar',
+                                                'v2',
+                                                this.checked,
+                                            )
+                                        "
+                                    />
+                                </div>
+                            </div>
+                        </details>
+                    </div>
+                </div>
+            </main>
+        </div>
+
+        <!-- BOTTOM NAVIGATION -->
+        <nav class="bottom-nav">
+            <div class="nav-item active" onclick="switchTab('home')">
+                <svg
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    fill="none"
+                >
+                    <path
+                        d="M2 12 Q 7 2, 12 12 T 22 12 M2 12 Q 7 22, 12 12 T 22 12 M2 12 L 22 12"
+                    />
+                </svg>
+                <span class="nav-text">EM Wave</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('huygens')">
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                >
+                    <circle cx="12" cy="12" r="8" />
+                    <circle cx="12" cy="12" r="4" />
+                    <circle cx="12" cy="12" r="12" />
+                </svg>
+                <span class="nav-text">Huygens</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('ydse')">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M4 6h16v2H4zm0 5h16v2H4zm0 5h16v2H4z"
+                        stroke="currentColor"
+                        stroke-width="1"
+                        fill="none"
+                    />
+                    <circle cx="12" cy="12" r="3" fill="currentColor" />
+                </svg>
+                <span class="nav-text">YDSE</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('single')">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M12 2L2 22h20L12 2z"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        fill="none"
+                    />
+                </svg>
+                <span class="nav-text">Single Slit</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('grating')">
+                <svg viewBox="0 0 24 24">
+                    <path
+                        d="M3 4h2v16H3V4zm4 0h2v16H7V4zm4 0h2v16h-2V4zm4 0h2v16h-2V4zm4 0h2v16h-2V4z"
+                        fill="currentColor"
+                    />
+                </svg>
+                <span class="nav-text">Grating</span>
+            </div>
+            <div class="nav-item" onclick="switchTab('polar')">
+                <svg viewBox="0 0 24 24">
+                    <circle
+                        cx="12"
+                        cy="12"
+                        r="9"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        fill="none"
+                    />
+                    <line
+                        x1="12"
+                        y1="3"
+                        x2="12"
+                        y2="21"
+                        stroke="currentColor"
+                        stroke-width="2"
+                    />
+                    <line
+                        x1="3"
+                        y1="12"
+                        x2="21"
+                        y2="12"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-dasharray="2 2"
+                    />
+                </svg>
+                <span class="nav-text">Polarizer</span>
+            </div>
+        </nav>
+
+        <script>
+            // --- GLOBAL APP STATE ---
+            const state = {
+                global: {
+                    isLightMode: false,
+                    timeScale: 1.0,
+                    time: 0,
+                    globalZoom: 1.0,
+                },
+                home: {
+                    lambda: 500,
+                    speed: 2.0,
+                    angle: 45,
+                    timeEnv: 0,
+                    amp: 1.0,
+                }, // timeEnv tracks the wave creation boundary
+                huygens: {
+                    sources: 6,
+                    radius: 60,
+                    lambda: 500,
+                    mode: "manual",
+                },
+                ydse: {
+                    lambda: 500,
+                    d: 0.1,
+                    D: 1.0,
+                    zoom: 1.0,
+                    graphScale: 1.0,
+                    show2D: false,
+                },
+                single: {
+                    lambda: 500,
+                    a: 0.05,
+                    D: 1.0,
+                    gain: 1,
+                    graphScale: 1.0,
+                    show2D: false,
+                },
+                grating: {
+                    lambda: 500,
+                    N: 500,
+                    D: 1.0,
+                    graphScale: 1.0,
+                    show2D: false,
+                },
+                polar: { theta: 45, speed: 2.0, v2: false },
+            };
+
+            // --- UTILITY FUNCTIONS ---
+            function lambdaToRGB(lambda) {
+                let R, G, B;
+                if (lambda >= 380 && lambda < 440) {
+                    R = -(lambda - 440) / (440 - 380);
+                    G = 0.0;
+                    B = 1.0;
+                } else if (lambda >= 440 && lambda < 490) {
+                    R = 0.0;
+                    G = (lambda - 440) / (490 - 440);
+                    B = 1.0;
+                } else if (lambda >= 490 && lambda < 510) {
+                    R = 0.0;
+                    G = 1.0;
+                    B = -(lambda - 510) / (510 - 490);
+                } else if (lambda >= 510 && lambda < 580) {
+                    R = (lambda - 510) / (580 - 510);
+                    G = 1.0;
+                    B = 0.0;
+                } else if (lambda >= 580 && lambda < 645) {
+                    R = 1.0;
+                    G = -(lambda - 645) / (645 - 580);
+                    B = 0.0;
+                } else if (lambda >= 645 && lambda <= 780) {
+                    R = 1.0;
+                    G = 0.0;
+                    B = 0.0;
+                } else {
+                    R = 0.0;
+                    G = 0.0;
+                    B = 0.0;
+                }
+
+                let factor = 1.0;
+                if (lambda >= 380 && lambda < 420)
+                    factor = 0.3 + (0.7 * (lambda - 380)) / (420 - 380);
+                else if (lambda >= 700 && lambda <= 780)
+                    factor = 0.3 + (0.7 * (780 - lambda)) / (780 - 700);
+                return `rgb(${Math.round(R * factor * 255)}, ${Math.round(G * factor * 255)}, ${Math.round(B * factor * 255)})`;
+            }
+
+            function drawArrow(ctx, fromX, fromY, toX, toY, color) {
+                const dx = toX - fromX;
+                const dy = toY - fromY;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                if (len < 3) return; // Too small to draw arrow
+
+                ctx.strokeStyle = color;
+                ctx.fillStyle = color;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(fromX, fromY);
+                ctx.lineTo(toX, toY);
+                ctx.stroke();
+
+                const angle = Math.atan2(dy, dx);
+                const headlen = Math.min(8, len * 0.3); // Responsive arrowhead
+                ctx.beginPath();
+                ctx.moveTo(toX, toY);
+                ctx.lineTo(
+                    toX - headlen * Math.cos(angle - Math.PI / 6),
+                    toY - headlen * Math.sin(angle - Math.PI / 6),
+                );
+                ctx.lineTo(
+                    toX - headlen * Math.cos(angle + Math.PI / 6),
+                    toY - headlen * Math.sin(angle + Math.PI / 6),
+                );
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // State update bound to UI
+            function updateState(mode, key, val) {
+                if (typeof val !== "boolean" && key !== "mode")
+                    val = parseFloat(val);
+                state[mode][key] = val;
+
+                const lbl = document.getElementById(`${mode}-${key}-val`);
+                if (lbl) lbl.innerText = val;
+
+                if (mode === "ydse") {
+                    let beta_mm =
+                        ((state.ydse.lambda * 1e-9 * state.ydse.D) /
+                            (state.ydse.d * 1e-3)) *
+                        1000;
+                    document.getElementById("ydse-beta").innerText =
+                        beta_mm.toFixed(3) + " mm";
+                }
+                if (mode === "single") {
+                    let width_mm =
+                        ((2 * (state.single.lambda * 1e-9) * state.single.D) /
+                            (state.single.a * 1e-3)) *
+                        1000;
+                    document.getElementById("single-width").innerText =
+                        width_mm.toFixed(2) + " mm";
+                }
+                if (mode === "grating") {
+                    let d_meters = 1 / (state.grating.N * 1000);
+                    let n_max = Math.floor(
+                        d_meters / (state.grating.lambda * 1e-9),
+                    );
+                    document.getElementById("grating-nmax").innerText = n_max;
+                    document.getElementById("grating-Nm").innerText = (
+                        state.grating.N * 1000
+                    ).toLocaleString();
+                }
+                if (mode === "polar" && key === "theta") {
+                    document.getElementById("polar-theta-disp").innerText = val;
+                    let I = 100 * Math.pow(Math.cos((val * Math.PI) / 180), 2);
+                    document.getElementById("polar-I").innerText =
+                        I.toFixed(1) + "%";
+                }
+            }
+
+            function resetEMWave() {
+                state.home.timeEnv = 0;
+                state.global.time = 0; // Sync the phase 0 to the start of the restart
+            }
+
+            function syncHuygensUI() {
+                document.getElementById(
+                    "huygens-radius-container",
+                ).style.display =
+                    state.huygens.mode === "manual" ? "flex" : "none";
+            }
+
+            // --- GLOBAL UI CONTROLS ---
+            function toggleTheme() {
+                state.global.isLightMode = !state.global.isLightMode;
+                document.body.classList.toggle(
+                    "light-mode",
+                    state.global.isLightMode,
+                );
+            }
+
+            function toggleSlowMo() {
+                state.global.timeScale =
+                    state.global.timeScale === 1.0 ? 0.2 : 1.0;
+                const btn = document.getElementById("btn-slowmo");
+                btn.classList.toggle("active");
+                btn.innerHTML =
+                    state.global.timeScale === 1.0
+                        ? '<span class="tool-icon">⏱️</span> <span style="font-size:0.8rem">Slow-Mo</span>'
+                        : '<span class="tool-icon">🐢</span> <span style="font-size:0.8rem">0.2x Speed</span>';
+            }
+
+            function toggleGlobalZoom() {
+                const zooms = [1.0, 1.5, 2.0, 0.5];
+                let idx = zooms.indexOf(state.global.globalZoom);
+                if (idx === -1) idx = 0;
+                let nextIdx = (idx + 1) % zooms.length;
+                state.global.globalZoom = zooms[nextIdx];
+
+                document.documentElement.style.setProperty(
+                    "--canvas-zoom",
+                    state.global.globalZoom,
+                );
+
+                const btn = document.getElementById("btn-zoom");
+                btn.innerHTML = `<span class="tool-icon">🔍</span> <span style="font-size:0.8rem">${state.global.globalZoom.toFixed(1)}x</span>`;
+                if (state.global.globalZoom !== 1.0)
+                    btn.classList.add("active");
+                else btn.classList.remove("active");
+            }
+
+            function takeSnapshot() {
+                const canvas = document.getElementById(`canvas-${currentTab}`);
+                const dataURL = canvas.toDataURL("image/png");
+                const link = document.createElement("a");
+                link.download = `Optics_Snapshot_${currentTab}.png`;
+                link.href = dataURL;
+                link.click();
+            }
+
+            let currentTab = "home";
+            function switchTab(tabId) {
+                document
+                    .querySelectorAll(".view")
+                    .forEach((v) => v.classList.remove("active"));
+                document
+                    .querySelectorAll(".nav-item")
+                    .forEach((n) => n.classList.remove("active"));
+                document
+                    .getElementById(`view-${tabId}`)
+                    .classList.add("active");
+                event.currentTarget.classList.add("active");
+                currentTab = tabId;
+                resizeCanvases();
+            }
+
+            // --- CANVAS ENGINE ---
+            const canvases = [
+                "home",
+                "huygens",
+                "ydse",
+                "single",
+                "grating",
+                "polar",
+            ].reduce((acc, id) => {
+                acc[id] = document.getElementById(`canvas-${id}`);
+                return acc;
+            }, {});
+            const ctxs = Object.keys(canvases).reduce((acc, id) => {
+                acc[id] = canvases[id].getContext("2d");
+                return acc;
+            }, {});
+
+            function resizeCanvases() {
+                const dpr = window.devicePixelRatio || 1;
+                for (let key in canvases) {
+                    const cvs = canvases[key];
+                    const rect = cvs.parentElement.getBoundingClientRect();
+                    cvs.width = rect.width * dpr;
+                    cvs.height = rect.height * dpr;
+                    ctxs[key].setTransform(dpr, 0, 0, dpr, 0, 0);
+                }
+            }
+            window.addEventListener("resize", resizeCanvases);
+
+            // Helper: Draw Grid
+            function drawGrid(ctx, w, h) {
+                ctx.strokeStyle = state.global.isLightMode
+                    ? "rgba(0,0,0,0.05)"
+                    : "rgba(255,255,255,0.05)";
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                for (let x = w / 2; x < w; x += 50) {
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, h);
+                }
+                for (let x = w / 2; x > 0; x -= 50) {
+                    ctx.moveTo(x, 0);
+                    ctx.lineTo(x, h);
+                }
+                for (let y = h / 2; y < h; y += 50) {
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                }
+                for (let y = h / 2; y > 0; y -= 50) {
+                    ctx.moveTo(0, y);
+                    ctx.lineTo(w, y);
+                }
+                ctx.stroke();
+                ctx.strokeStyle = state.global.isLightMode
+                    ? "rgba(0,0,0,0.2)"
+                    : "rgba(255,255,255,0.2)";
+                ctx.beginPath();
+                ctx.moveTo(0, h / 2);
+                ctx.lineTo(w, h / 2);
+                ctx.moveTo(w / 2, 0);
+                ctx.lineTo(w / 2, h);
+                ctx.stroke();
+            }
+
+            // Generate sources for both Ripple rendering and accurate screen interference
+            function getRippleSources(w, h, mode, s) {
+                const startX = w * 0.15;
+                const centerY = h / 2;
+                const baseLambda = 20 + ((s.lambda - 380) / (750 - 380)) * 20;
+                let sources = [];
+
+                if (mode === "ydse") {
+                    const visD = (s.d / 0.1) * 80;
+                    sources.push({ x: startX, y: centerY - visD / 2 });
+                    sources.push({ x: startX, y: centerY + visD / 2 });
+                } else if (mode === "single") {
+                    const visA = (s.a / 0.05) * 120;
+                    const numHuygens = 21;
+                    for (let i = 0; i < numHuygens; i++) {
+                        sources.push({
+                            x: startX,
+                            y:
+                                centerY -
+                                visA / 2 +
+                                (i / (numHuygens - 1)) * visA,
+                        });
+                    }
+                } else if (mode === "grating") {
+                    const visSpacing = (500 / s.N) * 40;
+                    const numSlits = 7;
+                    for (let i = 0; i < numSlits; i++) {
+                        sources.push({
+                            x: startX,
+                            y:
+                                centerY -
+                                ((numSlits - 1) / 2) * visSpacing +
+                                i * visSpacing,
+                        });
+                    }
+                } else if (mode === "huygens") {
+                    const numSources = s.sources;
+                    const startY = h * 0.2;
+                    const endY = h * 0.8;
+                    const spacing =
+                        (endY - startY) / Math.max(1, numSources - 1);
+                    for (let i = 0; i < numSources; i++) {
+                        sources.push({
+                            x: w * 0.3,
+                            y:
+                                numSources === 1
+                                    ? centerY
+                                    : startY + i * spacing,
+                        });
+                    }
+                }
+                return { sources, baseLambda, startX };
+            }
+
+            // Helper: Draw 2D Ripple Tank (Top-Down Waves)
+            function drawRippleTank(
+                ctx,
+                w,
+                h,
+                mode,
+                s,
+                colorRGB,
+                time,
+                sources,
+                baseLambda,
+                startX,
+            ) {
+                const waveSpeed = 60;
+                const maxRadius = w * 1.2;
+
+                if (mode !== "huygens") {
+                    ctx.fillStyle = state.global.isLightMode
+                        ? "#cbd5e1"
+                        : "#334155";
+                    ctx.fillRect(startX - 10, 0, 10, h);
+                    ctx.fillStyle = state.global.isLightMode
+                        ? "#f1f5f9"
+                        : "#020617";
+                    if (mode === "single") {
+                        const visA = (s.a / 0.05) * 120;
+                        ctx.fillRect(startX - 11, h / 2 - visA / 2, 12, visA);
+                    } else {
+                        sources.forEach((src) => {
+                            ctx.fillRect(startX - 11, src.y - 6, 12, 12);
+                        });
+                    }
+                } else {
+                    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.moveTo(w * 0.3, 0);
+                    ctx.lineTo(w * 0.3, h);
+                    ctx.stroke();
+                }
+
+                ctx.strokeStyle = colorRGB;
+                ctx.lineWidth = 2;
+                ctx.globalCompositeOperation = state.global.isLightMode
+                    ? "multiply"
+                    : "screen";
+
+                sources.forEach((src) => {
+                    for (
+                        let r = (time * waveSpeed) % baseLambda;
+                        r < maxRadius;
+                        r += baseLambda
+                    ) {
+                        if (r > 0) {
+                            const alpha = Math.max(
+                                0,
+                                1 - Math.pow(r / maxRadius, 1.5),
+                            );
+                            ctx.globalAlpha =
+                                alpha * (mode === "single" ? 0.25 : 0.7);
+                            ctx.beginPath();
+                            ctx.arc(src.x, src.y, r, -Math.PI / 2, Math.PI / 2);
+                            ctx.stroke();
+                        }
+                    }
+                });
+                ctx.globalCompositeOperation = "source-over";
+                ctx.globalAlpha = 1.0;
+            }
+
+            function animate() {
+                let dt = 0.05 * state.global.timeScale;
+                state.global.time += dt;
+
+                const isLight = state.global.isLightMode;
+                const primaryColor = isLight ? "#0f172a" : "#ffffff";
+
+                if (currentTab === "home") {
+                    const cvs = canvases.home,
+                        ctx = ctxs.home,
+                        s = state.home;
+                    const w = cvs.width / (window.devicePixelRatio || 1),
+                        h = cvs.height / (window.devicePixelRatio || 1);
+                    ctx.clearRect(0, 0, w, h);
+                    drawGrid(ctx, w, h);
+
+                    const lambda_px =
+                        50 + ((s.lambda - 380) / (750 - 380)) * 100;
+                    const k = (2 * Math.PI) / lambda_px;
+                    const omega = s.speed * 2;
+                    const E_amp = h * 0.25 * s.amp;
+                    const B_amp = h * 0.25 * s.amp;
+                    const angle = (s.angle * Math.PI) / 180;
+                    const centerY = h / 2;
+                    const originX = w * 0.1; // Place the oscillating source 10% from the left
+
+                    // Advance creation envelope
+                    const waveVelocity = omega / k;
+                    state.home.timeEnv += dt;
+                    let frontX = waveVelocity * state.home.timeEnv;
+
+                    // Draw X-Axis for propagation
+                    ctx.strokeStyle = "rgba(255,255,255,0.2)";
+                    if (isLight) ctx.strokeStyle = "rgba(0,0,0,0.2)";
+                    ctx.beginPath();
+                    ctx.moveTo(originX, centerY);
+                    ctx.lineTo(w, centerY);
+                    ctx.stroke();
+
+                    if (frontX > 0) {
+                        ctx.lineWidth = 3;
+                        let lastX = Math.min(frontX, w - originX);
+
+                        // --- E Field (Cyan) ---
+                        let pathE = new Path2D();
+                        for (let x = 0; x <= lastX; x += 2) {
+                            let y =
+                                E_amp *
+                                Math.sin(omega * state.global.time - k * x);
+                            if (x === 0) pathE.moveTo(originX + x, centerY - y);
+                            else pathE.lineTo(originX + x, centerY - y);
+                        }
+                        // Stroke E Field
+                        ctx.strokeStyle = "#38bdf8";
+                        ctx.stroke(pathE);
+                        // Fill E Field
+                        let fillE = new Path2D(pathE);
+                        fillE.lineTo(originX + lastX, centerY);
+                        fillE.lineTo(originX, centerY);
+                        fillE.closePath();
+                        ctx.fillStyle = "rgba(56, 189, 248, 0.2)";
+                        ctx.fill(fillE);
+
+                        // --- B Field (Pink) ---
+                        let pathB = new Path2D();
+                        for (let x = 0; x <= lastX; x += 2) {
+                            let b =
+                                B_amp *
+                                Math.sin(omega * state.global.time - k * x);
+                            if (x === 0)
+                                pathB.moveTo(
+                                    originX + x - b * Math.cos(angle),
+                                    centerY + b * Math.sin(angle),
+                                );
+                            else
+                                pathB.lineTo(
+                                    originX + x - b * Math.cos(angle),
+                                    centerY + b * Math.sin(angle),
+                                );
+                        }
+                        // Stroke B Field
+                        ctx.strokeStyle = "#ec4899";
+                        ctx.stroke(pathB);
+                        // Fill B Field
+                        let fillB = new Path2D(pathB);
+                        fillB.lineTo(originX + lastX, centerY);
+                        fillB.lineTo(originX, centerY);
+                        fillB.closePath();
+                        ctx.fillStyle = "rgba(236, 72, 153, 0.2)";
+                        ctx.fill(fillB);
+
+                        // Draw Dynamic Field Vectors (Higher density: lambda_px / 12)
+                        const vectorSpacing = lambda_px / 12;
+                        for (
+                            let x = vectorSpacing / 2;
+                            x <= lastX;
+                            x += vectorSpacing
+                        ) {
+                            let e_val =
+                                E_amp *
+                                Math.sin(omega * state.global.time - k * x);
+                            let b_val =
+                                B_amp *
+                                Math.sin(omega * state.global.time - k * x);
+
+                            // Electric field vector
+                            drawArrow(
+                                ctx,
+                                originX + x,
+                                centerY,
+                                originX + x,
+                                centerY - e_val,
+                                "#38bdf8",
+                            );
+
+                            // Magnetic field vector (projected)
+                            drawArrow(
+                                ctx,
+                                originX + x,
+                                centerY,
+                                originX + x - b_val * Math.cos(angle),
+                                centerY + b_val * Math.sin(angle),
+                                "#ec4899",
+                            );
+                        }
+                    }
+
+                    // Draw the Oscillating Source Charge at Origin
+                    let chargeY =
+                        centerY - E_amp * Math.sin(omega * state.global.time);
+                    ctx.fillStyle = "#eab308"; // Yellow charge
+                    ctx.shadowColor = "#eab308";
+                    ctx.shadowBlur = 15;
+                    ctx.beginPath();
+                    ctx.arc(originX, chargeY, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.shadowBlur = 0; // reset
+                } else if (currentTab === "huygens") {
+                    const cvs = canvases.huygens,
+                        ctx = ctxs.huygens,
+                        s = state.huygens;
+                    const w = cvs.width / (window.devicePixelRatio || 1),
+                        h = cvs.height / (window.devicePixelRatio || 1);
+                    ctx.clearRect(0, 0, w, h);
+                    drawGrid(ctx, w, h);
+                    const colorRGB = lambdaToRGB(s.lambda);
+
+                    // Source center far to the left to create large circular arc
+                    const cx = -w * 0.2;
+                    const cy = h / 2;
+                    const arcStart = -Math.PI / 6;
+                    const arcEnd = Math.PI / 6;
+
+                    let r_wavelet, R_primary;
+
+                    if (s.mode === "anim") {
+                        // Continuous cyclical animation
+                        const maxR = 120;
+                        const cycleSpeed = 40; // px per sec
+                        let animRadius =
+                            (state.global.time * cycleSpeed) % maxR;
+                        let cyclesCompleted = Math.floor(
+                            (state.global.time * cycleSpeed) / maxR,
+                        );
+
+                        R_primary = w * 0.5 + cyclesCompleted * maxR;
+
+                        // Reset condition if goes off screen
+                        if (R_primary > w * 1.5) {
+                            state.global.time = 0;
+                            R_primary = w * 0.5;
+                            animRadius = 0;
+                        }
+                        r_wavelet = animRadius;
+                    } else {
+                        // Manual mode
+                        R_primary = w * 0.5;
+                        r_wavelet = s.radius;
+                    }
+
+                    // 1. Draw Primary Wavefront
+                    ctx.strokeStyle = isLight ? "#000" : "#fff";
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(cx, cy, R_primary, arcStart, arcEnd);
+                    ctx.stroke();
+
+                    // 2. Compute Secondary Source Points along arc
+                    let sources = [];
+                    for (let i = 0; i < s.sources; i++) {
+                        let theta =
+                            arcStart +
+                            (i * (arcEnd - arcStart)) /
+                                Math.max(1, s.sources - 1);
+                        if (s.sources === 1) theta = 0;
+                        sources.push({
+                            x: cx + R_primary * Math.cos(theta),
+                            y: cy + R_primary * Math.sin(theta),
+                            theta: theta,
+                        });
+                    }
+
+                    // 3. Draw Wavelets and Source Dots
+                    sources.forEach((src) => {
+                        // Semicircles facing forward
+                        ctx.beginPath();
+                        ctx.arc(
+                            src.x,
+                            src.y,
+                            r_wavelet,
+                            src.theta - Math.PI / 2,
+                            src.theta + Math.PI / 2,
+                        );
+                        ctx.strokeStyle = colorRGB;
+                        ctx.lineWidth = 2;
+                        ctx.globalAlpha = 0.7;
+                        ctx.stroke();
+
+                        // Source Dots
+                        ctx.globalAlpha = 1.0;
+                        ctx.fillStyle = "#eab308";
+                        ctx.beginPath();
+                        ctx.arc(src.x, src.y, 4, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+
+                    // 4. Draw Tangent Envelope (New Wavefront)
+                    if (r_wavelet > 0) {
+                        ctx.strokeStyle = "#38bdf8";
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.arc(
+                            cx,
+                            cy,
+                            R_primary + r_wavelet,
+                            arcStart,
+                            arcEnd,
+                        );
+                        ctx.stroke();
+                    }
+
+                    // Labels
+                    ctx.fillStyle = primaryColor;
+                    ctx.font = "14px sans-serif";
+                    ctx.fillText(
+                        "Primary Wavefront",
+                        cx + R_primary - 140,
+                        cy - 20,
+                    );
+                    if (r_wavelet > 10) {
+                        ctx.fillText(
+                            "New Tangent Envelope",
+                            cx + R_primary + r_wavelet + 10,
+                            cy,
+                        );
+                    }
+                } else if (currentTab === "ydse") {
+                    const cvs = canvases.ydse,
+                        ctx = ctxs.ydse,
+                        s = state.ydse;
+                    const w = cvs.width / (window.devicePixelRatio || 1),
+                        h = cvs.height / (window.devicePixelRatio || 1);
+                    ctx.clearRect(0, 0, w, h);
+                    drawGrid(ctx, w, h);
+
+                    const lambda_m = s.lambda * 1e-9;
+                    const d_m = s.d * 1e-3;
+                    const D_m = s.D;
+                    const colorRGB = lambdaToRGB(s.lambda);
+
+                    const pxPerMeter = 10000 * s.zoom;
+                    const centerY = h / 2;
+
+                    const screenX = w * 0.85;
+                    const screenW = w * 0.15;
+
+                    if (s.show2D) {
+                        let { sources, baseLambda, startX } = getRippleSources(
+                            w,
+                            h,
+                            "ydse",
+                            s,
+                        );
+                        drawRippleTank(
+                            ctx,
+                            w,
+                            h,
+                            "ydse",
+                            s,
+                            colorRGB,
+                            state.global.time,
+                            sources,
+                            baseLambda,
+                            startX,
+                        );
+
+                        // Exact Phasor Interference from 2D ripples
+                        ctx.fillStyle = isLight
+                            ? "rgba(255,255,255,0.8)"
+                            : "rgba(0,0,0,0.6)";
+                        ctx.fillRect(screenX, 0, screenW, h);
+
+                        const k_px = (2 * Math.PI) / baseLambda;
+                        for (let py = 0; py <= h; py += 2) {
+                            let sumCos = 0,
+                                sumSin = 0;
+                            for (let i = 0; i < sources.length; i++) {
+                                let dist = Math.sqrt(
+                                    Math.pow(screenX - sources[i].x, 2) +
+                                        Math.pow(py - sources[i].y, 2),
+                                );
+                                sumCos += Math.cos(k_px * dist);
+                                sumSin += Math.sin(k_px * dist);
+                            }
+                            let intensity =
+                                (sumCos * sumCos + sumSin * sumSin) /
+                                (sources.length * sources.length);
+                            ctx.globalAlpha = Math.min(1, intensity);
+                            ctx.fillStyle = colorRGB;
+                            ctx.fillRect(screenX, py, screenW, 2);
+                        }
+                        ctx.globalAlpha = 1.0;
+                    } else {
+                        // Standard Theoretical 1D View
+                        ctx.fillStyle = isLight
+                            ? "rgba(255,255,255,0.8)"
+                            : "rgba(0,0,0,0.6)";
+                        ctx.fillRect(screenX, 0, screenW, h);
+
+                        for (let py = 0; py <= h; py++) {
+                            let y_m = (py - centerY) / pxPerMeter;
+                            let phase =
+                                (Math.PI * d_m * y_m) / (lambda_m * D_m);
+                            let intensity = Math.pow(Math.cos(phase), 2);
+
+                            ctx.globalAlpha = intensity;
+                            ctx.fillStyle = colorRGB;
+                            ctx.fillRect(screenX, py, screenW, 1);
+                        }
+                        ctx.globalAlpha = 1.0;
+
+                        // Draw Math Graph
+                        ctx.strokeStyle = colorRGB;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        for (let py = 0; py <= h; py += 2) {
+                            let y_m = (py - centerY) / pxPerMeter;
+                            let phase =
+                                (Math.PI * d_m * y_m) / (lambda_m * D_m);
+                            let intensity = Math.pow(Math.cos(phase), 2);
+
+                            let graphX =
+                                screenX -
+                                50 -
+                                intensity * (w * 0.5) * s.graphScale;
+                            ctx[py === 0 ? "moveTo" : "lineTo"](graphX, py);
+                        }
+                        ctx.stroke();
+
+                        // Annotate Axes
+                        ctx.fillStyle = primaryColor;
+                        ctx.font = "12px sans-serif";
+                        ctx.fillText("Intensity (I)", screenX - 100, h - 20);
+                        ctx.fillText("Screen Position (y)", w / 2 + 10, 20);
+                    }
+                } else if (currentTab === "single") {
+                    const cvs = canvases.single,
+                        ctx = ctxs.single,
+                        s = state.single;
+                    const w = cvs.width / (window.devicePixelRatio || 1),
+                        h = cvs.height / (window.devicePixelRatio || 1);
+                    ctx.clearRect(0, 0, w, h);
+                    drawGrid(ctx, w, h);
+
+                    const lambda_m = s.lambda * 1e-9;
+                    const a_m = s.a * 1e-3;
+                    const D_m = s.D;
+                    const colorRGB = lambdaToRGB(s.lambda);
+                    const pxPerMeter = 10000;
+                    const centerY = h / 2;
+
+                    const screenX = w * 0.85;
+                    const screenW = w * 0.15;
+
+                    if (s.show2D) {
+                        let { sources, baseLambda, startX } = getRippleSources(
+                            w,
+                            h,
+                            "single",
+                            s,
+                        );
+                        drawRippleTank(
+                            ctx,
+                            w,
+                            h,
+                            "single",
+                            s,
+                            colorRGB,
+                            state.global.time,
+                            sources,
+                            baseLambda,
+                            startX,
+                        );
+
+                        ctx.fillStyle = isLight
+                            ? "rgba(255,255,255,0.8)"
+                            : "rgba(0,0,0,0.6)";
+                        ctx.fillRect(screenX, 0, screenW, h);
+
+                        const k_px = (2 * Math.PI) / baseLambda;
+                        for (let py = 0; py <= h; py += 2) {
+                            let sumCos = 0,
+                                sumSin = 0;
+                            for (let i = 0; i < sources.length; i++) {
+                                let dist = Math.sqrt(
+                                    Math.pow(screenX - sources[i].x, 2) +
+                                        Math.pow(py - sources[i].y, 2),
+                                );
+                                sumCos += Math.cos(k_px * dist);
+                                sumSin += Math.sin(k_px * dist);
+                            }
+                            let intensity =
+                                (sumCos * sumCos + sumSin * sumSin) /
+                                (sources.length * sources.length);
+                            let visIntensity =
+                                Math.pow(intensity, 0.5) * s.gain * 1.2;
+
+                            ctx.globalAlpha = Math.min(1, visIntensity);
+                            ctx.fillStyle = colorRGB;
+                            ctx.fillRect(screenX, py, screenW, 2);
+                        }
+                        ctx.globalAlpha = 1.0;
+                    } else {
+                        ctx.fillStyle = isLight
+                            ? "rgba(255,255,255,0.8)"
+                            : "rgba(0,0,0,0.6)";
+                        ctx.fillRect(screenX, 0, screenW, h);
+
+                        for (let py = 0; py <= h; py++) {
+                            let y_m = (py - centerY) / pxPerMeter;
+                            let alpha =
+                                (Math.PI * a_m * y_m) / (lambda_m * D_m);
+                            let intensity =
+                                alpha === 0
+                                    ? 1
+                                    : Math.pow(Math.sin(alpha) / alpha, 2);
+
+                            let visIntensity = Math.pow(intensity, 0.5);
+                            ctx.globalAlpha = Math.min(
+                                1,
+                                visIntensity * s.gain,
+                            );
+                            ctx.fillStyle = colorRGB;
+                            ctx.fillRect(screenX, py, screenW, 1);
+                        }
+                        ctx.globalAlpha = 1.0;
+
+                        ctx.strokeStyle = colorRGB;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        for (let py = 0; py <= h; py += 2) {
+                            let y_m = (py - centerY) / pxPerMeter;
+                            let alpha =
+                                (Math.PI * a_m * y_m) / (lambda_m * D_m);
+                            let intensity =
+                                alpha === 0
+                                    ? 1
+                                    : Math.pow(Math.sin(alpha) / alpha, 2);
+
+                            let graphX =
+                                screenX -
+                                50 -
+                                intensity * (w * 0.6) * s.graphScale;
+                            ctx[py === 0 ? "moveTo" : "lineTo"](graphX, py);
+                        }
+                        ctx.stroke();
+                    }
+                } else if (currentTab === "grating") {
+                    const cvs = canvases.grating,
+                        ctx = ctxs.grating,
+                        s = state.grating;
+                    const w = cvs.width / (window.devicePixelRatio || 1),
+                        h = cvs.height / (window.devicePixelRatio || 1);
+                    ctx.clearRect(0, 0, w, h);
+                    drawGrid(ctx, w, h);
+
+                    const lambda_m = s.lambda * 1e-9;
+                    const d_m = 1 / (s.N * 1000);
+                    const D_m = s.D;
+                    const colorRGB = lambdaToRGB(s.lambda);
+                    const pxPerMeter = 500;
+                    const centerY = h / 2;
+
+                    const screenX = w * 0.85;
+                    const screenW = w * 0.15;
+
+                    if (s.show2D) {
+                        let { sources, baseLambda, startX } = getRippleSources(
+                            w,
+                            h,
+                            "grating",
+                            s,
+                        );
+                        drawRippleTank(
+                            ctx,
+                            w,
+                            h,
+                            "grating",
+                            s,
+                            colorRGB,
+                            state.global.time,
+                            sources,
+                            baseLambda,
+                            startX,
+                        );
+
+                        ctx.fillStyle = isLight
+                            ? "rgba(255,255,255,0.8)"
+                            : "rgba(0,0,0,0.6)";
+                        ctx.fillRect(screenX, 0, screenW, h);
+
+                        const k_px = (2 * Math.PI) / baseLambda;
+                        for (let py = 0; py <= h; py += 2) {
+                            let sumCos = 0,
+                                sumSin = 0;
+                            for (let i = 0; i < sources.length; i++) {
+                                let dist = Math.sqrt(
+                                    Math.pow(screenX - sources[i].x, 2) +
+                                        Math.pow(py - sources[i].y, 2),
+                                );
+                                sumCos += Math.cos(k_px * dist);
+                                sumSin += Math.sin(k_px * dist);
+                            }
+                            let intensity =
+                                (sumCos * sumCos + sumSin * sumSin) /
+                                (sources.length * sources.length);
+
+                            ctx.globalAlpha = Math.min(1, intensity * 2.0);
+                            ctx.fillStyle = colorRGB;
+                            ctx.fillRect(screenX, py, screenW, 2);
+                        }
+                        ctx.globalAlpha = 1.0;
+                    } else {
+                        ctx.fillStyle = isLight
+                            ? "rgba(255,255,255,0.8)"
+                            : "rgba(0,0,0,0.6)";
+                        ctx.fillRect(screenX, 0, screenW, h);
+
+                        let maxOrder = Math.floor(d_m / lambda_m);
+                        ctx.fillStyle = colorRGB;
+                        ctx.globalAlpha = 0.05;
+                        ctx.fillRect(screenX, 0, screenW, h);
+                        ctx.globalAlpha = 1.0;
+
+                        ctx.strokeStyle = colorRGB;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(screenX - 50, 0);
+
+                        for (let n = -maxOrder; n <= maxOrder; n++) {
+                            let sinTheta = (n * lambda_m) / d_m;
+                            if (Math.abs(sinTheta) >= 1) continue;
+                            let theta = Math.asin(sinTheta);
+                            let y_m = D_m * Math.tan(theta);
+                            let py = centerY + y_m * pxPerMeter;
+
+                            if (py >= 0 && py <= h) {
+                                ctx.fillStyle = "#fff";
+                                ctx.fillRect(screenX, py - 2, screenW, 4);
+                                ctx.fillStyle = colorRGB;
+                                ctx.fillRect(screenX, py - 3, screenW, 6);
+
+                                ctx.fillStyle = primaryColor;
+                                ctx.font = "12px monospace";
+                                ctx.fillText(`n=${n}`, screenX - 40, py + 4);
+
+                                ctx.lineTo(screenX - 50, py - 5);
+                                ctx.lineTo(
+                                    screenX - 50 - w * 0.5 * s.graphScale,
+                                    py,
+                                );
+                                ctx.lineTo(screenX - 50, py + 5);
+                            }
+                        }
+                        ctx.lineTo(screenX - 50, h);
+                        ctx.stroke();
+                    }
+                } else if (currentTab === "polar") {
+                    const cvs = canvases.polar,
+                        ctx = ctxs.polar,
+                        s = state.polar;
+                    const w = cvs.width / (window.devicePixelRatio || 1),
+                        h = cvs.height / (window.devicePixelRatio || 1);
+                    ctx.clearRect(0, 0, w, h);
+
+                    const thetaRad = (s.theta * Math.PI) / 180;
+                    const omega = s.speed;
+                    const k = 0.05;
+
+                    const zStart = w * 0.1;
+                    const zEnd = w * 0.9;
+                    const p1_Z = w * 0.3;
+                    const p2_Z = w * 0.6;
+                    const yCenter = h * 0.6;
+                    const maxAmp = h * 0.25;
+
+                    ctx.fillStyle = isLight
+                        ? "rgba(56, 189, 248, 0.2)"
+                        : "rgba(56, 189, 248, 0.1)";
+                    ctx.strokeStyle = "#38bdf8";
+                    ctx.lineWidth = 2;
+
+                    // Plate 1
+                    ctx.beginPath();
+                    ctx.moveTo(p1_Z, yCenter - maxAmp * 1.5);
+                    ctx.lineTo(p1_Z + 40, yCenter - maxAmp * 1.5 - 20);
+                    ctx.lineTo(p1_Z + 40, yCenter + maxAmp * 1.5 - 20);
+                    ctx.lineTo(p1_Z, yCenter + maxAmp * 1.5);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.strokeStyle = "#fff";
+                    ctx.beginPath();
+                    ctx.moveTo(p1_Z + 20, yCenter - maxAmp);
+                    ctx.lineTo(p1_Z + 20, yCenter + maxAmp);
+                    ctx.stroke();
+
+                    // Plate 2
+                    ctx.beginPath();
+                    ctx.moveTo(p2_Z, yCenter - maxAmp * 1.5);
+                    ctx.lineTo(p2_Z + 40, yCenter - maxAmp * 1.5 - 20);
+                    ctx.lineTo(p2_Z + 40, yCenter + maxAmp * 1.5 - 20);
+                    ctx.lineTo(p2_Z, yCenter + maxAmp * 1.5);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.strokeStyle = "#ec4899";
+                    ctx.stroke();
+                    ctx.strokeStyle = "#fff";
+                    ctx.beginPath();
+                    let sx1 = p2_Z + 20 + Math.sin(thetaRad) * maxAmp * 0.5;
+                    let sy1 = yCenter - Math.cos(thetaRad) * maxAmp;
+                    let sx2 = p2_Z + 20 - Math.sin(thetaRad) * maxAmp * 0.5;
+                    let sy2 = yCenter + Math.cos(thetaRad) * maxAmp;
+                    ctx.moveTo(sx1, sy1);
+                    ctx.lineTo(sx2, sy2);
+                    ctx.stroke();
+
+                    // WAVES
+                    ctx.lineWidth = 3;
+
+                    // Zone 1
+                    if (s.v2) {
+                        const colors = [
+                            "#ef4444",
+                            "#3b82f6",
+                            "#22c55e",
+                            "#eab308",
+                            "#a855f7",
+                            "#06b6d4",
+                        ];
+                        for (let i = 0; i < 6; i++) {
+                            let angle = (i * Math.PI) / 6;
+                            ctx.strokeStyle = colors[i];
+                            ctx.globalAlpha = 0.8;
+                            ctx.beginPath();
+                            for (let z = zStart; z <= p1_Z + 20; z += 2) {
+                                let disp =
+                                    maxAmp *
+                                    Math.sin(k * z - omega * state.global.time);
+                                let tiltY = disp * Math.cos(angle);
+                                let tiltX = disp * Math.sin(angle) * 0.5;
+                                ctx[z === zStart ? "moveTo" : "lineTo"](
+                                    z + tiltX,
+                                    yCenter - tiltY,
+                                );
+                            }
+                            ctx.stroke();
+                        }
+                        ctx.globalAlpha = 1.0;
+                    } else {
+                        ctx.strokeStyle = "rgba(255,255,255,0.4)";
+                        ctx.beginPath();
+                        ctx.moveTo(zStart, yCenter);
+                        ctx.lineTo(p1_Z + 20, yCenter);
+                        ctx.stroke();
+                        for (let z = zStart; z < p1_Z + 20; z += 15) {
+                            let mag =
+                                maxAmp *
+                                Math.sin(k * z - omega * state.global.time);
+                            let randAngle = (z * 12345) % Math.PI;
+                            ctx.beginPath();
+                            ctx.moveTo(z, yCenter);
+                            ctx.lineTo(
+                                z + Math.sin(randAngle) * mag * 0.5,
+                                yCenter - Math.cos(randAngle) * mag,
+                            );
+                            ctx.stroke();
+                        }
+                    }
+
+                    // Zone 2
+                    ctx.strokeStyle = "#38bdf8";
+                    ctx.beginPath();
+                    for (let z = p1_Z + 20; z <= p2_Z + 20; z += 2) {
+                        let disp =
+                            maxAmp *
+                            Math.sin(k * z - omega * state.global.time);
+                        ctx[z === p1_Z + 20 ? "moveTo" : "lineTo"](
+                            z,
+                            yCenter - disp,
+                        );
+                    }
+                    ctx.stroke();
+
+                    // Zone 3
+                    ctx.strokeStyle = "#ec4899";
+                    const finalAmp = maxAmp * Math.cos(thetaRad);
+                    ctx.beginPath();
+                    for (let z = p2_Z + 20; z <= zEnd; z += 2) {
+                        let disp =
+                            finalAmp *
+                            Math.sin(k * z - omega * state.global.time);
+                        let tiltY = disp * Math.cos(thetaRad);
+                        let tiltX = disp * Math.sin(thetaRad) * 0.5;
+                        ctx[z === p2_Z + 20 ? "moveTo" : "lineTo"](
+                            z + tiltX,
+                            yCenter - tiltY,
+                        );
+                    }
+                    ctx.stroke();
+
+                    ctx.fillStyle = primaryColor;
+                    ctx.font = "14px sans-serif";
+                    ctx.fillText("Unpolarized", zStart, yCenter + maxAmp + 20);
+                    ctx.fillText(
+                        "Plane Polarized (I₀)",
+                        p1_Z + 10,
+                        yCenter + maxAmp + 20,
+                    );
+                    ctx.fillText(
+                        `Analyzed (I = I₀ cos²θ)`,
+                        p2_Z + 10,
+                        yCenter + maxAmp + 20,
+                    );
+                }
+
+                requestAnimationFrame(animate);
+            }
+
+            // Init
+            updateState("ydse", "lambda", 500);
+            updateState("single", "lambda", 500);
+            updateState("grating", "lambda", 500);
+            updateState("polar", "theta", 45);
+            updateState("home", "lambda", 500);
+            updateState("huygens", "lambda", 500);
+            setTimeout(resizeCanvases, 100);
+            requestAnimationFrame(animate);
+        </script>
+    </body>
+</html>

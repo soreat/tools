@@ -2,116 +2,158 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
 <meta name="description" content="Interactive toolkit for the HSC Physics waves &amp; sound chapter — progressive, standing, transverse and longitudinal waves, beats, string and pipe harmonics, and sound intensity level.">
-<meta name="theme-color" content="#060910">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='6' fill='%23060910'/%3E%3Cpath d='M4 12c2-6 4.7-6 6.5 0s4.7 6 6.5 0c1-3 2-3 3-3' stroke='%233fe0d0' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<meta name="theme-color" content="#080502">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='4' fill='%23080502'/%3E%3Cpath d='M4 12c2-6 4.7-6 6.5 0s4.7 6 6.5 0c1-3 2-3 3-3' stroke='%23db9e2e' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:ital,wght@1,400;1,500&display=swap" rel="stylesheet">
 <title>Wave Lab — HSC Physics</title>
 <style>
+    /* Hallmark · genre: technical-instrument (custom) · macrostructure: n/a (multi-view app shell)
+       anchor hue: 75 (warm brass/amber) · pre-emit critique: P5 H4 E5 S5 R4 V5
+       Redesign brief: an 8-mode physics instrument, not a marketing page. The
+       macrostructure catalogue (hero/feature-grid/footer shapes) doesn't map to
+       a fixed-viewport control room, so structural variety here comes from
+       component craft, not page shape: opaque instrument-panel chrome, one
+       amber signal accent, real oscilloscope-channel colours reserved for
+       data ink only. See the design note at the end of the reply for the
+       full rationale. */
+
     /* ============================================================
        DESIGN TOKENS
-       Palette is grounded in signal-instrument colour language:
-       phosphor-cyan trace, magenta/violet/amber secondary traces,
-       green/red kinematic vectors. Same tokens drive the CSS chrome
-       and (as JS constants, since canvas can't read custom
-       properties) the on-canvas physics colours.
+       One accent (amber) runs the chrome — buttons, focus, the brand
+       LED, active states. Cyan / magenta / violet stay OFF the chrome
+       and ON the canvas only, as channel colours for simultaneous
+       traces (the way a real scope assigns CH1/CH2/CH3 a colour each).
+       Canvas2D can't read custom properties, so the JS constants below
+       mirror this palette by hand — keep them in sync if you edit here.
     ============================================================ */
     :root {
-        --void: #060910;
-        --bg-1: #0c1424;
-        --bg-2: #060910;
-        --ink: #eef1f6;
-        --ink-dim: #8a93a6;
+        --void: oklch(12% 0.014 75);
+        --bg-1: oklch(16% 0.017 75);
+        --bg-2: oklch(12% 0.014 75);
+        --ink: oklch(94% 0.012 80);
+        --ink-dim: oklch(64% 0.022 78);
 
-        --trace-cyan: #3fe0d0;    --trace-cyan-rgb: 63,224,208;
-        --trace-magenta: #ff4d94; --trace-magenta-rgb: 255,77,148;
-        --trace-violet: #9b83ff;  --trace-violet-rgb: 155,131,255;
-        --trace-amber: #ffb648;   --trace-amber-rgb: 255,182,72;
-        --vec-v: #34d399;         --vec-v-rgb: 52,211,153;
-        --vec-a: #f2545b;         --vec-a-rgb: 242,84,91;
+        --surface-1: oklch(21% 0.018 75);   /* toolbar / bottom-nav */
+        --surface-2: oklch(18% 0.017 75);   /* elevated opaque panel */
+        --surface-3: oklch(25% 0.020 75);   /* hover / raised */
+        --border: oklch(32% 0.024 75);
+        --border-strong: oklch(44% 0.028 75);
 
-        --surface-1: rgba(255,255,255,0.035);
-        --surface-2: rgba(9,13,22,0.82);
-        --border: rgba(255,255,255,0.09);
+        --accent: oklch(74% 0.140 78);      /* the one chrome signal — brass amber */
+        --accent-ink: oklch(15% 0.020 78);  /* text/icons ON a filled accent surface */
+        --focus: oklch(80% 0.130 78);
 
-        --shadow-sm: 0 2px 10px rgba(0,0,0,0.28);
-        --shadow-md: 0 12px 32px rgba(0,0,0,0.38);
-        --shadow-lg: 0 24px 64px rgba(0,0,0,0.5);
+        --trace-cyan: oklch(74% 0.110 200);   /* channel colours — canvas data only */
+        --trace-magenta: oklch(66% 0.190 350);
+        --trace-violet: oklch(68% 0.170 300);
+        --trace-amber: var(--accent);         /* envelope / antinode annotation, shares the signal hue */
+        --vec-v: oklch(72% 0.150 152);        /* velocity — physics convention: green */
+        --vec-a: oklch(63% 0.190 25);         /* acceleration — physics convention: red */
 
-        --radius-sm: 8px; --radius-md: 12px; --radius-lg: 18px; --radius-full: 999px;
-        --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px; --space-6: 28px;
+        --shadow-sm: 0 1px 2px oklch(4% 0 0 / 0.30);
+        --shadow-md: 0 10px 24px oklch(4% 0 0 / 0.34);
 
-        --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-        --font-mono: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, "Courier New", monospace;
-        --font-serif: Cambria, Georgia, "Times New Roman", Times, serif;
+        --radius-sm: 6px; --radius-md: 10px; --radius-lg: 14px; --radius-full: 999px;
+        --space-3xs: 0.125rem; --space-2xs: 0.25rem; --space-xs: 0.5rem; --space-sm: 0.75rem;
+        --space-md: 1rem; --space-lg: 1.5rem; --space-xl: 2rem; --space-2xl: 3rem;
+        --edge: clamp(12px, 3.2vw, 18px);
 
-        --blur-sm: 10px; --blur-md: 18px;
+        --font-sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, "Courier New", monospace;
+        --font-serif: "Source Serif 4", Cambria, Georgia, "Times New Roman", Times, serif;
+
+        --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+        --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+        --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+        --dur-micro: 120ms; --dur-short: 220ms; --dur-long: 420ms;
+
         --nav-height: 70px;
         --toolbar-height: 50px;
+
+        --z-base: 0; --z-content: 1; --z-overlay: 10; --z-panel: 100;
+        --z-toolbar: 200; --z-toast: 500; --z-tooltip: 600; --z-boot: 1000;
     }
 
-    /* Light / Projector theme — for classrooms presenting off a projector */
-    body.light-mode {
-        --void: #eef1f6;
-        --bg-1: #e4e9f2;
-        --bg-2: #f7f9fc;
-        --ink: #0c1424;
-        --ink-dim: #55617a;
-
-        --trace-cyan: #0d7d8f;    --trace-cyan-rgb: 13,125,143;
-        --trace-magenta: #d6337a; --trace-magenta-rgb: 214,51,122;
-        --trace-violet: #6d4fd6;  --trace-violet-rgb: 109,79,214;
-        --trace-amber: #b8720f;   --trace-amber-rgb: 184,114,15;
-        --vec-v: #15916f;         --vec-v-rgb: 21,145,111;
-        --vec-a: #d43f45;         --vec-a-rgb: 212,63,69;
-
-        --surface-1: rgba(255,255,255,0.55);
-        --surface-2: rgba(255,255,255,0.9);
-        --border: rgba(12,20,36,0.1);
-
-        --shadow-sm: 0 2px 10px rgba(15,23,42,0.08);
-        --shadow-md: 0 12px 30px rgba(15,23,42,0.1);
-        --shadow-lg: 0 20px 50px rgba(15,23,42,0.14);
+    /* ============================================================
+       THEME VARIANTS
+       :root above IS the "dark" theme (warm brass anchor, hue 75).
+       The other three override via [data-theme]. Accent/focus and
+       the canvas channel colours stay constant across every theme —
+       they're the signal identity; only the neutral chassis moves.
+    ============================================================ */
+    body[data-theme="dark-blue"] {
+        --void: oklch(11% 0.026 250); --bg-1: oklch(15% 0.030 250); --bg-2: oklch(11% 0.026 250);
+        --ink: oklch(93% 0.014 250); --ink-dim: oklch(63% 0.026 252);
+        --surface-1: oklch(19% 0.028 250); --surface-2: oklch(16% 0.026 250); --surface-3: oklch(23% 0.030 250);
+        --border: oklch(30% 0.032 250); --border-strong: oklch(42% 0.034 250);
+        --shadow-sm: 0 1px 2px oklch(4% 0 0 / 0.34); --shadow-md: 0 10px 24px oklch(4% 0 0 / 0.4);
     }
+    body[data-theme="light"] {
+        --void: oklch(97% 0 75); --bg-1: oklch(93% 0 75); --bg-2: oklch(97% 0 75);
+        --ink: oklch(18% 0 75); --ink-dim: oklch(42% 0 75);
+        --surface-1: oklch(91% 0 75); --surface-2: oklch(98% 0 75); --surface-3: oklch(87% 0 75);
+        --border: oklch(81% 0 75); --border-strong: oklch(67% 0 75);
+        --accent: oklch(48% 0.145 78); --accent-ink: oklch(99% 0.010 80); --focus: oklch(44% 0.150 78);
+        --trace-cyan: oklch(48% 0.100 200); --trace-magenta: oklch(50% 0.180 350); --trace-violet: oklch(50% 0.160 300);
+        --vec-v: oklch(46% 0.130 150); --vec-a: oklch(52% 0.190 25);
+        --shadow-sm: 0 1px 2px oklch(40% 0 0 / 0.08); --shadow-md: 0 8px 18px oklch(40% 0 0 / 0.10);
+    }
+    body[data-theme="light-cream"] {
+        --void: oklch(97% 0.012 75); --bg-1: oklch(94% 0.014 75); --bg-2: oklch(97% 0.012 75);
+        --ink: oklch(19% 0.014 70); --ink-dim: oklch(42% 0.020 72);
+        --surface-1: oklch(92% 0.015 75); --surface-2: oklch(98% 0.008 75); --surface-3: oklch(88% 0.020 75);
+        --border: oklch(82% 0.020 75); --border-strong: oklch(68% 0.024 75);
+        --accent: oklch(50% 0.135 78); --accent-ink: oklch(99% 0.010 80); --focus: oklch(46% 0.140 78);
+        --trace-cyan: oklch(48% 0.100 200); --trace-magenta: oklch(50% 0.180 350); --trace-violet: oklch(50% 0.160 300);
+        --vec-v: oklch(46% 0.130 150); --vec-a: oklch(52% 0.190 25);
+        --shadow-sm: 0 1px 2px oklch(45% 0.02 75 / 0.10); --shadow-md: 0 8px 18px oklch(45% 0.02 75 / 0.12);
+    }
+    body[data-theme="light"], body[data-theme="light-cream"] { font-weight: 400; }
 
     * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-user-select: none; }
 
-    html { -webkit-tap-highlight-color: transparent; }
+    html { -webkit-tap-highlight-color: transparent; overflow-x: clip; }
 
     body {
         font-family: var(--font-sans);
+        font-weight: 350;
         background: radial-gradient(circle at 50% 0%, var(--bg-1), var(--bg-2));
-        color: var(--ink); min-height: 100vh; overflow: hidden;
-        transition: background 0.4s ease, color 0.4s ease;
+        color: var(--ink); min-height: 100dvh; overflow: hidden; overflow-x: clip;
+        transition: background var(--dur-long) var(--ease-out), color var(--dur-long) var(--ease-out);
         font-size: 16px;
         -webkit-font-smoothing: antialiased;
     }
-
-    /* Accessible focus — visible for keyboard use, silent for mouse/touch */
+    /* Accessible focus — visible for keyboard use, silent for mouse/touch.
+       Outline appears instantly; never transitioned. */
     :focus { outline: none; }
     :focus-visible {
-        outline: 2px solid var(--trace-cyan);
+        outline: 2px solid var(--focus);
         outline-offset: 2px;
         border-radius: 4px;
     }
 
     /* ============================================================
        BOOT SEQUENCE — one deliberate, one-time flourish.
-       A brief instrument power-on: a bright trace line expands to
-       reveal the page, echoing a CRT/oscilloscope switching on.
+       A brief instrument power-on: a trace line expands to reveal the
+       page, echoing a CRT/oscilloscope switching on. Runs once, ever.
     ============================================================ */
     .boot-overlay {
-        position: fixed; inset: 0; z-index: 9999;
+        position: fixed; inset: 0; z-index: var(--z-boot);
         background: var(--void);
         pointer-events: none;
-        animation: boot-fade 0.85s ease-out forwards;
+        animation: boot-fade 0.85s var(--ease-out) forwards;
         animation-delay: 0.32s;
     }
     .boot-overlay::after {
         content: ''; position: absolute; top: 50%; left: 8%; right: 8%; height: 2px;
         margin-top: -1px;
-        background: linear-gradient(90deg, transparent, var(--trace-cyan) 20%, var(--trace-cyan) 80%, transparent);
-        box-shadow: 0 0 24px 1px rgba(var(--trace-cyan-rgb), 0.8);
+        background: linear-gradient(90deg, transparent, var(--accent) 20%, var(--accent) 80%, transparent);
+        box-shadow: 0 0 16px 0px color-mix(in oklch, var(--accent) 55%, transparent);
         transform: scaleY(0.001);
         animation: boot-line 0.34s cubic-bezier(0.3,0.9,0.4,1) forwards;
     }
@@ -123,14 +165,15 @@
     }
 
     /* ============================================================
-       GLASS / SURFACE TREATMENTS
+       SURFACES — opaque throughout. A physical instrument's control
+       panel isn't see-through, so chrome here never blurs what's
+       behind it; elevation comes from lightness, not frosted glass.
     ============================================================ */
-    .glass {
-        background: var(--surface-1);
-        backdrop-filter: blur(var(--blur-md)); -webkit-backdrop-filter: blur(var(--blur-md));
+    .panel {
+        background: var(--surface-2);
         border: 1px solid var(--border);
         border-radius: var(--radius-lg);
-        box-shadow: var(--shadow-md);
+        box-shadow: var(--shadow-sm);
     }
 
     /* ============================================================
@@ -138,75 +181,143 @@
     ============================================================ */
     .top-toolbar {
         height: var(--toolbar-height); width: 100%; display: flex; justify-content: space-between; align-items: center;
-        padding: 0 14px; gap: 10px; border-bottom: 1px solid var(--border);
-        background: var(--surface-1); backdrop-filter: blur(var(--blur-sm)); -webkit-backdrop-filter: blur(var(--blur-sm));
-        z-index: 200; position: relative;
+        padding: 0 var(--edge); padding-top: env(safe-area-inset-top, 0px); gap: 10px; border-bottom: 1px solid var(--border);
+        background: var(--surface-1);
+        z-index: var(--z-toolbar); position: relative;
     }
-    .brand { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 0.85rem; font-weight: 600; color: var(--ink-dim); white-space: nowrap; }
-    .brand-led { width: 7px; height: 7px; border-radius: 50%; background: var(--trace-cyan); box-shadow: 0 0 8px rgba(var(--trace-cyan-rgb), 0.9); animation: led-pulse 2.6s ease-in-out infinite; flex-shrink: 0; }
-    @keyframes led-pulse { 0%, 100% { opacity: 0.45; } 50% { opacity: 1; } }
+    .brand { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 0.85rem; font-weight: 500; letter-spacing: 0.02em; color: var(--ink-dim); white-space: nowrap; }
+    .brand-led { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); animation: led-pulse 2.6s ease-in-out infinite; flex-shrink: 0; }
+    @keyframes led-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 1; } }
 
-    .toolbar-actions { display: flex; align-items: center; gap: 8px; }
+    .toolbar-actions { display: flex; align-items: center; gap: 6px; }
     .tool-btn {
         background: transparent; border: 1px solid var(--border); color: var(--ink);
-        padding: 6px 11px; border-radius: var(--radius-sm); font-size: 0.8rem; font-family: var(--font-sans);
-        cursor: pointer; display: flex; align-items: center; gap: 6px; transition: background 0.15s, border-color 0.15s, color 0.15s, opacity 0.15s;
+        padding: 6px 11px; border-radius: var(--radius-sm); font-size: 0.8rem; font-family: var(--font-sans); font-weight: 500;
+        cursor: pointer; display: flex; align-items: center; gap: 6px;
+        transition: background var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out), opacity var(--dur-micro) var(--ease-out);
     }
     .tool-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
-    .tool-btn:hover { background: rgba(255,255,255,0.08); }
-    body.light-mode .tool-btn:hover { background: rgba(12,20,36,0.06); }
-    .tool-btn.active { background: rgba(var(--trace-amber-rgb), 0.16); color: var(--trace-amber); border-color: rgba(var(--trace-amber-rgb), 0.5); }
-    .tool-btn:disabled, .tool-btn.is-disabled { opacity: 0.32; cursor: not-allowed; }
-    .tool-btn:disabled:hover, .tool-btn.is-disabled:hover { background: transparent; }
+    @media (hover: hover) and (pointer: fine) {
+        .tool-btn:hover { background: var(--surface-3); border-color: var(--border-strong); }
+    }
+    .tool-btn.active { background: color-mix(in oklch, var(--accent) 15%, transparent); color: var(--accent); border-color: color-mix(in oklch, var(--accent) 48%, transparent); }
+    .tool-btn:disabled, .tool-btn.is-disabled { opacity: 0.45; cursor: not-allowed; }
+    .tool-btn:disabled:hover, .tool-btn.is-disabled:hover { background: transparent; border-color: var(--border); }
 
     /* ============================================================
        LAYOUT / VIEWS
     ============================================================ */
-    .app-container { height: calc(100vh - var(--nav-height) - var(--toolbar-height)); position: relative; overflow-y: auto; overflow-x: hidden; padding-bottom: 20px; }
-    .view { display: none; flex-direction: column; width: 100%; height: 100%; padding: 20px; animation: fadeIn 0.3s ease-out; }
+    .app-container { height: calc(100dvh - var(--nav-height) - var(--toolbar-height)); position: relative; overflow-y: auto; overflow-x: clip; padding-bottom: 20px; }
+    .view { display: none; flex-direction: column; width: 100%; height: 100%; padding: 20px; animation: fadeIn var(--dur-short) var(--ease-out); }
     .view.active { display: flex; }
     .view.full-canvas { padding: 0; }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) { .view { animation: none; } }
 
     .canvas-container { flex: 1; position: relative; width: 100%; overflow: hidden; min-height: 300px; }
     canvas { display: block; width: 100%; height: 100%; }
 
     /* ============================================================
        TYPOGRAPHY
-       Three voices, each with a job: sans for controls, serif
-       italic for equations (how textbooks set physics notation),
-       monospace for instrument nameplates and live readouts.
+       Three registers, each with one job: IBM Plex Sans for controls
+       and prose (the everyday voice); IBM Plex Mono for every number
+       an instrument would display — readouts, typed values, results
+       (the two share a superfamily, so they sit together on purpose);
+       Source Serif 4 italic for physics notation only, the way a
+       textbook sets variables — never for headings.
     ============================================================ */
-    h2 { font-family: var(--font-mono); font-weight: 600; font-size: 1.32rem; letter-spacing: -0.01em; color: var(--ink); text-align: center; margin-bottom: 16px; }
-    h3 { font-family: var(--font-mono); font-size: 1rem; font-weight: 600; color: var(--trace-cyan); margin-bottom: 10px; }
-    .math-text { font-family: var(--font-serif); font-size: 1.18rem; font-style: italic; letter-spacing: 0.2px; line-height: 1.55; color: var(--ink); }
+    h2 { font-family: var(--font-sans); font-weight: 700; font-size: clamp(1.08rem, 4vw, 1.28rem); letter-spacing: -0.01em; color: var(--ink); text-align: center; margin-bottom: 16px; }
+    h3 { font-family: var(--font-sans); font-size: clamp(0.85rem, 2.6vw, 0.92rem); font-weight: 600; letter-spacing: 0.02em; text-transform: uppercase; color: var(--accent); margin-bottom: 10px; }
+    .math-text { font-family: var(--font-serif); font-size: clamp(1rem, 3.6vw, 1.18rem); font-style: italic; font-weight: 400; letter-spacing: 0.1px; line-height: 1.55; color: var(--ink); }
+    .readout-line { font-family: var(--font-mono); font-size: 0.78rem; font-variant-numeric: tabular-nums; color: var(--accent); margin-top: 7px; padding-top: 6px; border-top: 1px dashed var(--border); }
 
     .math-var { position: relative; border-bottom: 1px dashed currentColor; cursor: help; display: inline-block; }
     .math-var .tooltip {
-        visibility: hidden; width: max-content; max-width: 220px; background-color: var(--surface-2); color: var(--ink); text-align: center;
-        border-radius: 8px; padding: 6px 11px; font-family: var(--font-sans); font-style: normal; font-size: 0.78rem; letter-spacing: 0;
-        position: absolute; z-index: 1000; bottom: 130%; left: 50%; transform: translateX(-50%) translateY(4px);
-        opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; border: 1px solid var(--border); box-shadow: var(--shadow-sm);
+        visibility: hidden; width: max-content; max-width: 220px; background-color: var(--surface-3); color: var(--ink); text-align: center;
+        border-radius: var(--radius-sm); padding: 6px 11px; font-family: var(--font-sans); font-style: normal; font-size: 0.78rem; letter-spacing: 0;
+        position: absolute; z-index: var(--z-tooltip); bottom: 130%; left: 50%; transform: translateX(-50%) translateY(4px);
+        opacity: 0; transition: opacity var(--dur-short) var(--ease-out), transform var(--dur-short) var(--ease-out); pointer-events: none; border: 1px solid var(--border-strong); box-shadow: var(--shadow-sm);
     }
     .math-var:hover .tooltip, .math-var:focus .tooltip { visibility: visible; opacity: 1; transform: translateX(-50%) translateY(0); }
 
     /* ============================================================
-       FLOATING CONTROLS PANEL
+       CONTROL DRAWER — a collapsible sidebar, not a card sitting on
+       top of the view. Fully off-canvas (translateX) when closed, so
+       it never blocks the centre; glass, so when open you can still
+       read the animation continuing behind it.
     ============================================================ */
-    .floating-controls { position: absolute; top: 15px; right: 15px; width: 320px; z-index: 100; }
-    .floating-controls details {
-        background: var(--surface-2); backdrop-filter: blur(var(--blur-md)); -webkit-backdrop-filter: blur(var(--blur-md));
-        border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md); color: var(--ink); overflow: hidden;
+    .drawer-toggle {
+        position: absolute; top: var(--edge); right: var(--edge); z-index: var(--z-panel);
+        width: 44px; height: 44px; border-radius: var(--radius-full);
+        display: flex; align-items: center; justify-content: center; padding: 0;
+        background: color-mix(in oklch, var(--surface-2) 72%, transparent);
+        backdrop-filter: blur(14px) saturate(1.5); -webkit-backdrop-filter: blur(14px) saturate(1.5);
+        border: 1px solid var(--border); box-shadow: var(--shadow-sm); color: var(--ink);
+        transition: background var(--dur-micro) var(--ease-out), transform var(--dur-short) var(--ease-out), opacity var(--dur-short) var(--ease-out);
     }
-    .floating-controls summary { padding: 11px 15px; font-weight: 600; font-size: 0.92rem; color: var(--trace-cyan); cursor: pointer; list-style: none; display: flex; justify-content: space-between; align-items: center; }
-    .floating-controls summary::-webkit-details-marker { display: none; }
-    .floating-controls summary .arrow { transition: transform 0.25s; font-size: 0.75rem; }
-    .floating-controls details[open] summary .arrow { transform: rotate(-180deg); }
-    .floating-controls .details-content { padding: 15px; border-top: 1px solid var(--border); max-height: calc(100vh - 180px); overflow-y: auto; display: flex; flex-direction: column; gap: 10px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+    .drawer-toggle svg { width: 20px; height: 20px; }
+    .drawer-toggle[aria-expanded="true"] { opacity: 0; pointer-events: none; transform: scale(0.85); }
+
+    .control-drawer {
+        position: absolute; top: 0; right: 0; bottom: 0; z-index: calc(var(--z-panel) + 1);
+        width: min(88%, 360px); max-width: 100%;
+        display: flex; flex-direction: column;
+        background: color-mix(in oklch, var(--surface-2) 74%, transparent);
+        backdrop-filter: blur(20px) saturate(1.6); -webkit-backdrop-filter: blur(20px) saturate(1.6);
+        border-left: 1px solid var(--border); box-shadow: -16px 0 40px oklch(4% 0 0 / 0.30);
+        transform: translateX(105%);
+        transition: transform var(--dur-long) var(--ease-out);
+    }
+    .control-drawer.open { transform: translateX(0); }
+    @media (prefers-reduced-motion: reduce) { .control-drawer, .drawer-toggle { transition-duration: 1ms; } }
+    .control-drawer-head { flex-shrink: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: var(--edge); border-bottom: 1px solid var(--border); }
+    .control-drawer-head span { font-weight: 600; font-size: 0.78rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); }
+    .drawer-close { width: 34px; height: 34px; border-radius: var(--radius-full); padding: 0; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid var(--border); flex-shrink: 0; }
+    .drawer-close svg { width: 16px; height: 16px; }
+    .control-drawer-body { flex: 1; overflow-y: auto; padding: var(--edge); display: flex; flex-direction: column; gap: 10px; scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
+
+    /* Segmented switch — for a genuine either/or choice (boundary type).
+       Deliberately NOT a toggle-btn: one bordered housing, one filled
+       segment, so a two-way physical switch reads differently from an
+       independent on/off control like Pause or Highlight. */
+    .segmented { display: flex; background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 3px; gap: 2px; }
+    .seg-btn { flex: 1; border: none; background: transparent; border-radius: calc(var(--radius-sm) - 2px); padding: 7px; font-size: 0.8rem; font-weight: 500; color: var(--ink-dim); }
+    .seg-btn.active { background: var(--accent); color: var(--accent-ink); }
+
+    /* Panel sections — labelled, dashed-rule groups instead of one
+       undifferentiated stack of controls. */
+    .panel-section { padding-top: 16px; margin-top: 16px; border-top: 1px dashed var(--border); }
+    .panel-section:first-of-type { padding-top: 0; margin-top: 2px; border-top: none; }
+    .section-label { display: block; font-family: var(--font-mono); font-size: 0.66rem; font-weight: 500; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-dim); margin-bottom: 12px; }
+
+    /* Advanced settings — a smooth CSS-grid height animation (0fr→1fr)
+       driven by a plain button + class toggle, instead of a native
+       <details> snap-toggle, so opening it feels fluid, not instant. */
+    .adv-settings { border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 5px; }
+    .adv-summary { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; font-size: 0.85rem; letter-spacing: 0.02em; color: var(--ink-dim); display: flex; justify-content: space-between; align-items: center; font-weight: 600; padding: 4px 0; }
+    .adv-summary .arrow { font-size: 1.15rem; line-height: 1; color: var(--accent); transition: transform var(--dur-short) var(--ease-out); }
+    .adv-summary[aria-expanded="true"] .arrow { transform: rotate(135deg); }
+    .adv-collapse { display: grid; grid-template-rows: 0fr; transition: grid-template-rows var(--dur-long) var(--ease-out); }
+    .adv-collapse.open { grid-template-rows: 1fr; }
+    .adv-content { overflow: hidden; min-height: 0; display: flex; flex-direction: column; gap: 8px; padding-top: 10px; }
+
+    /* Theme picker — a small popover off the toolbar button */
+    .theme-menu-wrap { position: relative; }
+    .theme-menu {
+        position: absolute; top: calc(100% + 8px); right: 0; z-index: var(--z-tooltip); width: 178px;
+        background: color-mix(in oklch, var(--surface-2) 82%, transparent);
+        backdrop-filter: blur(18px) saturate(1.6); -webkit-backdrop-filter: blur(18px) saturate(1.6);
+        border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-md);
+        padding: 6px; display: flex; flex-direction: column; gap: 2px;
+    }
+    .theme-menu[hidden] { display: none; }
+    .theme-menu button { all: unset; box-sizing: border-box; width: 100%; display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: var(--radius-sm); font-size: 0.82rem; font-family: var(--font-sans); color: var(--ink); cursor: pointer; }
+    @media (hover: hover) and (pointer: fine) { .theme-menu button:hover { background: var(--surface-3); } }
+    .theme-menu button[aria-checked="true"] { background: color-mix(in oklch, var(--accent) 16%, transparent); color: var(--accent); font-weight: 600; }
+    .theme-swatch { width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--border-strong); flex-shrink: 0; }
 
     @media (max-width: 768px) {
-        .floating-controls { width: calc(100% - 30px); right: 15px; }
-        .math-overlay { max-width: 100% !important; bottom: 15px; top: auto !important; left: 15px; right: 15px; }
+        .math-overlay { max-width: 100% !important; }
         input[type="number"] { font-size: 0.9rem !important; padding: 6px !important; }
     }
     @media (max-width: 480px) {
@@ -217,77 +328,110 @@
 
     /* ============================================================
        CONTROLS & INPUTS
+       No-layout-shift rule: border-width never changes between
+       states. Focus is an outline reserved (transparent) at rest,
+       so it appears with zero geometry shift and zero transition.
     ============================================================ */
     .control-group { display: flex; flex-direction: column; gap: 4px; }
     .control-group.text-center { align-items: center; text-align: center; }
     .text-center { text-align: center; }
-    .control-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; }
+    .control-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 4px; min-height: 28px; }
     label { font-size: 0.85rem; color: var(--ink-dim); }
 
-    input[type="number"], input[type="color"] { background: rgba(127,127,127,0.16); border: 1px solid var(--border); color: var(--trace-cyan); padding: 8px; border-radius: var(--radius-sm); font-size: 1rem; text-align: center; width: 100%; font-family: var(--font-mono); transition: border-color 0.15s; }
-    input[type="number"]:hover, input[type="color"]:hover { border-color: rgba(255,255,255,0.2); }
-    body.light-mode input[type="number"]:hover, body.light-mode input[type="color"]:hover { border-color: rgba(12,20,36,0.25); }
-    input[type="color"] { padding: 0 2px; height: 35px; cursor: pointer; }
-    select { background: rgba(127,127,127,0.16); border: 1px solid var(--border); color: var(--ink); padding: 8px; border-radius: var(--radius-sm); font-size: 0.95rem; width: 100%; appearance: none; font-family: var(--font-sans); cursor: pointer; }
+    input[type="number"], input[type="color"] {
+        background: var(--surface-1); border: 1px solid var(--border); color: var(--accent); padding: 8px; border-radius: var(--radius-sm);
+        font-size: 1rem; font-variant-numeric: tabular-nums; text-align: center; width: 100%; font-family: var(--font-mono); font-weight: 500;
+        outline: 2px solid transparent; outline-offset: 1px;
+        transition: background var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+    }
+    @media (hover: hover) and (pointer: fine) {
+        input[type="number"]:hover, input[type="color"]:hover { background: var(--surface-3); }
+    }
+    input[type="number"]:focus-visible, input[type="color"]:focus-visible { outline-color: var(--focus); border-color: var(--border-strong); }
+    input[type="color"] { padding: 0 2px; height: 40px; cursor: pointer; }
+    select {
+        background: var(--surface-1) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8171' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 10px center / 16px;
+        border: 1px solid var(--border); color: var(--ink); padding: 8px 34px 8px 10px; border-radius: var(--radius-sm); font-size: 0.95rem; width: 100%;
+        appearance: none; font-family: var(--font-sans); cursor: pointer; outline: 2px solid transparent; outline-offset: 1px;
+        transition: background-color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+    }
+    select:focus-visible { outline-color: var(--focus); border-color: var(--border-strong); }
 
-    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; margin: 8px 0; }
-    input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; height: 17px; width: 17px; border-radius: 50%; background: var(--trace-cyan); cursor: pointer; margin-top: -6.5px; box-shadow: 0 0 10px rgba(var(--trace-cyan-rgb), 0.6); transition: transform 0.12s; }
-    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); }
-    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; background: rgba(127,127,127,0.3); border-radius: 2px; }
-    input[type=range]::-moz-range-thumb { height: 17px; width: 17px; border: none; border-radius: 50%; background: var(--trace-cyan); cursor: pointer; box-shadow: 0 0 10px rgba(var(--trace-cyan-rgb), 0.6); }
-    input[type=range]::-moz-range-track { width: 100%; height: 4px; background: rgba(127,127,127,0.3); border-radius: 2px; }
+    input[type=range] { -webkit-appearance: none; width: 100%; height: 28px; background: transparent; margin: 0; cursor: pointer; --fill: 50%; }
+    input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 4px; cursor: pointer; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--fill), var(--border) var(--fill)); }
+    input[type=range]::-webkit-slider-thumb {
+        -webkit-appearance: none; height: 18px; width: 18px; border-radius: 50%; background: var(--accent); cursor: pointer;
+        margin-top: -7px; border: 2px solid var(--surface-2); transition: transform var(--dur-micro) var(--ease-out);
+    }
+    @media (hover: hover) and (pointer: fine) { input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.15); } }
+    input[type=range]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
+    input[type=range]::-moz-range-track { width: 100%; height: 4px; border-radius: 2px; background: linear-gradient(to right, var(--accent) var(--fill), var(--border) var(--fill)); }
+    input[type=range]::-moz-range-thumb { height: 18px; width: 18px; border: 2px solid var(--surface-2); border-radius: 50%; background: var(--accent); cursor: pointer; }
+    input[type=range]:focus-visible::-moz-range-thumb { outline: 2px solid var(--focus); outline-offset: 2px; }
 
-    input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--trace-cyan); cursor: pointer; }
+    input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--accent); cursor: pointer; }
 
-    /* Buttons */
-    button { background: var(--surface-1); border: 1px solid var(--border); color: var(--ink); padding: 8px 15px; border-radius: var(--radius-sm); font-size: 0.9rem; font-family: var(--font-sans); cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.1s; }
-    button:active { transform: scale(0.96); }
-    .btn-large { padding: 15px; font-size: 1.15rem; letter-spacing: 0.03em; border-radius: var(--radius-md); background: linear-gradient(135deg, rgba(var(--trace-cyan-rgb),0.22), rgba(var(--trace-violet-rgb),0.22)); color: var(--ink); font-weight: 700; border: 1px solid rgba(var(--trace-cyan-rgb),0.4); width: 100%; box-shadow: var(--shadow-sm); }
-    .btn-large.playing { background: linear-gradient(135deg, rgba(var(--trace-magenta-rgb),0.24), rgba(var(--trace-violet-rgb),0.24)); border-color: rgba(var(--trace-magenta-rgb),0.5); box-shadow: 0 0 22px rgba(var(--trace-magenta-rgb),0.25); }
-    .btn-reset { background: rgba(var(--vec-a-rgb), 0.1); border-color: rgba(var(--vec-a-rgb), 0.32); color: var(--vec-a); width: 100%; margin-top: 5px; }
+    /* Buttons — no gradients anywhere. Idle state is neutral; the one
+       state that means "this is live" (playing) is a solid accent
+       fill, so it reads unambiguously without relying on colour alone
+       (the label text changes too: PLAY → STOP). */
+    button { background: var(--surface-1); border: 1px solid var(--border); color: var(--ink); padding: 8px 15px; border-radius: var(--radius-sm); font-size: 0.9rem; font-family: var(--font-sans); font-weight: 500; cursor: pointer; transition: background var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out), transform var(--dur-micro) var(--ease-out); }
+    button:active { transform: scale(0.97); }
+    @media (hover: hover) and (pointer: fine) { button:hover { background: var(--surface-3); } }
+
+    .btn-large { padding: 15px; font-size: 1.05rem; font-weight: 700; letter-spacing: 0.04em; border-radius: var(--radius-md); background: var(--surface-3); color: var(--ink); border: 1px solid var(--border-strong); width: 100%; }
+    .btn-large.playing { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+    .btn-reset { background: color-mix(in oklch, var(--vec-a) 10%, transparent); border-color: color-mix(in oklch, var(--vec-a) 40%, transparent); color: var(--vec-a); width: 100%; margin-top: 5px; }
+    @media (hover: hover) and (pointer: fine) { .btn-reset:hover { background: color-mix(in oklch, var(--vec-a) 18%, transparent); } }
 
     .tuning-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
-    .tuning-btn { font-size: 0.75rem; padding: 6px; color: var(--trace-cyan); background: rgba(127,127,127,0.1); font-family: var(--font-mono); }
+    .tuning-btn { font-size: 0.75rem; padding: 6px; color: var(--accent); background: var(--surface-1); font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
-    .toggle-btn { background: rgba(127,127,127,0.13); width: 100%; border: 1px solid var(--border); }
-    .toggle-btn.active { background: rgba(var(--trace-cyan-rgb),0.2); border-color: var(--trace-cyan); color: var(--ink); }
-    .pause-btn.active { background: rgba(var(--trace-amber-rgb),0.2); border-color: var(--trace-amber); color: var(--ink); }
-    .multi-btn.active { background: rgba(var(--trace-amber-rgb),0.2); border-color: var(--trace-amber); color: var(--trace-amber); }
+    .toggle-btn { background: var(--surface-1); width: 100%; border: 1px solid var(--border); }
+    .toggle-btn.active, .pause-btn.active, .multi-btn.active {
+        background: color-mix(in oklch, var(--accent) 15%, transparent); border-color: var(--accent); color: var(--accent);
+    }
 
-    /* Advanced settings nested disclosure */
-    .adv-settings { background: rgba(127,127,127,0.08); border-radius: var(--radius-sm); padding: 10px; border: 1px solid var(--border); margin-top: 5px; }
-    .adv-summary { cursor: pointer; font-size: 0.9rem; color: var(--trace-violet); list-style: none; display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
+    /* Advanced settings — a hairline rule, not a second nested card.
+       Keeps the progressive-disclosure function without stacking
+       boxes inside the already-bordered floating panel. */
+    .adv-settings { border-top: 1px dashed var(--border); padding-top: 10px; margin-top: 5px; }
+    .adv-summary { cursor: pointer; font-size: 0.85rem; letter-spacing: 0.02em; color: var(--ink-dim); list-style: none; display: flex; justify-content: space-between; align-items: center; font-weight: 600; }
     .adv-summary::-webkit-details-marker { display: none; }
-    .adv-summary::after { content: '+'; font-size: 1.2rem; line-height: 1; }
+    .adv-summary::after { content: '+'; font-size: 1.1rem; line-height: 1; color: var(--accent); }
     .adv-settings[open] .adv-summary::after { content: '−'; }
-    .adv-content { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--border); padding-top: 10px; }
+    .adv-settings[open] .adv-summary { color: var(--ink); }
+    .adv-content { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 
     /* ============================================================
        BOTTOM NAVIGATION
     ============================================================ */
     .bottom-nav {
-        position: fixed; bottom: 0; left: 0; width: 100%; height: var(--nav-height);
-        background: var(--surface-1); backdrop-filter: blur(var(--blur-md)); -webkit-backdrop-filter: blur(var(--blur-md)); border-top: 1px solid var(--border);
-        display: flex; justify-content: flex-start; align-items: center; padding: 0 10px; z-index: 100;
+        position: fixed; bottom: 0; left: 0; width: 100%; height: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px));
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+        background: var(--surface-1); border-top: 1px solid var(--border);
+        display: flex; justify-content: flex-start; align-items: center; padding-left: 10px; padding-right: 10px; z-index: var(--z-panel);
         overflow-x: auto; white-space: nowrap; scrollbar-width: none;
     }
     .bottom-nav::-webkit-scrollbar { display: none; }
-    .nav-indicator { position: absolute; top: 6px; height: calc(100% - 12px); border-radius: var(--radius-md); background: rgba(var(--trace-cyan-rgb), 0.14); border: 1px solid rgba(var(--trace-cyan-rgb), 0.4); pointer-events: none; z-index: 0; transition: transform 0.35s cubic-bezier(0.22,1,0.36,1), width 0.35s cubic-bezier(0.22,1,0.36,1); }
-    .nav-item { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ink-dim); cursor: pointer; padding: 6px 15px; min-width: 70px; flex-shrink: 0; transition: color 0.25s; }
-    .nav-item svg { width: 22px; height: 22px; margin-bottom: 4px; }
-    .nav-item.active { color: var(--trace-cyan); }
-    .nav-text { font-size: 0.64rem; font-weight: 600; letter-spacing: 0.03em; font-family: var(--font-sans); }
+    .nav-indicator { position: absolute; top: 6px; height: calc(var(--nav-height) - 12px); border-radius: var(--radius-sm); background: color-mix(in oklch, var(--accent) 13%, transparent); border-bottom: 2px solid var(--accent); pointer-events: none; z-index: var(--z-base); transition: transform var(--dur-long) var(--ease-out), width var(--dur-long) var(--ease-out); }
+    @media (prefers-reduced-motion: reduce) { .nav-indicator { transition: none; } }
+    .nav-item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--ink-dim); cursor: pointer; padding: 6px 15px; min-width: 70px; flex-shrink: 0; transition: color var(--dur-short) var(--ease-out); z-index: var(--z-content); }
+    .nav-item svg { width: 21px; height: 21px; margin-bottom: 4px; }
+    .nav-item.active { color: var(--accent); }
+    .nav-text { font-size: 0.63rem; font-weight: 600; letter-spacing: 0.03em; font-family: var(--font-sans); white-space: nowrap; }
 
-    .math-overlay { position: absolute; top: 15px; left: 15px; background: var(--surface-2); padding: 12px 18px; border-radius: var(--radius-md); border: 1px solid var(--border); pointer-events: auto; z-index: 10; max-width: 65%; backdrop-filter: blur(var(--blur-sm)); -webkit-backdrop-filter: blur(var(--blur-sm)); box-shadow: var(--shadow-sm); }
+    .math-overlay { position: absolute; top: var(--edge); left: var(--edge); background: color-mix(in oklch, var(--surface-2) 80%, transparent); backdrop-filter: blur(14px) saturate(1.5); -webkit-backdrop-filter: blur(14px) saturate(1.5); padding: clamp(10px, 2.6vw, 14px) clamp(12px, 3.2vw, 18px); border-radius: var(--radius-md); border: 1px solid var(--border); pointer-events: auto; z-index: var(--z-overlay); max-width: min(65%, 360px); box-shadow: var(--shadow-sm); }
 
     .db-layout { display: flex; gap: 20px; height: 100%; }
     @media (max-width: 900px) { .db-layout { flex-direction: column; } }
-    .source-card { background: rgba(127,127,127,0.05); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 15px; margin-bottom: 10px; }
+    .source-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 15px; margin-bottom: 10px; }
 
     /* ============================================================
        HOME HERO — a live strip reflecting the actual oscillator
        state (waveform shape, and a speed tied to frequency).
-       Pure CSS/SVG: no extra render loop needed.
+       Pure CSS/SVG: no extra render loop needed. Functional, not
+       decorative — it changes with the controls below it.
     ============================================================ */
     .home-hero { width: 100%; max-width: 560px; margin: 0 auto 18px; height: 64px; overflow: hidden; border-radius: var(--radius-md); position: relative; -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
     .home-hero-track { position: absolute; inset: 0; width: 200%; display: flex; animation: wave-scroll var(--wave-speed, 3.2s) linear infinite; animation-play-state: paused; }
@@ -298,10 +442,10 @@
     /* ============================================================
        TOASTS
     ============================================================ */
-    .toast-container { position: fixed; bottom: calc(var(--nav-height) + 14px); left: 50%; transform: translateX(-50%); z-index: 500; display: flex; flex-direction: column-reverse; gap: 8px; pointer-events: none; align-items: center; }
-    .toast { background: var(--surface-2); border: 1px solid var(--border); backdrop-filter: blur(var(--blur-sm)); -webkit-backdrop-filter: blur(var(--blur-sm)); padding: 9px 16px; border-radius: var(--radius-full); font-size: 0.82rem; color: var(--ink); box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 7px; animation: toast-in 0.22s ease-out, toast-out 0.25s ease-in 1.8s forwards; white-space: nowrap; }
-    .toast svg { width: 15px; height: 15px; color: var(--trace-cyan); flex-shrink: 0; }
-    @keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(0.94); } to { opacity: 1; transform: translateY(0) scale(1); } }
+    .toast-container { position: fixed; bottom: calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + 14px); left: 50%; transform: translateX(-50%); z-index: var(--z-toast); display: flex; flex-direction: column-reverse; gap: 8px; pointer-events: none; align-items: center; }
+    .toast { background: var(--surface-2); border: 1px solid var(--border-strong); padding: 9px 16px; border-radius: var(--radius-full); font-size: 0.82rem; color: var(--ink); box-shadow: var(--shadow-md); display: flex; align-items: center; gap: 7px; animation: toast-in var(--dur-short) var(--ease-out), toast-out var(--dur-short) var(--ease-in) 1.8s forwards; white-space: nowrap; }
+    .toast svg { width: 15px; height: 15px; color: var(--accent); flex-shrink: 0; }
+    @keyframes toast-in { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
     @keyframes toast-out { to { opacity: 0; transform: translateY(-6px); } }
 
     @media (prefers-reduced-motion: reduce) {
@@ -315,18 +459,26 @@
 
     <!-- GLOBAL TOOLBAR -->
     <div class="top-toolbar">
-        <div class="brand" aria-hidden="true"><span class="brand-led"></span><span class="brand-name">Wave Lab</span></div>
+        <div class="brand" aria-hidden="true"><span class="brand-led"></span><span class="brand-name">WAVE LAB</span></div>
         <div class="toolbar-actions">
-            <button class="tool-btn" onclick="toggleSlowMo()" id="btn-slowmo" aria-label="Toggle slow motion">
+            <button class="tool-btn" onclick="toggleSlowMo()" id="btn-slowmo" aria-label="Toggle slow motion" aria-pressed="false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.3 1.9"/></svg><span class="tool-label">Slow-Mo</span>
             </button>
             <button class="tool-btn" onclick="takeSnapshot()" id="btn-snap" aria-label="Save snapshot">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.4-2h7.2L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z"/><circle cx="12" cy="13.3" r="3.1"/></svg><span class="tool-label">Snap</span>
             </button>
-            <button class="tool-btn" onclick="toggleTheme()" id="btn-theme" aria-label="Toggle projector theme">
-                <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.3" fill="none"/><path d="M12 3.7a8.3 8.3 0 000 16.6z" fill="currentColor" stroke="none"/></svg><span class="tool-label">Theme</span>
-            </button>
-            <button class="tool-btn" onclick="toggleFullscreen()" id="btn-fullscreen" aria-label="Toggle fullscreen">
+            <div class="theme-menu-wrap">
+                <button class="tool-btn" onclick="toggleThemeMenu()" id="btn-theme" aria-label="Choose theme" aria-haspopup="true" aria-expanded="false">
+                    <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="8.3" fill="none"/><path d="M12 3.7a8.3 8.3 0 000 16.6z" fill="currentColor" stroke="none"/></svg><span class="tool-label">Theme</span>
+                </button>
+                <div class="theme-menu" id="theme-menu" hidden role="menu" aria-label="Theme">
+                    <button role="menuitemradio" data-theme-opt="dark-blue" onclick="setTheme('dark-blue')"><span class="theme-swatch" style="background:#0b1220;"></span>Dark Blue</button>
+                    <button role="menuitemradio" data-theme-opt="dark" onclick="setTheme('dark')" aria-checked="true"><span class="theme-swatch" style="background:#100d09;"></span>Dark</button>
+                    <button role="menuitemradio" data-theme-opt="light" onclick="setTheme('light')"><span class="theme-swatch" style="background:#ebebeb;"></span>Light</button>
+                    <button role="menuitemradio" data-theme-opt="light-cream" onclick="setTheme('light-cream')"><span class="theme-swatch" style="background:#f1eae1;"></span>Light Cream</button>
+                </div>
+            </div>
+            <button class="tool-btn" onclick="toggleFullscreen()" id="btn-fullscreen" aria-label="Toggle fullscreen" aria-pressed="false">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V5h4M20 9V5h-4M4 15v4h4M20 15v4h-4"/></svg><span class="tool-label">Fullscreen</span>
             </button>
         </div>
@@ -341,86 +493,103 @@
                     <svg viewBox="0 0 100 40" preserveAspectRatio="none"><use href="#hero-wave-shape" xlink:href="#hero-wave-shape"/></svg>
                     <svg viewBox="0 0 100 40" preserveAspectRatio="none"><use href="#hero-wave-shape" xlink:href="#hero-wave-shape"/></svg>
                 </div>
-                <svg width="0" height="0" style="position:absolute"><defs><path id="hero-wave-shape" d="M0,20 C4.2,20 8.3,5 12.5,5 C16.7,5 20.8,20 25,20 C29.2,20 33.3,35 37.5,35 C41.7,35 45.8,20 50,20 C54.2,20 58.3,5 62.5,5 C66.7,5 70.8,20 75,20 C79.2,20 83.3,35 87.5,35 C91.7,35 95.8,20 100,20" fill="none" style="stroke: var(--trace-cyan);" stroke-width="2.2" vector-effect="non-scaling-stroke"/></defs></svg>
+                <svg width="0" height="0" style="position:absolute"><defs><path id="hero-wave-shape" d="M0,20 C4.2,20 8.3,5 12.5,5 C16.7,5 20.8,20 25,20 C29.2,20 33.3,35 37.5,35 C41.7,35 45.8,20 50,20 C54.2,20 58.3,5 62.5,5 C66.7,5 70.8,20 75,20 C79.2,20 83.3,35 87.5,35 C91.7,35 95.8,20 100,20" fill="none" style="stroke: var(--accent);" stroke-width="2.2" vector-effect="non-scaling-stroke"/></defs></svg>
             </div>
-            <div class="glass" style="max-width: 500px; margin: 0 auto; padding: 30px; width: 100%;">
+            <div class="panel" style="max-width: 500px; margin: 0 auto; padding: 26px 30px 30px; width: 100%;">
                 <h2>Precision Tone Generator</h2>
-                <div class="control-group text-center">
-                    <label>Frequency (Hz)</label>
-                    <input type="number" id="home-freq" value="440.0" step="0.1" onchange="updateHomeOsc()">
-                </div>
-                <div class="control-group" style="margin-top: 10px;">
-                    <label>Micro-Tuning</label>
-                    <div class="tuning-grid">
-                        <button class="tuning-btn" onclick="adjFreq('home', -10)">-10 Hz</button>
-                        <button class="tuning-btn" onclick="adjFreq('home', -1)">-1 Hz</button>
-                        <button class="tuning-btn" onclick="adjFreq('home', -0.1)">-0.1 Hz</button>
-                        <button class="tuning-btn" onclick="adjFreq('home', 10)">+10 Hz</button>
-                        <button class="tuning-btn" onclick="adjFreq('home', 1)">+1 Hz</button>
-                        <button class="tuning-btn" onclick="adjFreq('home', 0.1)">+0.1 Hz</button>
+
+                <div class="panel-section">
+                    <span class="section-label">01 · Signal</span>
+                    <div class="control-group text-center">
+                        <label for="home-freq">Frequency (Hz)</label>
+                        <input type="number" id="home-freq" value="440.0" step="0.1" onchange="updateHomeOsc()">
+                    </div>
+                    <div class="control-group" style="margin-top: 10px;">
+                        <label id="home-tuning-label">Micro-Tuning</label>
+                        <div class="tuning-grid" role="group" aria-labelledby="home-tuning-label">
+                            <button class="tuning-btn" onclick="adjFreq('home', -10)">-10 Hz</button>
+                            <button class="tuning-btn" onclick="adjFreq('home', -1)">-1 Hz</button>
+                            <button class="tuning-btn" onclick="adjFreq('home', -0.1)">-0.1 Hz</button>
+                            <button class="tuning-btn" onclick="adjFreq('home', 10)">+10 Hz</button>
+                            <button class="tuning-btn" onclick="adjFreq('home', 1)">+1 Hz</button>
+                            <button class="tuning-btn" onclick="adjFreq('home', 0.1)">+0.1 Hz</button>
+                        </div>
                     </div>
                 </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom:15px; margin-top:15px;">
+
+                <div class="panel-section">
+                    <span class="section-label">02 · Shape</span>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                        <div class="control-group">
+                            <label for="home-wave">Waveform</label>
+                            <select id="home-wave" onchange="updateHomeOsc()">
+                                <option value="sine">Sine</option>
+                                <option value="square">Square</option>
+                                <option value="triangle">Triangle</option>
+                                <option value="sawtooth">Sawtooth</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label id="home-phase-label">Phase</label>
+                            <button id="home-phase-btn" class="toggle-btn" onclick="togglePhase()" style="height:38px;" aria-pressed="false" aria-labelledby="home-phase-label">0° (Normal)</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <span class="section-label">03 · Output</span>
                     <div class="control-group">
-                        <label>Waveform</label>
-                        <select id="home-wave" onchange="updateHomeOsc()">
-                            <option value="sine">Sine</option>
-                            <option value="square">Square</option>
-                            <option value="triangle">Triangle</option>
-                            <option value="sawtooth">Sawtooth</option>
-                        </select>
+                        <label for="home-vol">Master Volume: <span id="home-vol-val">50%</span></label>
+                        <input type="range" id="home-vol" min="0" max="1" step="0.01" value="0.5" oninput="updateHomeVol()">
                     </div>
-                    <div class="control-group">
-                        <label>Phase</label>
-                        <button id="home-phase-btn" class="toggle-btn" onclick="togglePhase()" style="height:35px;">0° (Normal)</button>
-                    </div>
+                    <button id="home-play-btn" class="btn-large" style="margin-top: 15px;" onclick="toggleHomePlay()" aria-pressed="false">PLAY</button>
                 </div>
-                <div class="control-group">
-                    <label>Master Volume: <span id="home-vol-val">50%</span></label>
-                    <input type="range" id="home-vol" min="0" max="1" step="0.01" value="0.5" oninput="updateHomeVol()">
-                </div>
-                <button id="home-play-btn" class="btn-large" style="margin-top: 15px;" onclick="toggleHomePlay()">PLAY</button>
             </div>
         </main>
 
         <!-- MODE 2: PROGRESSIVE WAVE (TRANSVERSE) -->
         <main id="view-prog" class="view full-canvas">
             <div class="canvas-container">
-                <canvas id="canvas-prog"></canvas>
+                <canvas id="canvas-prog" role="img" aria-label="Animated transverse progressive wave"></canvas>
                 <div class="math-overlay">
                     <div class="math-text">y(x,t) = <span class="math-var" tabindex="0">A<span class="tooltip">Amplitude: Max displacement</span></span> sin(<span class="math-var" tabindex="0">ω<span class="tooltip">Angular Freq = 2πf</span></span>t − <span class="math-var" tabindex="0">k<span class="tooltip">Wave Number = 2π/λ</span></span>x)</div>
                     <div style="font-size: 0.8rem; margin-top:5px; color: var(--ink-dim);">Transverse Progressive Wave</div>
+                    <div class="readout-line" id="prog-vreadout">v = fλ = 200.0 px/s</div>
                 </div>
 
-                <div class="floating-controls">
-                    <details open>
-                        <summary>Controls <span class="arrow">▼</span></summary>
-                        <div class="details-content">
-                            <button id="prog-play-btn" class="toggle-btn pause-btn" onclick="toggleAnimation('prog')">Pause Animation</button>
-                            <div class="control-group"><label>Amplitude: <span id="prog-amp-val">80</span> px</label><input type="range" id="prog-amp" min="10" max="150" value="80" oninput="updateState('prog', 'amp', this.value)"></div>
-                            <div class="control-group"><label>Frequency: <span id="prog-freq-val">1.0</span> Hz</label><input type="range" id="prog-freq" min="0.1" max="5" step="0.1" value="1.0" oninput="updateState('prog', 'freq', this.value)"></div>
-                            <div class="control-group"><label>Wavelength: <span id="prog-wave-val">200</span> px</label><input type="range" id="prog-wave" min="50" max="500" value="200" oninput="updateState('prog', 'wave', this.value)"></div>
-                            <hr style="border-color: var(--border); margin: 5px 0;">
-                            <div class="control-group"><label>Particle Density: <span id="prog-density-val">80</span></label><input type="range" id="prog-density" min="20" max="200" value="80" oninput="updateState('prog', 'density', this.value)"></div>
+                <button class="drawer-toggle" onclick="openDrawer('prog')" id="prog-drawer-toggle" aria-label="Open controls" aria-expanded="false" aria-controls="prog-drawer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="var(--surface-2)"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2" fill="var(--surface-2)"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2" fill="var(--surface-2)"/></svg>
+                </button>
+                <div class="control-drawer" id="prog-drawer">
+                    <div class="control-drawer-head"><span>Controls</span>
+                        <button class="drawer-close" onclick="closeDrawer('prog')" aria-label="Close controls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    </div>
+                    <div class="control-drawer-body">
+                            <button id="prog-play-btn" class="toggle-btn pause-btn" onclick="toggleAnimation('prog')" aria-pressed="false">Pause Animation</button>
+                            <div class="control-group"><label for="prog-amp">Amplitude: <span id="prog-amp-val">80</span> px</label><input type="range" id="prog-amp" min="10" max="150" value="80" oninput="updateState('prog', 'amp', this.value)"></div>
+                            <div class="control-group"><label for="prog-freq">Frequency: <span id="prog-freq-val">1.0</span> Hz</label><input type="range" id="prog-freq" min="0.1" max="5" step="0.1" value="1.0" oninput="updateState('prog', 'freq', this.value)"></div>
+                            <div class="control-group"><label for="prog-wave">Wavelength: <span id="prog-wave-val">200</span> px</label><input type="range" id="prog-wave" min="50" max="500" value="200" oninput="updateState('prog', 'wave', this.value)"></div>
+                            <hr style="border: none; border-top: 1px dashed var(--border); margin: 5px 0;">
+                            <div class="control-group"><label for="prog-density">Particle Density: <span id="prog-density-val">80</span></label><input type="range" id="prog-density" min="20" max="200" value="80" oninput="updateState('prog', 'density', this.value)"></div>
 
-                            <button id="prog-hl-btn" class="toggle-btn" onclick="toggleState('prog', 'highlight')" style="margin-top:5px;">Highlight Center Particle</button>
+                            <button id="prog-hl-btn" class="toggle-btn" onclick="toggleState('prog', 'highlight')" style="margin-top:5px;" aria-pressed="false">Highlight Particle</button>
 
-                            <details class="adv-settings">
-                                <summary class="adv-summary">Advanced &amp; Vectors</summary>
-                                <div class="adv-content">
-                                    <div class="control-row"><label>Show Vectors (v, a)</label><input type="checkbox" id="prog-vectors" onchange="updateState('prog', 'vectors', this.checked)"></div>
-                                    <div class="control-row"><label>Show Measurement Grid</label><input type="checkbox" id="prog-grid" onchange="updateState('prog', 'grid', this.checked)"></div>
-                                    <div class="control-row"><label>Particle Color</label><input type="color" id="prog-color" value="#3fe0d0" onchange="updateState('prog', 'color', this.value)"></div>
-                                    <div class="control-row"><label>Particle Size</label><input type="range" id="prog-size" min="1" max="10" value="4" oninput="updateState('prog', 'size', this.value)"></div>
-                                    <div class="control-row"><label>Transparency</label><input type="range" id="prog-alpha" min="0.1" max="1" step="0.1" value="1" oninput="updateState('prog', 'alpha', this.value)"></div>
-                                    <hr style="border-color: var(--border); margin: 5px 0;">
-                                    <div class="control-row"><label>Show X-Axis</label><input type="checkbox" id="prog-xaxis" checked onchange="updateState('prog', 'xaxis', this.checked)"></div>
-                                    <div class="control-row"><label>Show Drop Lines</label><input type="checkbox" id="prog-dropLines" checked onchange="updateState('prog', 'dropLines', this.checked)"></div>
+                            <div class="adv-settings">
+                                <button class="adv-summary" onclick="toggleAdv(this)" aria-expanded="false">Advanced &amp; Vectors <span class="arrow">+</span></button>
+                                <div class="adv-collapse"><div class="adv-content">
+                                    <div class="control-row"><label for="prog-vectors">Show Vectors (v, a)</label><input type="checkbox" id="prog-vectors" onchange="updateState('prog', 'vectors', this.checked)"></div>
+                                    <div class="control-row"><label for="prog-grid">Show Measurement Grid</label><input type="checkbox" id="prog-grid" onchange="updateState('prog', 'grid', this.checked)"></div>
+                                    <div class="control-row"><label for="prog-color">Particle Color</label><input type="color" id="prog-color" value="#3ebfc6" onchange="updateState('prog', 'color', this.value)"></div>
+                                    <div class="control-row"><label for="prog-size">Particle Size</label><input type="range" id="prog-size" min="1" max="10" value="4" oninput="updateState('prog', 'size', this.value)"></div>
+                                    <div class="control-row"><label for="prog-alpha">Transparency</label><input type="range" id="prog-alpha" min="0.1" max="1" step="0.1" value="1" oninput="updateState('prog', 'alpha', this.value)"></div>
+                                    <hr style="border: none; border-top: 1px dashed var(--border); margin: 5px 0;">
+                                    <div class="control-row"><label for="prog-xaxis">Show X-Axis</label><input type="checkbox" id="prog-xaxis" checked onchange="updateState('prog', 'xaxis', this.checked)"></div>
+                                    <div class="control-row"><label for="prog-dropLines">Show Drop Lines</label><input type="checkbox" id="prog-dropLines" checked onchange="updateState('prog', 'dropLines', this.checked)"></div>
+                                    <div class="control-row"><label for="prog-ytGraph">Show y–t Graph (at highlight)</label><input type="checkbox" id="prog-ytGraph" onchange="updateState('prog', 'ytGraph', this.checked)"></div>
                                     <button class="btn-reset" onclick="resetDefaults('prog')">Reset Defaults</button>
-                                </div>
-                            </details>
-                        </div>
-                    </details>
+                                </div></div>
+                            </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -428,7 +597,7 @@
         <!-- MODE 3: STANDING WAVE -->
         <main id="view-stand" class="view full-canvas">
             <div class="canvas-container">
-                <canvas id="canvas-stand"></canvas>
+                <canvas id="canvas-stand" role="img" aria-label="Animated standing wave"></canvas>
 
                 <!-- Default Addition Math -->
                 <div class="math-overlay" id="stand-math-add">
@@ -444,35 +613,39 @@
                     <div class="math-text" style="color: var(--ink); border-top: 1px solid var(--border); padding-top: 5px; margin-top: 5px;">y = <span style="color:var(--trace-amber);">[Envelope]</span> * <span style="color:var(--trace-cyan);">[Multiplier]</span></div>
                 </div>
 
-                <div class="floating-controls">
-                    <details open>
-                        <summary>Controls <span class="arrow">▼</span></summary>
-                        <div class="details-content">
-                            <button id="stand-play-btn" class="toggle-btn pause-btn" onclick="toggleAnimation('stand')">Pause Animation</button>
-                            <button id="stand-env-btn" class="toggle-btn multi-btn" onclick="toggleState('stand', 'showEnvelope'); syncStandMath();">Switch to Multiplication View</button>
+                <button class="drawer-toggle" onclick="openDrawer('stand')" id="stand-drawer-toggle" aria-label="Open controls" aria-expanded="false" aria-controls="stand-drawer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="var(--surface-2)"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2" fill="var(--surface-2)"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2" fill="var(--surface-2)"/></svg>
+                </button>
+                <div class="control-drawer" id="stand-drawer">
+                    <div class="control-drawer-head"><span>Controls</span>
+                        <button class="drawer-close" onclick="closeDrawer('stand')" aria-label="Close controls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    </div>
+                    <div class="control-drawer-body">
+                            <button id="stand-play-btn" class="toggle-btn pause-btn" onclick="toggleAnimation('stand')" aria-pressed="false">Pause Animation</button>
+                            <button id="stand-env-btn" class="toggle-btn multi-btn" onclick="toggleState('stand', 'showEnvelope'); syncStandMath();" aria-pressed="false">Multiplication View</button>
 
                             <div class="control-group" style="margin-top:5px;">
-                                <label>Boundary Type</label>
-                                <div style="display: flex; gap: 5px;">
-                                    <button id="stand-closed-btn" class="toggle-btn active" style="flex:1; font-size:0.8rem;" onclick="setStandBoundary('closed')">Closed (Node)</button>
-                                    <button id="stand-open-btn" class="toggle-btn" style="flex:1; font-size:0.8rem;" onclick="setStandBoundary('open')">Open (Antinode)</button>
+                                <label id="stand-boundary-label">Boundary Type</label>
+                                <div class="segmented" role="group" aria-labelledby="stand-boundary-label">
+                                    <button id="stand-closed-btn" class="seg-btn active" onclick="setStandBoundary('closed')" aria-pressed="true">Closed</button>
+                                    <button id="stand-open-btn" class="seg-btn" onclick="setStandBoundary('open')" aria-pressed="false">Open</button>
                                 </div>
+                                <div style="font-size: 0.72rem; color: var(--ink-dim); margin-top: 4px;">Closed end = node · Open end = antinode</div>
                             </div>
 
-                            <details class="adv-settings">
-                                <summary class="adv-summary">Advanced Settings</summary>
-                                <div class="adv-content">
-                                    <div class="control-group"><label>Wave Speed</label><input type="range" id="stand-speed" min="0.5" max="5" step="0.1" value="2" oninput="updateState('stand', 'speed', this.value)"></div>
-                                    <div class="control-row"><label>Show Grid</label><input type="checkbox" id="stand-grid" onchange="updateState('stand', 'grid', this.checked)"></div>
-                                    <div class="control-row"><label>Show X-Axis</label><input type="checkbox" id="stand-xaxis" checked onchange="updateState('stand', 'xaxis', this.checked)"></div>
-                                    <div class="control-row"><label>Incident Color</label><input type="color" id="stand-color1" value="#3fe0d0" onchange="updateState('stand', 'color1', this.value)"></div>
-                                    <div class="control-row"><label>Reflected Color</label><input type="color" id="stand-color2" value="#ff4d94" onchange="updateState('stand', 'color2', this.value)"></div>
-                                    <div class="control-row"><label>Line Thickness</label><input type="range" id="stand-thick" min="1" max="8" value="3" oninput="updateState('stand', 'thick', this.value)"></div>
+                            <div class="adv-settings">
+                                <button class="adv-summary" onclick="toggleAdv(this)" aria-expanded="false">Advanced Settings <span class="arrow">+</span></button>
+                                <div class="adv-collapse"><div class="adv-content">
+                                    <div class="control-group"><label for="stand-speed">Wave Speed</label><input type="range" id="stand-speed" min="0.5" max="5" step="0.1" value="2" oninput="updateState('stand', 'speed', this.value)"></div>
+                                    <div class="control-row"><label for="stand-grid">Show Grid</label><input type="checkbox" id="stand-grid" onchange="updateState('stand', 'grid', this.checked)"></div>
+                                    <div class="control-row"><label for="stand-xaxis">Show X-Axis</label><input type="checkbox" id="stand-xaxis" checked onchange="updateState('stand', 'xaxis', this.checked)"></div>
+                                    <div class="control-row"><label for="stand-color1">Incident Color</label><input type="color" id="stand-color1" value="#3ebfc6" onchange="updateState('stand', 'color1', this.value)"></div>
+                                    <div class="control-row"><label for="stand-color2">Reflected Color</label><input type="color" id="stand-color2" value="#e356a2" onchange="updateState('stand', 'color2', this.value)"></div>
+                                    <div class="control-group"><label for="stand-thick">Line Thickness</label><input type="range" id="stand-thick" min="1" max="8" value="3" oninput="updateState('stand', 'thick', this.value)"></div>
                                     <button class="btn-reset" onclick="resetDefaults('stand')">Reset Defaults</button>
-                                </div>
-                            </details>
-                        </div>
-                    </details>
+                                </div></div>
+                            </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -480,56 +653,75 @@
         <!-- MODE 4: BEATS GENERATOR -->
         <main id="view-beats" class="view">
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; margin-bottom:20px; max-width:800px; margin: 0 auto; width:100%;">
-                <div class="glass" style="padding: 20px;">
+                <div class="panel" style="padding: 20px;">
                     <h2 style="color: var(--trace-cyan);">Source 1</h2>
+                    <label for="beat-freq1" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);">Source 1 frequency (Hz)</label>
                     <input type="number" id="beat-freq1" value="440.0" step="0.1" onchange="updateBeats()">
                     <div class="tuning-grid" style="margin-top:10px;">
                         <button class="tuning-btn" onclick="adjFreq('beat1', -1)">-1</button>
                         <button class="tuning-btn" onclick="adjFreq('beat1', -0.1)">-0.1</button>
                         <button class="tuning-btn" onclick="adjFreq('beat1', 0.1)">+0.1</button>
                     </div>
+                    <label for="beat-wave1" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);">Source 1 waveform</label>
                     <select id="beat-wave1" style="margin-top:15px;" onchange="updateBeats()"><option value="sine">Sine</option><option value="square">Square</option></select>
                 </div>
-                <div class="glass" style="padding: 20px;">
+                <div class="panel" style="padding: 20px;">
                     <h2 style="color: var(--trace-magenta);">Source 2</h2>
+                    <label for="beat-freq2" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);">Source 2 frequency (Hz)</label>
                     <input type="number" id="beat-freq2" value="442.0" step="0.1" onchange="updateBeats()">
                     <div class="tuning-grid" style="margin-top:10px;">
                         <button class="tuning-btn" onclick="adjFreq('beat2', -1)">-1</button>
                         <button class="tuning-btn" onclick="adjFreq('beat2', -0.1)">-0.1</button>
                         <button class="tuning-btn" onclick="adjFreq('beat2', 0.1)">+0.1</button>
                     </div>
+                    <label for="beat-wave2" style="position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0);">Source 2 waveform</label>
                     <select id="beat-wave2" style="margin-top:15px;" onchange="updateBeats()"><option value="sine">Sine</option><option value="square">Square</option></select>
                 </div>
             </div>
 
-            <div class="glass" style="padding: 30px; text-align: center; max-width:800px; margin: 20px auto; width:100%;">
-                <p style="margin-bottom: 20px; font-size:1.1rem;">Beat Frequency (f<sub>beat</sub>) = |f₁ - f₂| = <strong id="beat-display" style="color: var(--ink); font-size: 1.5rem; font-family: var(--font-mono);">2.0 Hz</strong></p>
-                <button id="beat-play-btn" class="btn-large" onclick="toggleBeatsPlay()">PLAY BEATS</button>
+            <div aria-hidden="true" style="display:flex; align-items:center; justify-content:center; gap:10px; max-width:800px; margin:-8px auto 14px; font-family:var(--font-mono); font-size:0.72rem; letter-spacing:0.05em; text-transform:uppercase;">
+                <span style="color:var(--trace-cyan);">● Src 1</span>
+                <span style="color:var(--ink-dim);">+</span>
+                <span style="color:var(--trace-magenta);">● Src 2</span>
+                <span style="color:var(--ink-dim);">↓</span>
+                <span style="color:var(--accent);">Resultant</span>
+            </div>
+
+            <div class="panel" style="padding: 20px; max-width:800px; margin: 0 auto 20px; width:100%;">
+                <h3 style="margin-bottom: 8px;">Resultant Waveform y₁ + y₂</h3>
+                <div class="canvas-container" style="height: 170px; min-height: 170px;">
+                    <canvas id="canvas-beats" role="img" aria-label="Resultant beat waveform"></canvas>
+                </div>
+            </div>
+
+            <div class="panel" style="padding: 30px; text-align: center; max-width:800px; margin: 0 auto; width:100%;">
+                <p style="margin-bottom: 20px; font-size:1.1rem;">Beat Frequency (f<sub>beat</sub>) = |f₁ - f₂| = <strong id="beat-display" style="color: var(--accent); font-size: 1.5rem; font-family: var(--font-mono); font-variant-numeric: tabular-nums;">2.0 Hz</strong></p>
+                <button id="beat-play-btn" class="btn-large" onclick="toggleBeatsPlay()" aria-pressed="false">PLAY BEATS</button>
             </div>
         </main>
 
         <!-- MODE 5: dB GENERATOR -->
         <main id="view-db" class="view">
             <div class="db-layout">
-                <div class="glass" style="width: 350px; padding: 20px; overflow-y: auto; display:flex; flex-direction:column; gap:10px; flex-shrink: 0;">
+                <div class="panel" style="width: 350px; padding: 20px; overflow-y: auto; display:flex; flex-direction:column; gap:10px; flex-shrink: 0;">
                     <h3>Sound Sources</h3>
                     <div id="db-sources-list"></div>
                     <button class="toggle-btn" style="border-style: dashed; padding: 12px; margin-top: 10px;" onclick="addDBSource()">+ Add Another Source</button>
 
-                    <details class="adv-settings" style="margin-top:auto;">
-                        <summary class="adv-summary">Calibration Settings</summary>
-                        <div class="adv-content">
+                    <div class="adv-settings" style="margin-top:auto; border-top: 1px dashed var(--border);">
+                        <button class="adv-summary" onclick="toggleAdv(this)" aria-expanded="false">Calibration Settings <span class="arrow">+</span></button>
+                        <div class="adv-collapse"><div class="adv-content">
                             <p style="font-size:0.75rem; color:var(--ink-dim); line-height:1.3;">60dB maps to very low linear gain. Boost master output for laptop speakers.</p>
                             <div class="control-group">
-                                <label>Master DB Boost</label>
+                                <label for="db-calib">Master DB Boost</label>
                                 <input type="range" id="db-calib" min="0" max="60" value="40" oninput="updateState('db', 'calib', this.value); updateDBAudio();">
-                                <span id="db-calib-val" style="font-size:0.8rem; text-align:right;">+40 dB</span>
+                                <span id="db-calib-val" style="font-size:0.8rem; text-align:right; font-family: var(--font-mono); color: var(--ink-dim);">+40 dB</span>
                             </div>
-                        </div>
-                    </details>
+                        </div></div>
+                    </div>
                 </div>
 
-                <div class="glass" style="flex:1; padding: 30px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align:center;">
+                <div class="panel" style="flex:1; padding: 30px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align:center;">
                     <h2>Resultant Intensity Level</h2>
                     <p style="color: var(--ink-dim); font-size: 0.95rem; max-width: 400px; margin-bottom:20px;">
                         When multiple uncorrelated sound sources play together, their intensities (powers) add logarithmically.
@@ -537,10 +729,11 @@
                     <div class="math-overlay" style="position: static; margin-bottom: 30px; border-radius:var(--radius-md); max-width:100%;">
                         <div class="math-text text-center">L<sub>eq</sub> = 10 log₁₀( Σ 10<sup>L<sub>i</sub> / 10</sup> )</div>
                     </div>
-                    <div style="font-size: 4rem; font-weight: 700; font-family: var(--font-mono); color: var(--trace-cyan); margin: 10px 0; text-shadow: 0 0 24px rgba(var(--trace-cyan-rgb),0.35);">
+                    <div style="font-size: 4rem; font-weight: 700; font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--accent); margin: 10px 0;">
                         <span id="db-total-display">60.0</span> <span style="font-size: 2rem">dB</span>
                     </div>
-                    <button id="db-play-btn" class="btn-large" style="max-width: 300px; margin-top: 30px;" onclick="toggleDBPlay()">PLAY ALL SOURCES</button>
+                    <div style="font-family: var(--font-mono); font-size: 0.85rem; font-variant-numeric: tabular-nums; color: var(--ink-dim);">I = I₀ · 10<sup>L/10</sup> = <span id="db-intensity-display">1.00 × 10⁻⁶</span> W/m²</div>
+                    <button id="db-play-btn" class="btn-large" style="max-width: 300px; margin-top: 30px;" onclick="toggleDBPlay()" aria-pressed="false">PLAY SOURCES</button>
                 </div>
             </div>
         </main>
@@ -548,32 +741,36 @@
         <!-- MODE 6: STRETCHED STRING -->
         <main id="view-string" class="view full-canvas">
             <div class="canvas-container">
-                <canvas id="canvas-string"></canvas>
+                <canvas id="canvas-string" role="img" aria-label="Animated standing wave on a stretched string"></canvas>
                 <div class="math-overlay">
                     <div class="math-text">y = A sin(<span class="math-var" tabindex="0">n<span class="tooltip">Harmonic Number</span></span>πx/<span class="math-var" tabindex="0">L<span class="tooltip">String Length</span></span>) cos(ωt)</div>
                     <div style="font-size: 0.8rem; margin-top:5px; color: var(--ink-dim);">Transverse Standing Wave (Fixed Ends)</div>
+                    <div class="readout-line" id="string-readout">f₂ = 2 · f₁  ·  λ₂ = 2L/n</div>
                 </div>
 
-                <div class="floating-controls">
-                    <details open>
-                        <summary>Controls <span class="arrow">▼</span></summary>
-                        <div class="details-content">
-                            <button id="string-play-btn" class="toggle-btn pause-btn" onclick="toggleAnimation('string')">Pause Animation</button>
-                            <div class="control-group"><label>Harmonic Mode (n): <span id="string-n-val" style="color: var(--ink); font-weight:bold;">2</span></label><input type="range" id="string-n" min="1" max="8" value="2" oninput="updateState('string', 'n', this.value)"></div>
-                            <div class="control-group"><label>Animation Speed: <span id="string-speed-val" style="color: var(--ink);">4</span></label><input type="range" id="string-speed" min="1" max="10" value="4" oninput="updateState('string', 'speed', this.value)"></div>
-                            <details class="adv-settings">
-                                <summary class="adv-summary">Advanced Settings</summary>
-                                <div class="adv-content">
-                                    <div class="control-row"><label>Show Grid</label><input type="checkbox" id="string-grid" onchange="updateState('string', 'grid', this.checked)"></div>
-                                    <div class="control-row"><label>Show X-Axis</label><input type="checkbox" id="string-xaxis" checked onchange="updateState('string', 'xaxis', this.checked)"></div>
-                                    <div class="control-row"><label>String Color</label><input type="color" id="string-color" value="#9b83ff" onchange="updateState('string', 'color', this.value)"></div>
-                                    <div class="control-row"><label>Thickness</label><input type="range" id="string-thick" min="2" max="10" value="5" oninput="updateState('string', 'thick', this.value)"></div>
-                                    <div class="control-row"><label>Show Envelope</label><input type="checkbox" id="string-env" checked onchange="updateState('string', 'env', this.checked)"></div>
+                <button class="drawer-toggle" onclick="openDrawer('string')" id="string-drawer-toggle" aria-label="Open controls" aria-expanded="false" aria-controls="string-drawer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="var(--surface-2)"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2" fill="var(--surface-2)"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2" fill="var(--surface-2)"/></svg>
+                </button>
+                <div class="control-drawer" id="string-drawer">
+                    <div class="control-drawer-head"><span>Controls</span>
+                        <button class="drawer-close" onclick="closeDrawer('string')" aria-label="Close controls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    </div>
+                    <div class="control-drawer-body">
+                            <button id="string-play-btn" class="toggle-btn pause-btn" onclick="toggleAnimation('string')" aria-pressed="false">Pause Animation</button>
+                            <div class="control-group"><label for="string-n">Harmonic Mode (n): <span id="string-n-val" style="color: var(--ink); font-weight:bold;">2</span></label><input type="range" id="string-n" min="1" max="8" value="2" oninput="updateState('string', 'n', this.value)"></div>
+                            <div class="control-group"><label for="string-speed">Animation Speed: <span id="string-speed-val" style="color: var(--ink);">4</span></label><input type="range" id="string-speed" min="1" max="10" value="4" oninput="updateState('string', 'speed', this.value)"></div>
+                            <div class="adv-settings">
+                                <button class="adv-summary" onclick="toggleAdv(this)" aria-expanded="false">Advanced Settings <span class="arrow">+</span></button>
+                                <div class="adv-collapse"><div class="adv-content">
+                                    <div class="control-row"><label for="string-grid">Show Grid</label><input type="checkbox" id="string-grid" onchange="updateState('string', 'grid', this.checked)"></div>
+                                    <div class="control-row"><label for="string-xaxis">Show X-Axis</label><input type="checkbox" id="string-xaxis" checked onchange="updateState('string', 'xaxis', this.checked)"></div>
+                                    <div class="control-row"><label for="string-color">String Color</label><input type="color" id="string-color" value="#a97cf0" onchange="updateState('string', 'color', this.value)"></div>
+                                    <div class="control-group"><label for="string-thick">Thickness</label><input type="range" id="string-thick" min="2" max="10" value="5" oninput="updateState('string', 'thick', this.value)"></div>
+                                    <div class="control-row"><label for="string-env">Show Envelope</label><input type="checkbox" id="string-env" checked onchange="updateState('string', 'env', this.checked)"></div>
                                     <button class="btn-reset" onclick="resetDefaults('string')">Reset Defaults</button>
-                                </div>
-                            </details>
-                        </div>
-                    </details>
+                                </div></div>
+                            </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -581,30 +778,45 @@
         <!-- MODE 7: AIR COLUMN (PIPE) -->
         <main id="view-pipe" class="view full-canvas">
             <div class="canvas-container">
-                <canvas id="canvas-pipe"></canvas>
-                <div class="math-overlay">
+                <canvas id="canvas-pipe" role="img" aria-label="Animated standing wave in an air column"></canvas>
+                <div class="math-overlay" id="pipe-math-open">
                     <div class="math-text" style="color: var(--trace-cyan);">Δx = A cos(nπx/L) cos(ωt) [Disp]</div>
-                    <div class="math-text" id="lbl-pipe-p" style="color: var(--trace-magenta);">ΔP = Pₘₐₓ sin(nπx/L) cos(ωt) [Pres]</div>
-                    <div style="font-size: 0.8rem; margin-top:5px; color: var(--ink-dim);">Standing Wave (Open Both Ends)</div>
+                    <div class="math-text" id="lbl-pipe-p-open" style="color: var(--trace-magenta);">ΔP = Pₘₐₓ sin(nπx/L) cos(ωt) [Pres]</div>
+                    <div style="font-size: 0.8rem; margin-top:5px; color: var(--ink-dim);">Standing Wave (Open Both Ends) — all harmonics</div>
+                </div>
+                <div class="math-overlay" id="pipe-math-closed" style="display:none;">
+                    <div class="math-text" style="color: var(--trace-cyan);">Δx = A sin(nπx/2L) cos(ωt) [Disp]</div>
+                    <div class="math-text" id="lbl-pipe-p-closed" style="color: var(--trace-magenta);">ΔP = Pₘₐₓ cos(nπx/2L) cos(ωt) [Pres]</div>
+                    <div style="font-size: 0.8rem; margin-top:5px; color: var(--ink-dim);">Closed-Open Pipe — odd harmonics only</div>
                 </div>
 
-                <div class="floating-controls">
-                    <details open>
-                        <summary>Controls <span class="arrow">▼</span></summary>
-                        <div class="details-content">
-                            <button id="pipe-play-btn" class="toggle-btn pause-btn" onclick="toggleAnimation('pipe')">Pause Animation</button>
-                            <div class="control-group"><label>Harmonic Mode (n): <span id="pipe-n-val" style="color: var(--ink); font-weight:bold;">1</span></label><input type="range" id="pipe-n" min="1" max="5" value="1" oninput="updateState('pipe', 'n', this.value)"></div>
-                            <details class="adv-settings">
-                                <summary class="adv-summary">Advanced Settings</summary>
-                                <div class="adv-content">
-                                    <div class="control-row"><label>Particle Color</label><input type="color" id="pipe-color1" value="#ffffff" onchange="updateState('pipe', 'color1', this.value)"></div>
-                                    <div class="control-row"><label>Pressure Color</label><input type="color" id="pipe-color2" value="#ff4d94" onchange="updateState('pipe', 'color2', this.value)"></div>
-                                    <div class="control-row"><label>Show Pressure Graph</label><input type="checkbox" id="pipe-showPressure" checked onchange="updateState('pipe', 'showPressure', this.checked)"></div>
-                                    <button class="btn-reset" onclick="resetDefaults('pipe')">Reset Defaults</button>
+                <button class="drawer-toggle" onclick="openDrawer('pipe')" id="pipe-drawer-toggle" aria-label="Open controls" aria-expanded="false" aria-controls="pipe-drawer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="var(--surface-2)"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2" fill="var(--surface-2)"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2" fill="var(--surface-2)"/></svg>
+                </button>
+                <div class="control-drawer" id="pipe-drawer">
+                    <div class="control-drawer-head"><span>Controls</span>
+                        <button class="drawer-close" onclick="closeDrawer('pipe')" aria-label="Close controls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    </div>
+                    <div class="control-drawer-body">
+                            <button id="pipe-play-btn" class="toggle-btn pause-btn" onclick="toggleAnimation('pipe')" aria-pressed="false">Pause Animation</button>
+                            <div class="control-group" style="margin-top:5px;">
+                                <label id="pipe-boundary-label">Boundary Type</label>
+                                <div class="segmented" role="group" aria-labelledby="pipe-boundary-label">
+                                    <button id="pipe-open-btn" class="seg-btn active" onclick="setPipeBoundary('open')" aria-pressed="true">Open-Open</button>
+                                    <button id="pipe-closed-btn" class="seg-btn" onclick="setPipeBoundary('closed')" aria-pressed="false">Closed-Open</button>
                                 </div>
-                            </details>
-                        </div>
-                    </details>
+                            </div>
+                            <div class="control-group"><label for="pipe-n">Harmonic Mode: <span id="pipe-n-val" style="color: var(--ink); font-weight:bold;">1</span></label><input type="range" id="pipe-n" min="1" max="5" value="1" oninput="updateState('pipe', 'n', this.value)"></div>
+                            <div class="adv-settings">
+                                <button class="adv-summary" onclick="toggleAdv(this)" aria-expanded="false">Advanced Settings <span class="arrow">+</span></button>
+                                <div class="adv-collapse"><div class="adv-content">
+                                    <div class="control-row"><label for="pipe-color1">Particle Color</label><input type="color" id="pipe-color1" value="#efeae2" onchange="updateState('pipe', 'color1', this.value)"></div>
+                                    <div class="control-row"><label for="pipe-color2">Pressure Color</label><input type="color" id="pipe-color2" value="#e356a2" onchange="updateState('pipe', 'color2', this.value)"></div>
+                                    <div class="control-row"><label for="pipe-showPressure">Show Pressure Graph</label><input type="checkbox" id="pipe-showPressure" checked onchange="updateState('pipe', 'showPressure', this.checked)"></div>
+                                    <button class="btn-reset" onclick="resetDefaults('pipe')">Reset Defaults</button>
+                                </div></div>
+                            </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -612,37 +824,41 @@
         <!-- MODE 8: LONGITUDINAL WAVE -->
         <main id="view-long" class="view full-canvas">
             <div class="canvas-container">
-                <canvas id="canvas-long"></canvas>
+                <canvas id="canvas-long" role="img" aria-label="Animated longitudinal progressive wave"></canvas>
                 <div class="math-overlay">
                     <div class="math-text">x(t) = <span class="math-var" tabindex="0">x₀<span class="tooltip">Equilibrium Position</span></span> + A sin(ωt − kx₀)</div>
                     <div style="font-size: 0.8rem; margin-top:5px; color: var(--ink-dim);">Longitudinal Progressive Wave</div>
                     <div style="font-size: 0.75rem; color: var(--trace-magenta); display:none; margin-top:5px;" id="long-hl-lbl">Highlight oscillates horizontally around equilibrium x₀</div>
+                    <div class="readout-line" id="long-vreadout">v = fλ = 150.0 px/s</div>
                 </div>
 
-                <div class="floating-controls">
-                    <details open>
-                        <summary>Controls <span class="arrow">▼</span></summary>
-                        <div class="details-content">
-                            <button id="long-play-btn" class="toggle-btn pause-btn" onclick="toggleAnimation('long')">Pause Animation</button>
-                            <div class="control-group"><label>Amplitude (A): <span id="long-amp-val">15</span> px</label><input type="range" id="long-amp" min="5" max="40" value="15" oninput="updateState('long', 'amp', this.value)"></div>
-                            <div class="control-group"><label>Frequency (f): <span id="long-freq-val">1.0</span> Hz</label><input type="range" id="long-freq" min="0.1" max="3" step="0.1" value="1.0" oninput="updateState('long', 'freq', this.value)"></div>
-                            <div class="control-group"><label>Wavelength (λ): <span id="long-wave-val">150</span> px</label><input type="range" id="long-wave" min="50" max="300" value="150" oninput="updateState('long', 'wave', this.value)"></div>
-                            <hr style="border-color: var(--border); margin: 5px 0;">
-                            <div class="control-group"><label>Grid Density</label><input type="range" id="long-density" min="20" max="100" value="50" oninput="updateState('long', 'density', this.value)"></div>
-                            <button id="long-hl-btn" class="toggle-btn" onclick="toggleState('long', 'highlight')">Highlight Center Column</button>
+                <button class="drawer-toggle" onclick="openDrawer('long')" id="long-drawer-toggle" aria-label="Open controls" aria-expanded="false" aria-controls="long-drawer">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="var(--surface-2)"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2" fill="var(--surface-2)"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2" fill="var(--surface-2)"/></svg>
+                </button>
+                <div class="control-drawer" id="long-drawer">
+                    <div class="control-drawer-head"><span>Controls</span>
+                        <button class="drawer-close" onclick="closeDrawer('long')" aria-label="Close controls"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+                    </div>
+                    <div class="control-drawer-body">
+                            <button id="long-play-btn" class="toggle-btn pause-btn" onclick="toggleAnimation('long')" aria-pressed="false">Pause Animation</button>
+                            <div class="control-group"><label for="long-amp">Amplitude (A): <span id="long-amp-val">15</span> px</label><input type="range" id="long-amp" min="5" max="40" value="15" oninput="updateState('long', 'amp', this.value)"></div>
+                            <div class="control-group"><label for="long-freq">Frequency (f): <span id="long-freq-val">1.0</span> Hz</label><input type="range" id="long-freq" min="0.1" max="3" step="0.1" value="1.0" oninput="updateState('long', 'freq', this.value)"></div>
+                            <div class="control-group"><label for="long-wave">Wavelength (λ): <span id="long-wave-val">150</span> px</label><input type="range" id="long-wave" min="50" max="300" value="150" oninput="updateState('long', 'wave', this.value)"></div>
+                            <hr style="border: none; border-top: 1px dashed var(--border); margin: 5px 0;">
+                            <div class="control-group"><label for="long-density">Grid Density</label><input type="range" id="long-density" min="20" max="100" value="50" oninput="updateState('long', 'density', this.value)"></div>
+                            <button id="long-hl-btn" class="toggle-btn" onclick="toggleState('long', 'highlight')" aria-pressed="false">Highlight Column</button>
 
-                            <details class="adv-settings">
-                                <summary class="adv-summary">Advanced &amp; Vectors</summary>
-                                <div class="adv-content">
-                                    <div class="control-row"><label>Show Vectors (v, a)</label><input type="checkbox" id="long-vectors" onchange="updateState('long', 'vectors', this.checked)"></div>
-                                    <div class="control-row"><label>Show Grid</label><input type="checkbox" id="long-grid" onchange="updateState('long', 'grid', this.checked)"></div>
-                                    <div class="control-row"><label>Particle Color</label><input type="color" id="long-color" value="#3fe0d0" onchange="updateState('long', 'color', this.value)"></div>
-                                    <div class="control-row"><label>Particle Size</label><input type="range" id="long-size" min="1" max="8" value="3" oninput="updateState('long', 'size', this.value)"></div>
+                            <div class="adv-settings">
+                                <button class="adv-summary" onclick="toggleAdv(this)" aria-expanded="false">Advanced &amp; Vectors <span class="arrow">+</span></button>
+                                <div class="adv-collapse"><div class="adv-content">
+                                    <div class="control-row"><label for="long-vectors">Show Vectors (v, a)</label><input type="checkbox" id="long-vectors" onchange="updateState('long', 'vectors', this.checked)"></div>
+                                    <div class="control-row"><label for="long-grid">Show Grid</label><input type="checkbox" id="long-grid" onchange="updateState('long', 'grid', this.checked)"></div>
+                                    <div class="control-row"><label for="long-color">Particle Color</label><input type="color" id="long-color" value="#3ebfc6" onchange="updateState('long', 'color', this.value)"></div>
+                                    <div class="control-row"><label for="long-size">Particle Size</label><input type="range" id="long-size" min="1" max="8" value="3" oninput="updateState('long', 'size', this.value)"></div>
                                     <button class="btn-reset" onclick="resetDefaults('long')">Reset Defaults</button>
-                                </div>
-                            </details>
-                        </div>
-                    </details>
+                                </div></div>
+                            </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -652,30 +868,30 @@
     <div class="toast-container" id="toast-container" aria-live="polite"></div>
 
     <!-- BOTTOM NAVIGATION -->
-    <nav class="bottom-nav" id="bottom-nav">
+    <nav class="bottom-nav" id="bottom-nav" aria-label="Wave mode selector">
         <div class="nav-indicator" id="nav-indicator"></div>
-        <div class="nav-item active" data-tab="home" onclick="switchTab('home', this)">
+        <div class="nav-item active" data-tab="home" onclick="switchTab('home', this)" role="button" tabindex="0" aria-current="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.3"/><path d="M6.3 12 Q9 7 12 12 T17.7 12"/></svg><span class="nav-text">Home</span>
         </div>
-        <div class="nav-item" data-tab="prog" onclick="switchTab('prog', this)">
+        <div class="nav-item" data-tab="prog" onclick="switchTab('prog', this)" role="button" tabindex="0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c1.8-6 4.7-6 6.5 0s4.7 6 6.5 0 4.7-6 6.5 0"/></svg><span class="nav-text">Transverse</span>
         </div>
-        <div class="nav-item" data-tab="long" onclick="switchTab('long', this)">
+        <div class="nav-item" data-tab="long" onclick="switchTab('long', this)" role="button" tabindex="0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M6 8v8M10 8v8M14 8v8M18 8v8"/></svg><span class="nav-text">Longitud.</span>
         </div>
-        <div class="nav-item" data-tab="stand" onclick="switchTab('stand', this)">
+        <div class="nav-item" data-tab="stand" onclick="switchTab('stand', this)" role="button" tabindex="0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12c1.5-5 3.5-5 5 0s3.5 5 5 0 3.5-5 5 0 3.5 5 5 0"/><circle cx="7" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="17" cy="12" r="1.1" fill="currentColor" stroke="none"/></svg><span class="nav-text">Standing</span>
         </div>
-        <div class="nav-item" data-tab="beats" onclick="switchTab('beats', this)">
+        <div class="nav-item" data-tab="beats" onclick="switchTab('beats', this)" role="button" tabindex="0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 9c2-3 4-3 6 0s4 3 6 0 4-3 6 0" opacity="0.5"/><path d="M2 15c2-4 4-4 6 0s4 4 6 0 4-4 6 0"/></svg><span class="nav-text">Beats</span>
         </div>
-        <div class="nav-item" data-tab="db" onclick="switchTab('db', this)">
+        <div class="nav-item" data-tab="db" onclick="switchTab('db', this)" role="button" tabindex="0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9.3v5.4h3.3l4.3 3.6V5.7L7.3 9.3H4z" stroke-linejoin="round"/><path d="M15.3 9.6a4 4 0 010 4.8M18 7.2a7.3 7.3 0 010 9.6"/></svg><span class="nav-text">Intensity</span>
         </div>
-        <div class="nav-item" data-tab="string" onclick="switchTab('string', this)">
+        <div class="nav-item" data-tab="string" onclick="switchTab('string', this)" role="button" tabindex="0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5v14M20.5 5v14M3.5 12c4-7 6-7 9 0s5 7 9 0"/></svg><span class="nav-text">String</span>
         </div>
-        <div class="nav-item" data-tab="pipe" onclick="switchTab('pipe', this)">
+        <div class="nav-item" data-tab="pipe" onclick="switchTab('pipe', this)" role="button" tabindex="0">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="10" rx="1.5"/><path d="M3 12h18" stroke-dasharray="2 2.4"/></svg><span class="nav-text">Pipe</span>
         </div>
     </nav>
@@ -683,44 +899,127 @@
     <script>
         // ============================================================
         // COLOUR CONSTANTS
-        // Canvas2D cannot read CSS custom properties directly, so these
-        // mirror the palette defined in :root for on-canvas drawing.
+        // Canvas2D cannot read CSS custom properties, so these mirror
+        // the palette defined in :root by hand. Chrome uses --accent
+        // (amber) only; these four stay reserved for canvas data —
+        // real oscilloscopes give each channel its own hue, and doing
+        // the same here is what lets two overlapping traces stay
+        // legible at a glance.
         // ============================================================
-        const C_CYAN = '#3fe0d0', C_MAGENTA = '#ff4d94', C_VIOLET = '#9b83ff', C_AMBER = '#ffb648';
-        const C_VEC_V = '#34d399', C_VEC_A = '#f2545b';
+        const C_CYAN = '#3ebfc6', C_MAGENTA = '#e356a2', C_VIOLET = '#a97cf0', C_AMBER = '#db9e2e';
+        const FONT_MONO_CSS = '"IBM Plex Mono", ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", Menlo, Consolas, monospace';
+        const C_VEC_V = '#4dbf74', C_VEC_A = '#e54c4a';
+        const C_INK_DARK = '239,234,226', C_INK_LIGHT = '24,19,13';           // tinted-neutral overlays (grids, axes, guides)
+        const C_SURF_DARK = '22,17,10', C_SURF_LIGHT = '252,248,243';        // tinted-neutral panel backing (y-t inset)
         const DB_ACCENT_VARS = ['--trace-cyan', '--trace-magenta', '--trace-violet'];
 
         // --- GLOBAL STATE & PERSISTENCE ---
         const defaultState = {
-            prog: { time: 0, playing: true, amp: 80, freq: 1.0, wave: 200, density: 80, highlight: false, vectors: false, grid: false, color: '#3fe0d0', size: 4, alpha: 1.0, dropLines: true, xaxis: true },
-            stand: { time: 0, playing: true, speed: 2.0, boundary: 'closed', showEnvelope: false, grid: false, xaxis: true, color1: '#3fe0d0', color2: '#ff4d94', color3: '#ffffff', thick: 3 },
+            prog: { time: 0, playing: true, amp: 80, freq: 1.0, wave: 200, density: 80, highlight: false, vectors: false, grid: false, color: '#3ebfc6', size: 4, alpha: 1.0, dropLines: true, xaxis: true, ytGraph: false },
+            stand: { time: 0, playing: true, speed: 2.0, boundary: 'closed', showEnvelope: false, grid: false, xaxis: true, color1: '#3ebfc6', color2: '#e356a2', color3: '#efeae2', thick: 3 },
             db: { calib: 40, sources: [{id: Date.now(), db: 60, freq: 1000}] },
-            string: { time: 0, playing: true, n: 2, speed: 4, grid: false, xaxis: true, color: '#9b83ff', thick: 5, env: true },
-            pipe: { time: 0, playing: true, n: 1, color1: '#ffffff', color2: '#ff4d94', showPressure: true },
-            long: { time: 0, playing: true, amp: 15, freq: 1.0, wave: 150, density: 50, highlight: false, vectors: false, grid: false, color: '#3fe0d0', size: 3 }
+            string: { time: 0, playing: true, n: 2, speed: 4, grid: false, xaxis: true, color: '#a97cf0', thick: 5, env: true },
+            pipe: { time: 0, playing: true, n: 1, boundary: 'open', color1: '#efeae2', color2: '#e356a2', showPressure: true },
+            long: { time: 0, playing: true, amp: 15, freq: 1.0, wave: 150, density: 50, highlight: false, vectors: false, grid: false, color: '#3ebfc6', size: 3 },
+            beats: { time: 0, playing: true }
         };
         let state = JSON.parse(JSON.stringify(defaultState));
         let slowMo = false;
-        let isLightMode = false;
-        const CANVAS_MODES = ['prog', 'stand', 'string', 'pipe', 'long'];
+        let currentTheme = 'dark';
+        let isLightMode = false; // derived from currentTheme; the animate() draw code below branches on this
+        const THEMES = ['dark-blue', 'dark', 'light', 'light-cream'];
+        const LIGHT_THEMES = ['light', 'light-cream'];
+        const CANVAS_MODES = ['prog', 'stand', 'string', 'pipe', 'long', 'beats'];
 
         // Toolbar Handlers
-        function toggleSlowMo() { slowMo = !slowMo; document.getElementById('btn-slowmo').classList.toggle('active', slowMo); }
-        function toggleTheme() { isLightMode = !isLightMode; document.body.classList.toggle('light-mode', isLightMode); requestRedraw(); }
+        function toggleSlowMo() { slowMo = !slowMo; const b = document.getElementById('btn-slowmo'); b.classList.toggle('active', slowMo); b.setAttribute('aria-pressed', String(slowMo)); }
+        function applyTheme(name) {
+            currentTheme = THEMES.indexOf(name) !== -1 ? name : 'dark';
+            isLightMode = LIGHT_THEMES.indexOf(currentTheme) !== -1;
+            if (currentTheme === 'dark') document.body.removeAttribute('data-theme');
+            else document.body.setAttribute('data-theme', currentTheme);
+            document.querySelectorAll('#theme-menu button').forEach(b => b.setAttribute('aria-checked', String(b.dataset.themeOpt === currentTheme)));
+        }
+        function setTheme(name) { applyTheme(name); closeThemeMenu(); requestRedraw(); schedulePersist(); }
+        function toggleThemeMenu() {
+            const menu = document.getElementById('theme-menu'), btn = document.getElementById('btn-theme');
+            const willOpen = menu.hidden;
+            menu.hidden = !willOpen;
+            btn.setAttribute('aria-expanded', String(willOpen));
+        }
+        function closeThemeMenu() {
+            const menu = document.getElementById('theme-menu');
+            if (!menu.hidden) { menu.hidden = true; document.getElementById('btn-theme').setAttribute('aria-expanded', 'false'); }
+        }
+        document.addEventListener('click', (e) => { if (!e.target.closest('.theme-menu-wrap')) closeThemeMenu(); });
+        document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeThemeMenu(); });
+
+        // Control drawers (sidebar) — fully off-canvas via CSS transform when closed
+        function openDrawer(mode) {
+            const d = document.getElementById(`${mode}-drawer`), t = document.getElementById(`${mode}-drawer-toggle`);
+            if (d) d.classList.add('open'); if (t) t.setAttribute('aria-expanded', 'true');
+        }
+        function closeDrawer(mode) {
+            const d = document.getElementById(`${mode}-drawer`), t = document.getElementById(`${mode}-drawer-toggle`);
+            if (d) d.classList.remove('open'); if (t) t.setAttribute('aria-expanded', 'false');
+        }
+        function closeAllDrawers() { CANVAS_MODES.forEach(m => { if (document.getElementById(`${m}-drawer`)) closeDrawer(m); }); }
+        // Advanced-settings smooth collapse (CSS grid 0fr→1fr on the sibling, driven by this button)
+        function toggleAdv(btn) {
+            const collapse = btn.nextElementSibling;
+            const isOpen = collapse.classList.toggle('open');
+            btn.setAttribute('aria-expanded', String(isOpen));
+        }
+        // Colour-contrast safety net: a user's saved trace colour (or a stale
+        // localStorage default from before a palette change) can end up too
+        // close to the current background — near-white on a light theme, or
+        // near-black on a dark one. Auto-correct only that edge case; every
+        // normal colour passes through untouched.
+        function relLum(hex) {
+            const n = parseInt(hex.slice(1), 16);
+            return (0.299*((n>>16)&255) + 0.587*((n>>8)&255) + 0.114*(n&255)) / 255;
+        }
+        function safeTrace(hex) {
+            if (!hex || hex[0] !== '#') return hex;
+            const lum = relLum(hex);
+            if (isLightMode && lum > 0.82) return '#18130d';
+            if (!isLightMode && lum < 0.18) return '#efeae2';
+            return hex;
+        }
         function toggleFullscreen() {
             if (!document.fullscreenElement) { document.documentElement.requestFullscreen().catch(err => console.log(err)); }
             else { if (document.exitFullscreen) document.exitFullscreen(); }
         }
         document.addEventListener('fullscreenchange', () => {
             const btn = document.getElementById('btn-fullscreen');
-            if (btn) btn.classList.toggle('active', !!document.fullscreenElement);
+            if (btn) { const on = !!document.fullscreenElement; btn.classList.toggle('active', on); btn.setAttribute('aria-pressed', String(on)); }
         });
+        function getSnapshotLabel(mode) {
+            const s = state[mode];
+            switch(mode) {
+                case 'prog': case 'long': return `A=${s.amp}px  f=${s.freq}Hz  λ=${s.wave}px`;
+                case 'stand': return `${s.boundary === 'closed' ? 'Closed' : 'Open'} boundary  ·  speed=${s.speed}`;
+                case 'string': return `n=${s.n} (${s.n == 1 ? 'Fundamental' : s.n + ' Harmonic'})`;
+                case 'pipe': { const m = parseInt(s.n); const n = s.boundary === 'closed' ? 2*m-1 : m; return `n=${n}  ·  ${s.boundary === 'closed' ? 'Closed-Open' : 'Open-Open'} pipe`; }
+                case 'beats': { const f1 = parseFloat(document.getElementById('beat-freq1').value), f2 = parseFloat(document.getElementById('beat-freq2').value); return `f₁=${f1}Hz  f₂=${f2}Hz  beat=${Math.abs(f1-f2).toFixed(1)}Hz`; }
+                default: return '';
+            }
+        }
         function takeSnapshot() {
-            if (currentTab === 'home' || currentTab === 'beats' || currentTab === 'db') return;
-            const canvas = canvases[currentTab];
+            if (!CANVAS_TAB_SET[currentTab]) return;
+            const srcCanvas = canvases[currentTab];
+            const dpr = window.devicePixelRatio || 1;
+            const outW = srcCanvas.width, outH = srcCanvas.height;
+            const out = document.createElement('canvas'); out.width = outW; out.height = outH;
+            const octx = out.getContext('2d');
+            octx.drawImage(srcCanvas, 0, 0);
+            const bannerH = Math.round(34 * dpr);
+            octx.fillStyle = 'rgba(8,5,2,0.8)'; octx.fillRect(0, outH - bannerH, outW, bannerH);
+            octx.fillStyle = '#efeae2'; octx.font = `${Math.round(13*dpr)}px ${FONT_MONO_CSS}`; octx.textBaseline = 'middle';
+            octx.fillText(getSnapshotLabel(currentTab) + '   ·   Wave Lab — HSC Physics', 12*dpr, outH - bannerH/2);
             const link = document.createElement('a');
-            link.download = `physics-snapshot-${currentTab}.png`;
-            link.href = canvas.toDataURL('image/png');
+            link.download = `wave-lab-${currentTab}.png`;
+            link.href = out.toDataURL('image/png');
             link.click();
             showToast('Snapshot saved', '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.4-2h7.2L17 8h3a1 1 0 011 1v9a1 1 0 01-1 1H4a1 1 0 01-1-1V9a1 1 0 011-1z"/><circle cx="12" cy="13.3" r="3.1"/></svg>');
         }
@@ -742,54 +1041,159 @@
             if (rafHandle === null) rafHandle = requestAnimationFrame(animate);
         }
 
+        // --- PERSISTENCE (localStorage) & SHAREABLE PERMALINK ---
+        const STORAGE_KEY = 'wavelab-state-v1';
+        let persistTimer = null, pendingRestoreTab = null;
+        function schedulePersist() {
+            if (persistTimer) clearTimeout(persistTimer);
+            persistTimer = setTimeout(() => { persistState(); updatePermalink(); }, 300);
+        }
+        function persistState() {
+            try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ v: 2, state, currentTab, theme: currentTheme })); }
+            catch (e) { /* storage unavailable or full - this feature is best-effort */ }
+        }
+        function loadPersistedState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (!raw) return;
+                const saved = JSON.parse(raw);
+                if (saved && saved.state) {
+                    for (const mode in defaultState) {
+                        if (saved.state[mode] && typeof saved.state[mode] === 'object') {
+                            for (const k in defaultState[mode]) {
+                                if (k === 'sources') continue;
+                                if (saved.state[mode][k] !== undefined) state[mode][k] = saved.state[mode][k];
+                            }
+                        }
+                    }
+                    if (saved.state.db && Array.isArray(saved.state.db.sources) && saved.state.db.sources.length > 0) state.db.sources = saved.state.db.sources;
+                }
+                if (typeof saved.theme === 'string') applyTheme(saved.theme);
+                else if (typeof saved.isLightMode === 'boolean') applyTheme(saved.isLightMode ? 'light-cream' : 'dark'); // migrate pre-v2 saves
+                if (typeof saved.currentTab === 'string' && document.getElementById('view-' + saved.currentTab)) pendingRestoreTab = saved.currentTab;
+            } catch (e) { /* corrupted saved data - start fresh */ }
+        }
+        function applyPermalinkParams() {
+            try {
+                const params = new URLSearchParams(window.location.search);
+                const tab = params.get('tab');
+                if (!tab || !defaultState[tab]) return;
+                for (const k in defaultState[tab]) {
+                    if (k === 'sources' || k === 'time' || !params.has(k)) continue;
+                    const raw = params.get(k), defVal = defaultState[tab][k];
+                    if (typeof defVal === 'boolean') state[tab][k] = raw === 'true';
+                    else if (typeof defVal === 'number') state[tab][k] = parseFloat(raw);
+                    else state[tab][k] = raw;
+                }
+                pendingRestoreTab = tab;
+            } catch (e) { /* malformed URL params - ignore, keep whatever state we have */ }
+        }
+        function updatePermalink() {
+            try {
+                const s = state[currentTab];
+                const params = new URLSearchParams();
+                params.set('tab', currentTab);
+                if (s) for (const k in s) { if (k !== 'time' && k !== 'sources') params.set(k, s[k]); }
+                history.replaceState(null, '', window.location.pathname + '?' + params.toString());
+            } catch (e) { /* history API unavailable in this embed context - ignore */ }
+        }
+
         // State Handlers
+        const SUPERSCRIPT_MAP = {'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','-':'⁻'};
+        const SUBSCRIPT_MAP = {'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉'};
+        function toSuperscript(n) { return String(n).split('').map(ch => SUPERSCRIPT_MAP[ch] || ch).join(''); }
+        function toSubscript(n) { return String(n).split('').map(ch => SUBSCRIPT_MAP[ch] || ch).join(''); }
+        function formatScientific(x) {
+            if (!(x > 0) || !isFinite(x)) return '0';
+            const exp = Math.floor(Math.log10(x));
+            const mantissa = x / Math.pow(10, exp);
+            return `${mantissa.toFixed(2)} × 10${toSuperscript(exp)}`;
+        }
+        function pipeHarmonicLabel(m, boundary) {
+            m = parseInt(m);
+            if (boundary === 'closed') { const n = 2*m - 1; return m === 1 ? `n=1 (Fund.)` : `n=${n} (${m-1} OT)`; }
+            return m === 1 ? "1 (Fund.)" : `${m} (${m-1} OT)`;
+        }
+        function updateWaveSpeedReadout(mode) {
+            const el = document.getElementById(`${mode}-vreadout`);
+            if (!el) return;
+            el.innerText = `v = fλ = ${(state[mode].freq * state[mode].wave).toFixed(1)} px/s`;
+        }
+        function updateStringReadout() {
+            const el = document.getElementById('string-readout');
+            if (!el) return;
+            const n = parseInt(state.string.n);
+            const cvs = canvases.string; const w = cvs ? cvs.width/(window.devicePixelRatio||1) : 0;
+            const lambda = w > 0 ? Math.round(2 * (w*0.8) / n) : null;
+            el.innerText = `f${toSubscript(n)} = ${n} · f₁` + (lambda ? `  ·  λ${toSubscript(n)} = 2L/n ≈ ${lambda}px` : '');
+        }
+        function setFill(el) {
+            if (!el || el.type !== 'range') return;
+            const min = parseFloat(el.min || 0), max = parseFloat(el.max || 100), v = parseFloat(el.value);
+            const pct = max > min ? ((v - min) / (max - min)) * 100 : 0;
+            el.style.setProperty('--fill', pct + '%');
+        }
         function updateState(mode, key, val) {
             if (val === 'true') val = true; if (val === 'false') val = false;
             if (!isNaN(val) && typeof val !== 'boolean') val = parseFloat(val);
             state[mode][key] = val;
+            setFill(document.getElementById(`${mode}-${key}`));
             const lbl = document.getElementById(`${mode}-${key}-val`);
             if(lbl) lbl.innerText = val;
             if (mode === 'db' && key === 'calib') document.getElementById('db-calib-val').innerText = `+${val} dB`;
-            if (mode === 'pipe' && key === 'n') document.getElementById('pipe-n-val').innerText = val == 1 ? "1 (Fund.)" : `${val} (${val-1} OT)`;
-            if (mode === 'string' && key === 'n') document.getElementById('string-n-val').innerText = val == 1 ? "1 (Fund.)" : `${val} (${val} Harm.)`;
+            if (mode === 'pipe' && key === 'n') document.getElementById('pipe-n-val').innerText = pipeHarmonicLabel(val, state.pipe.boundary);
+            if (mode === 'string' && key === 'n') { document.getElementById('string-n-val').innerText = val == 1 ? "1 (Fund.)" : `${val} (${val} Harm.)`; updateStringReadout(); }
             if (mode === 'pipe' && key === 'showPressure') syncPipePressureLabel();
-            requestRedraw();
+            if ((mode === 'prog' || mode === 'long') && (key === 'freq' || key === 'wave')) updateWaveSpeedReadout(mode);
+            requestRedraw(); schedulePersist();
         }
         function toggleState(mode, key) {
             state[mode][key] = !state[mode][key];
             const btn = document.getElementById(`${mode}-hl-btn`) || document.getElementById(`${mode}-env-btn`);
-            if (btn) btn.classList.toggle('active', state[mode][key]);
+            if (btn) { btn.classList.toggle('active', state[mode][key]); btn.setAttribute('aria-pressed', String(state[mode][key])); }
             if (mode === 'long' && key === 'highlight') document.getElementById('long-hl-lbl').style.display = state.long.highlight ? 'block' : 'none';
-            requestRedraw();
+            requestRedraw(); schedulePersist();
         }
         function toggleAnimation(mode) {
             state[mode].playing = !state[mode].playing;
             const btn = document.getElementById(`${mode}-play-btn`);
-            if(btn) { btn.innerText = state[mode].playing ? "Pause Animation" : "Resume Animation"; btn.classList.toggle('active', !state[mode].playing); }
-            requestRedraw();
+            if(btn) { btn.innerText = state[mode].playing ? "Pause Animation" : "Resume Animation"; btn.classList.toggle('active', !state[mode].playing); btn.setAttribute('aria-pressed', String(!state[mode].playing)); }
+            requestRedraw(); schedulePersist();
         }
         function resetDefaults(mode) {
-            state[mode] = JSON.parse(JSON.stringify(defaultState[mode])); syncUI(mode);
+            state[mode] = JSON.parse(JSON.stringify(defaultState[mode])); syncUI(mode); schedulePersist();
+        }
+        function setPipeBoundary(type) {
+            state.pipe.boundary = type;
+            const openBtn = document.getElementById('pipe-open-btn'), closedBtn = document.getElementById('pipe-closed-btn');
+            openBtn.classList.toggle('active', type === 'open'); openBtn.setAttribute('aria-pressed', String(type === 'open'));
+            closedBtn.classList.toggle('active', type === 'closed'); closedBtn.setAttribute('aria-pressed', String(type === 'closed'));
+            document.getElementById('pipe-math-open').style.display = type === 'open' ? 'block' : 'none';
+            document.getElementById('pipe-math-closed').style.display = type === 'closed' ? 'block' : 'none';
+            document.getElementById('pipe-n-val').innerText = pipeHarmonicLabel(state.pipe.n, type);
+            syncPipePressureLabel();
+            requestRedraw(); schedulePersist();
         }
         function syncPipePressureLabel() {
-            const lbl = document.getElementById('lbl-pipe-p');
-            if (lbl) lbl.style.display = state.pipe.showPressure ? 'block' : 'none';
+            const show = state.pipe.showPressure;
+            const l1 = document.getElementById('lbl-pipe-p-open'); if (l1) l1.style.display = show ? 'block' : 'none';
+            const l2 = document.getElementById('lbl-pipe-p-closed'); if (l2) l2.style.display = show ? 'block' : 'none';
         }
         function syncUI(mode) {
             const s = state[mode];
             for (let k in s) {
                 const el = document.getElementById(`${mode}-${k}`);
-                if(el) { if(el.type === 'checkbox') el.checked = s[k]; else el.value = s[k]; }
+                if(el) { if(el.type === 'checkbox') el.checked = s[k]; else el.value = s[k]; setFill(el); }
                 const lbl = document.getElementById(`${mode}-${k}-val`);
                 if(lbl) lbl.innerText = s[k];
             }
-            if(s.playing !== undefined) { const btn = document.getElementById(`${mode}-play-btn`); if(btn) { btn.innerText = s.playing ? "Pause Animation" : "Resume Animation"; btn.classList.toggle('active', !s.playing); } }
-            if(mode === 'stand') { syncStandMath(); document.getElementById('stand-env-btn').classList.toggle('active', s.showEnvelope); setStandBoundary(s.boundary); }
-            if(mode === 'prog') document.getElementById('prog-hl-btn').classList.toggle('active', s.highlight);
-            if(mode === 'long') document.getElementById('long-hl-btn').classList.toggle('active', s.highlight);
+            if(s.playing !== undefined) { const btn = document.getElementById(`${mode}-play-btn`); if(btn) { btn.innerText = s.playing ? "Pause Animation" : "Resume Animation"; btn.classList.toggle('active', !s.playing); btn.setAttribute('aria-pressed', String(!s.playing)); } }
+            if(mode === 'stand') { syncStandMath(); const eb = document.getElementById('stand-env-btn'); eb.classList.toggle('active', s.showEnvelope); eb.setAttribute('aria-pressed', String(s.showEnvelope)); setStandBoundary(s.boundary); }
+            if(mode === 'prog') { const hb = document.getElementById('prog-hl-btn'); hb.classList.toggle('active', s.highlight); hb.setAttribute('aria-pressed', String(s.highlight)); updateWaveSpeedReadout('prog'); }
+            if(mode === 'long') { const hb = document.getElementById('long-hl-btn'); hb.classList.toggle('active', s.highlight); hb.setAttribute('aria-pressed', String(s.highlight)); updateWaveSpeedReadout('long'); }
             if(mode === 'db') { renderDBSources(); updateDBAudio(); }
-            if(mode === 'pipe') { document.getElementById('pipe-n-val').innerText = s.n; syncPipePressureLabel(); }
-            if(mode === 'string') document.getElementById('string-n-val').innerText = s.n;
+            if(mode === 'pipe') { setPipeBoundary(s.boundary); }
+            if(mode === 'string') { document.getElementById('string-n-val').innerText = s.n; updateStringReadout(); }
             requestRedraw();
         }
 
@@ -798,18 +1202,19 @@
         function initAudio() { if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)(); if (audioCtx.state === 'suspended') audioCtx.resume(); }
 
         let currentTab = 'home';
-        const CANVAS_TAB_SET = { prog: 1, stand: 1, string: 1, pipe: 1, long: 1 };
+        const CANVAS_TAB_SET = { prog: 1, stand: 1, string: 1, pipe: 1, long: 1, beats: 1 };
         function switchTab(tabId, el) {
             document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+            document.querySelectorAll('.nav-item').forEach(n => { n.classList.remove('active'); n.removeAttribute('aria-current'); });
             document.getElementById(`view-${tabId}`).classList.add('active');
             const navEl = el || document.querySelector(`.nav-item[data-tab="${tabId}"]`);
-            if (navEl) navEl.classList.add('active');
+            if (navEl) { navEl.classList.add('active'); navEl.setAttribute('aria-current', 'true'); }
             currentTab = tabId; resizeCanvases();
+            closeAllDrawers();
             updateNavIndicator(navEl);
             const snapBtn = document.getElementById('btn-snap');
             if (snapBtn) { const enabled = !!CANVAS_TAB_SET[tabId]; snapBtn.disabled = !enabled; snapBtn.classList.toggle('is-disabled', !enabled); }
-            requestRedraw();
+            requestRedraw(); schedulePersist();
         }
         function updateNavIndicator(el) {
             const indicator = document.getElementById('nav-indicator');
@@ -831,8 +1236,8 @@
             triangle: "M0,20 L12.5,5 L25,20 L37.5,35 L50,20 L62.5,5 L75,20 L87.5,35 L100,20",
             sawtooth: "M0,35 L50,5 L50,35 L100,5"
         };
-        function togglePhase() { isPhaseInverted = !isPhaseInverted; const btn = document.getElementById('home-phase-btn'); btn.classList.toggle('active', isPhaseInverted); btn.innerText = isPhaseInverted ? "180° (Inverted)" : "0° (Normal)"; updateHomeVol(); }
-        function updateHomeVol() { const vol = parseFloat(document.getElementById('home-vol').value); document.getElementById('home-vol-val').innerText = Math.round(vol * 100) + '%'; if (homeGain) homeGain.gain.setTargetAtTime(vol * (isPhaseInverted ? -1 : 1), audioCtx.currentTime, 0.05); }
+        function togglePhase() { isPhaseInverted = !isPhaseInverted; const btn = document.getElementById('home-phase-btn'); btn.classList.toggle('active', isPhaseInverted); btn.setAttribute('aria-pressed', String(isPhaseInverted)); btn.innerText = isPhaseInverted ? "180° (Inverted)" : "0° (Normal)"; updateHomeVol(); }
+        function updateHomeVol() { const volEl = document.getElementById('home-vol'); const vol = parseFloat(volEl.value); setFill(volEl); document.getElementById('home-vol-val').innerText = Math.round(vol * 100) + '%'; if (homeGain) homeGain.gain.setTargetAtTime(vol * (isPhaseInverted ? -1 : 1), audioCtx.currentTime, 0.05); }
         function updateHomeOsc() {
             const freq = parseFloat(document.getElementById('home-freq').value);
             const wave = document.getElementById('home-wave').value;
@@ -846,22 +1251,68 @@
         function toggleHomePlay() {
             initAudio(); const btn = document.getElementById('home-play-btn');
             const track = document.getElementById('home-hero-track');
-            if (isHomePlaying) { homeGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05); setTimeout(() => { homeOsc.stop(); homeOsc = null; homeGain = null; }, 100); btn.innerText = "PLAY"; btn.classList.remove('playing'); if(track) track.classList.remove('playing'); }
-            else { homeOsc = audioCtx.createOscillator(); homeGain = audioCtx.createGain(); homeGain.gain.value = 0; homeOsc.connect(homeGain); homeGain.connect(audioCtx.destination); updateHomeOsc(); homeOsc.start(); updateHomeVol(); btn.innerText = "STOP"; btn.classList.add('playing'); if(track) track.classList.add('playing'); }
+            if (isHomePlaying) { homeGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05); setTimeout(() => { homeOsc.stop(); homeOsc = null; homeGain = null; }, 100); btn.innerText = "PLAY"; btn.classList.remove('playing'); btn.setAttribute('aria-pressed', 'false'); if(track) track.classList.remove('playing'); }
+            else { homeOsc = audioCtx.createOscillator(); homeGain = audioCtx.createGain(); homeGain.gain.value = 0; homeOsc.connect(homeGain); homeGain.connect(audioCtx.destination); updateHomeOsc(); homeOsc.start(); updateHomeVol(); btn.innerText = "STOP"; btn.classList.add('playing'); btn.setAttribute('aria-pressed', 'true'); if(track) track.classList.add('playing'); }
             isHomePlaying = !isHomePlaying;
         }
 
         // Standing Boundary & UI
-        function setStandBoundary(type) { state.stand.boundary = type; document.getElementById('stand-closed-btn').classList.toggle('active', type === 'closed'); document.getElementById('stand-open-btn').classList.toggle('active', type === 'open'); requestRedraw(); }
+        function setStandBoundary(type) {
+            state.stand.boundary = type;
+            const closedBtn = document.getElementById('stand-closed-btn'), openBtn = document.getElementById('stand-open-btn');
+            closedBtn.classList.toggle('active', type === 'closed'); closedBtn.setAttribute('aria-pressed', String(type === 'closed'));
+            openBtn.classList.toggle('active', type === 'open'); openBtn.setAttribute('aria-pressed', String(type === 'open'));
+            requestRedraw(); schedulePersist();
+        }
         function syncStandMath() {
             const isMult = state.stand.showEnvelope;
             document.getElementById('stand-math-add').style.display = isMult ? 'none' : 'block';
             document.getElementById('stand-math-mult').style.display = isMult ? 'block' : 'none';
-            document.getElementById('stand-env-btn').innerText = isMult ? "Switch to Addition View" : "Switch to Multiplication View";
+            document.getElementById('stand-env-btn').innerText = isMult ? "Addition View" : "Multiplication View";
         }
 
         // Beats Generator (Fixed Audio Scheduling)
         let beatOsc1, beatOsc2, beatGain, isBeatsPlaying = false;
+        function waveValue(type, phase) {
+            const p = ((phase % (2*Math.PI)) + 2*Math.PI) % (2*Math.PI);
+            return type === 'square' ? (Math.sin(p) >= 0 ? 1 : -1) : Math.sin(p);
+        }
+        function drawBeatsCanvas(tNow) {
+            const cvs = canvases.beats, ctx = ctxs.beats;
+            if (!cvs || cvs.width === 0) return;
+            const w = cvs.width/(window.devicePixelRatio||1), h = cvs.height/(window.devicePixelRatio||1);
+            ctx.clearRect(0, 0, w, h);
+            const f1 = parseFloat(document.getElementById('beat-freq1').value) || 0;
+            const f2 = parseFloat(document.getElementById('beat-freq2').value) || 0;
+            const wave1 = document.getElementById('beat-wave1').value, wave2 = document.getElementById('beat-wave2').value;
+            const beatFreq = Math.abs(f1 - f2);
+            const duration = beatFreq > 0.05 ? Math.min(4, Math.max(0.4, 3 / beatFreq)) : 2.5;
+            const amp = h * 0.22, midY = h / 2;
+            const tStart = (tNow || 0) - duration;
+
+            ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.3)` : `rgba(${C_INK_DARK},0.3)`; ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(0, midY); ctx.lineTo(w, midY); ctx.stroke();
+
+            // Dashed envelope guide (ideal sine-based amplitude modulation, ±(y1max+y2max)cos(π·Δf·t))
+            const envPath = new Path2D(), envPathNeg = new Path2D();
+            for (let px = 0; px <= w; px++) {
+                const t = tStart + (px / w) * duration;
+                const env = amp * Math.abs(Math.cos(Math.PI * beatFreq * t));
+                if (px === 0) { envPath.moveTo(px, midY - env); envPathNeg.moveTo(px, midY + env); }
+                else { envPath.lineTo(px, midY - env); envPathNeg.lineTo(px, midY + env); }
+            }
+            ctx.strokeStyle = C_AMBER; ctx.lineWidth = 1.5; ctx.setLineDash([5, 5]);
+            ctx.stroke(envPath); ctx.stroke(envPathNeg); ctx.setLineDash([]);
+
+            // Actual summed waveform using each source's real waveform type
+            const sumPath = new Path2D();
+            for (let px = 0; px <= w; px++) {
+                const t = tStart + (px / w) * duration;
+                const y = waveValue(wave1, 2*Math.PI*f1*t) + waveValue(wave2, 2*Math.PI*f2*t);
+                if (px === 0) sumPath.moveTo(px, midY - y * amp / 2); else sumPath.lineTo(px, midY - (y * amp / 2));
+            }
+            ctx.strokeStyle = C_CYAN; ctx.lineWidth = 1.5; ctx.stroke(sumPath);
+        }
         function updateBeats() {
             const f1 = parseFloat(document.getElementById('beat-freq1').value), f2 = parseFloat(document.getElementById('beat-freq2').value);
             document.getElementById('beat-display').innerText = Math.abs(f1 - f2).toFixed(1) + ' Hz';
@@ -873,6 +1324,7 @@
                 beatOsc2.frequency.setTargetAtTime(f2, audioCtx.currentTime, 0.05);
                 beatOsc2.type = document.getElementById('beat-wave2').value;
             }
+            requestRedraw(); schedulePersist();
         }
         function toggleBeatsPlay() {
             initAudio(); const btn = document.getElementById('beat-play-btn');
@@ -880,7 +1332,7 @@
                 beatGain.gain.setValueAtTime(beatGain.gain.value, audioCtx.currentTime);
                 beatGain.gain.setTargetAtTime(0, audioCtx.currentTime, 0.05);
                 setTimeout(() => { if(beatOsc1) beatOsc1.stop(); if(beatOsc2) beatOsc2.stop(); beatOsc1 = beatOsc2 = beatGain = null; }, 100);
-                btn.innerText = "PLAY BEATS"; btn.classList.remove('playing');
+                btn.innerText = "PLAY BEATS"; btn.classList.remove('playing'); btn.setAttribute('aria-pressed', 'false');
             }
             else {
                 beatOsc1 = audioCtx.createOscillator(); beatOsc2 = audioCtx.createOscillator(); beatGain = audioCtx.createGain(); beatGain.gain.value = 0;
@@ -889,7 +1341,7 @@
                 updateBeats();
                 beatGain.gain.setValueAtTime(0, audioCtx.currentTime);
                 beatGain.gain.setTargetAtTime(0.5, audioCtx.currentTime, 0.05);
-                btn.innerText = "STOP BEATS"; btn.classList.add('playing');
+                btn.innerText = "STOP BEATS"; btn.classList.add('playing'); btn.setAttribute('aria-pressed', 'true');
             }
             isBeatsPlaying = !isBeatsPlaying;
         }
@@ -909,16 +1361,19 @@
             }
             renderDBSources(); updateDBAudio();
         }
-        function updateDBSource(id, key, val) { const src = state.db.sources.find(s => s.id === id); if(src) src[key] = parseFloat(val); if(key === 'db') document.getElementById(`lbl-db-${id}`).innerText = val; updateDBAudio(); }
+        function updateDBSource(id, key, val) { const src = state.db.sources.find(s => s.id === id); if(src) src[key] = parseFloat(val); if(key === 'db') { document.getElementById(`lbl-db-${id}`).innerText = val; setFill(document.getElementById(`db-range-${id}`)); } updateDBAudio(); }
         function renderDBSources() {
             const container = document.getElementById('db-sources-list'); container.innerHTML = '';
             state.db.sources.forEach((src, idx) => {
-                container.innerHTML += `<div class="source-card"><div class="control-row" style="margin-bottom:10px;"><strong style="color:var(${DB_ACCENT_VARS[idx%3]})">Source ${idx+1}</strong>${state.db.sources.length > 1 ? `<button class="tuning-btn" style="color:var(--vec-a);" onclick="removeDBSource(${src.id})">Remove</button>` : ''}</div><div class="control-group"><label>Intensity Level: <span id="lbl-db-${src.id}" style="color:var(--ink);">${src.db}</span> dB</label><input type="range" min="0" max="120" value="${src.db}" oninput="updateDBSource(${src.id}, 'db', this.value)"></div><div class="control-row"><label>Frequency (Hz)</label><input type="number" style="width:100px; padding:5px; font-size:1rem;" value="${src.freq}" onchange="updateDBSource(${src.id}, 'freq', this.value)"></div></div>`;
+                container.innerHTML += `<div class="source-card"><div class="control-row" style="margin-bottom:10px;"><strong style="color:var(${DB_ACCENT_VARS[idx%3]})">Source ${idx+1}</strong>${state.db.sources.length > 1 ? `<button class="tuning-btn" style="color:var(--vec-a);" onclick="removeDBSource(${src.id})">Remove</button>` : ''}</div><div class="control-group"><label>Intensity Level: <span id="lbl-db-${src.id}" style="color:var(--ink); font-family:var(--font-mono);">${src.db}</span> dB</label><input type="range" id="db-range-${src.id}" min="0" max="120" value="${src.db}" oninput="updateDBSource(${src.id}, 'db', this.value)" aria-label="Source ${idx+1} intensity level in decibels"></div><div class="control-row"><label>Frequency (Hz)</label><input type="number" style="width:100px; padding:5px; font-size:1rem;" value="${src.freq}" onchange="updateDBSource(${src.id}, 'freq', this.value)" aria-label="Source ${idx+1} frequency in hertz"></div></div>`;
             });
+            container.querySelectorAll('input[type=range]').forEach(setFill);
         }
         function updateDBAudio() {
             let sumPower = 0; state.db.sources.forEach(src => { sumPower += Math.pow(10, src.db / 10); });
             let leq = sumPower > 0 ? 10 * Math.log10(sumPower) : 0; document.getElementById('db-total-display').innerText = leq.toFixed(1);
+            const intensityEl = document.getElementById('db-intensity-display');
+            if (intensityEl) intensityEl.innerText = formatScientific(1e-12 * Math.pow(10, leq / 10));
             if(!isDBPlaying || !audioCtx) return;
             const calibBoost = parseFloat(state.db.calib);
             state.db.sources.forEach(src => {
@@ -947,15 +1402,16 @@
                         setTimeout(() => { node.osc.stop(); node.osc.disconnect(); node.gain.disconnect(); }, 100);
                     } catch(e){}
                 });
-                dbAudioNodes = {}; btn.innerText = "PLAY ALL SOURCES"; btn.classList.remove('playing'); isDBPlaying = false;
-            } else { isDBPlaying = true; updateDBAudio(); btn.innerText = "STOP ALL SOURCES"; btn.classList.add('playing'); }
+                dbAudioNodes = {}; btn.innerText = "PLAY SOURCES"; btn.classList.remove('playing'); btn.setAttribute('aria-pressed', 'false'); isDBPlaying = false;
+            } else { isDBPlaying = true; updateDBAudio(); btn.innerText = "STOP SOURCES"; btn.classList.add('playing'); btn.setAttribute('aria-pressed', 'true'); }
         }
 
         // --- CANVAS ANIMATION SYSTEM ---
-        const canvases = ['prog', 'stand', 'string', 'pipe', 'long'].reduce((acc, id) => { acc[id] = document.getElementById(`canvas-${id}`); return acc; }, {});
+        const canvases = ['prog', 'stand', 'string', 'pipe', 'long', 'beats'].reduce((acc, id) => { acc[id] = document.getElementById(`canvas-${id}`); return acc; }, {});
         const ctxs = Object.keys(canvases).reduce((acc, id) => { acc[id] = canvases[id].getContext('2d'); return acc; }, {});
 
         let pipeParticles = [];
+        let progYTHistory = [];
         class AirParticle { constructor(x, y) { this.xBase = x; this.yBase = y; } }
 
         function resizeCanvases() {
@@ -966,6 +1422,7 @@
                 ctxs[key].setTransform(dpr, 0, 0, dpr, 0, 0);
             }
             pipeParticles = [];
+            updateStringReadout();
         }
         let resizePending = false;
         window.addEventListener('resize', () => {
@@ -992,7 +1449,7 @@
 
         // Grid Draw Helper
         function drawGrid(ctx, w, h) {
-            ctx.strokeStyle = isLightMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.08)';
+            ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.1)` : `rgba(${C_INK_DARK},0.08)`;
             ctx.lineWidth = 1;
             ctx.beginPath();
             for(let x=0; x<w; x+=50) { ctx.moveTo(x, 0); ctx.lineTo(x, h); }
@@ -1007,7 +1464,7 @@
         function animate() {
             rafHandle = null;
             const dt = slowMo ? 0.005 : 0.02;
-            const isCanvasMode = !!CANVAS_TAB_SET[currentTab];
+            const isCanvasMode = CANVAS_MODES.indexOf(currentTab) !== -1;
             const s = isCanvasMode ? state[currentTab] : null;
             if (isCanvasMode && s.playing) s.time += dt;
 
@@ -1021,10 +1478,10 @@
                 const k = (2 * Math.PI) / s.wave; const omega = 2 * Math.PI * s.freq;
                 const numDots = parseInt(s.density); const spacing = w / numDots; const centerIdx = Math.floor(numDots / 2);
 
-                if (s.xaxis) { ctx.strokeStyle = isLightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke(); }
+                if (s.xaxis) { ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.3)` : `rgba(${C_INK_DARK},0.3)`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke(); }
                 ctx.globalAlpha = s.alpha;
 
-                let hlX = 0, hlY = 0, v = 0, a = 0;
+                let hlX = 0, hlY = 0, hlYDisp = 0, v = 0, a = 0;
                 const dropPath = s.dropLines ? new Path2D() : null;
                 const dotPath = new Path2D();
 
@@ -1034,7 +1491,7 @@
                     let y = h/2 - yDisp;
 
                     if (s.highlight && i === centerIdx) {
-                        hlX = x; hlY = y;
+                        hlX = x; hlY = y; hlYDisp = yDisp;
                         v = -s.amp * omega * Math.cos(omega * s.time - k * x);
                         a = s.amp * omega * omega * Math.sin(omega * s.time - k * x);
                     } else {
@@ -1043,8 +1500,8 @@
                     }
                 }
 
-                if (dropPath) { ctx.strokeStyle = isLightMode ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1; ctx.stroke(dropPath); }
-                ctx.fillStyle = s.color; ctx.fill(dotPath);
+                if (dropPath) { ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.2)` : `rgba(${C_INK_DARK},0.1)`; ctx.lineWidth = 1; ctx.stroke(dropPath); }
+                ctx.fillStyle = safeTrace(s.color); ctx.fill(dotPath);
 
                 if (s.highlight) {
                     ctx.strokeStyle = 'rgba(' + hexToRgb(C_MAGENTA) + ', 0.4)'; ctx.lineWidth = 1; ctx.setLineDash([5, 5]);
@@ -1057,6 +1514,34 @@
                     drawArrow(ctx, hlX - 6, h/2, hlX - 6, h/2 + v * 3, C_VEC_V);
                     drawArrow(ctx, hlX + 6, h/2, hlX + 6, h/2 + a * 1.5, C_VEC_A);
                 }
+
+                if (s.highlight && s.ytGraph) {
+                    if (!progYTHistory.length || s.time !== progYTHistory[progYTHistory.length-1].t) progYTHistory.push({ t: s.time, y: hlYDisp });
+                    const histWindow = 4;
+                    while (progYTHistory.length > 1 && s.time - progYTHistory[0].t > histWindow) progYTHistory.shift();
+
+                    const insetW = Math.min(220, w - 28), insetH = 90, insetX = 14, insetY = h - insetH - 14;
+                    ctx.fillStyle = isLightMode ? `rgba(${C_SURF_LIGHT},0.9)` : `rgba(${C_SURF_DARK},0.82)`;
+                    ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.15)` : `rgba(${C_INK_DARK},0.12)`; ctx.lineWidth = 1;
+                    ctx.beginPath(); ctx.rect(insetX, insetY, insetW, insetH); ctx.fill(); ctx.stroke();
+
+                    ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.25)` : `rgba(${C_INK_DARK},0.22)`;
+                    ctx.beginPath(); ctx.moveTo(insetX+6, insetY+insetH/2); ctx.lineTo(insetX+insetW-6, insetY+insetH/2); ctx.stroke();
+
+                    const maxAmp = s.amp || 1;
+                    const ytPath = new Path2D();
+                    progYTHistory.forEach((pt, idx) => {
+                        const age = s.time - pt.t;
+                        const px = insetX + insetW - 6 - (age / histWindow) * (insetW - 12);
+                        const py = insetY + insetH/2 - (pt.y / maxAmp) * (insetH/2 - 8);
+                        if (idx === 0) ytPath.moveTo(px, py); else ytPath.lineTo(px, py);
+                    });
+                    ctx.strokeStyle = C_MAGENTA; ctx.lineWidth = 1.5; ctx.stroke(ytPath);
+
+                    ctx.fillStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.6)` : `rgba(${C_INK_DARK},0.6)`;
+                    ctx.font = '10px ' + FONT_MONO_CSS;
+                    ctx.fillText('y–t at highlighted particle', insetX+6, insetY+12);
+                }
             }
 
             // --- STANDING ---
@@ -1067,7 +1552,7 @@
                 if(s.grid) drawGrid(ctx, w, h);
 
                 const A = 60, k = (2 * Math.PI) / 300, omega = s.speed;
-                if (s.xaxis) { ctx.strokeStyle = isLightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke(); }
+                if (s.xaxis) { ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.3)` : `rgba(${C_INK_DARK},0.3)`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, h/2); ctx.lineTo(w, h/2); ctx.stroke(); }
 
                 let p1 = new Path2D(), p2 = new Path2D(), pSum = new Path2D();
 
@@ -1086,12 +1571,12 @@
                         let ySum = 2*A * Math.cos(k*x - phaseShift/2) * timeMult;
                         if(x===0) pSum.moveTo(x, h/2 - ySum); else pSum.lineTo(x, h/2 - ySum);
                     }
-                    ctx.strokeStyle = s.color3; ctx.lineWidth = s.thick; ctx.stroke(pSum);
+                    ctx.strokeStyle = safeTrace(s.color3); ctx.lineWidth = s.thick; ctx.stroke(pSum);
                 }
                 else {
+                    let phaseShift = s.boundary === 'closed' ? Math.PI : 0;
                     for(let x=0; x<=w; x+=3) {
                         let y1 = A * Math.sin(omega * s.time - k * x);
-                        let phaseShift = s.boundary === 'closed' ? Math.PI : 0;
                         let y2 = A * Math.sin(omega * s.time + k * x + phaseShift);
                         let ySum = y1 + y2;
 
@@ -1099,12 +1584,42 @@
                         else { p1.lineTo(x, h/2 - y1); p2.lineTo(x, h/2 - y2); pSum.lineTo(x, h/2 - ySum); }
                     }
                     ctx.lineWidth = s.thick;
-                    ctx.strokeStyle = s.color1 + '80'; ctx.stroke(p1);
-                    ctx.strokeStyle = s.color2 + '80'; ctx.stroke(p2);
-                    ctx.strokeStyle = s.color3; ctx.lineWidth = s.thick + 1; ctx.stroke(pSum);
+                    ctx.strokeStyle = safeTrace(s.color1) + '80'; ctx.stroke(p1);
+                    ctx.strokeStyle = safeTrace(s.color2) + '80'; ctx.stroke(p2);
+                    ctx.strokeStyle = safeTrace(s.color3); ctx.lineWidth = s.thick + 1; ctx.stroke(pSum);
+
+                    // Node markers — spacing between adjacent nodes is always λ/2
+                    const nodeSpacingPx = Math.PI / k;
+                    const nodeXs = [];
+                    for (let m = -2; nodeXs.length < 40; m++) {
+                        let nodeX = ((m + 0.5) * Math.PI - phaseShift/2) / k;
+                        if (nodeX > w + nodeSpacingPx) break;
+                        if (nodeX >= -1 && nodeX <= w + 1) nodeXs.push(nodeX);
+                    }
+                    const nodePath = new Path2D();
+                    nodeXs.forEach(nx => addDot(nodePath, nx, h/2, 4));
+                    ctx.fillStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.6)` : `rgba(${C_INK_DARK},0.65)`;
+                    ctx.fill(nodePath);
+
+                    // Antinode markers (midway between adjacent nodes) — hollow rings, max-swing points
+                    ctx.strokeStyle = C_AMBER; ctx.lineWidth = 1.5;
+                    for (let i = 0; i < nodeXs.length - 1; i++) {
+                        const ax = (nodeXs[i] + nodeXs[i+1]) / 2;
+                        if (ax >= 0 && ax <= w) { ctx.beginPath(); ctx.arc(ax, h/2, 5, 0, Math.PI*2); ctx.stroke(); }
+                    }
+
+                    if (nodeXs.length >= 2) {
+                        const bx1 = nodeXs[0], bx2 = nodeXs[1], by = h/2 + 24;
+                        ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.4)` : `rgba(${C_INK_DARK},0.4)`; ctx.lineWidth = 1;
+                        ctx.beginPath(); ctx.moveTo(bx1, by-5); ctx.lineTo(bx1, by); ctx.lineTo(bx2, by); ctx.lineTo(bx2, by-5); ctx.stroke();
+                        ctx.fillStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.7)` : `rgba(${C_INK_DARK},0.7)`;
+                        ctx.font = '11px ' + FONT_MONO_CSS; ctx.textAlign = 'center';
+                        ctx.fillText('Node spacing = λ/2  ·  ○ antinode', (bx1+bx2)/2, by+14);
+                        ctx.textAlign = 'left';
+                    }
                 }
 
-                ctx.beginPath(); ctx.moveTo(w-3, 0); ctx.lineTo(w-3, h); ctx.strokeStyle = s.boundary === 'closed' ? (isLightMode?'#000':'#fff') : 'rgba(125,125,125,0.4)'; ctx.lineWidth = s.boundary === 'closed' ? 6 : 2; ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(w-3, 0); ctx.lineTo(w-3, h); ctx.strokeStyle = s.boundary === 'closed' ? (isLightMode?'#18130d':'#efeae2') : `rgba(${isLightMode ? C_INK_LIGHT : C_INK_DARK},0.4)`; ctx.lineWidth = s.boundary === 'closed' ? 6 : 2; ctx.stroke();
             }
 
             // --- STRING ---
@@ -1117,7 +1632,7 @@
                 const A = h * 0.3, n = parseInt(s.n), L = w * 0.8, startX = w * 0.1, omega = s.speed;
 
                 if (s.xaxis) {
-                    ctx.strokeStyle = isLightMode ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)';
+                    ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.3)` : `rgba(${C_INK_DARK},0.3)`;
                     ctx.lineWidth = 1;
                     ctx.beginPath();
                     ctx.moveTo(startX, h/2);
@@ -1126,17 +1641,17 @@
                 }
 
                 if(s.env) {
-                    ctx.strokeStyle = isLightMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'; ctx.lineWidth = 1;
+                    ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.1)` : `rgba(${C_INK_DARK},0.1)`; ctx.lineWidth = 1;
                     ctx.beginPath(); for(let x=0; x<=L; x+=2) ctx[x===0?'moveTo':'lineTo'](startX+x, h/2 - A * Math.sin(n * Math.PI * x / L)); ctx.stroke();
                     ctx.beginPath(); for(let x=0; x<=L; x+=2) ctx[x===0?'moveTo':'lineTo'](startX+x, h/2 + A * Math.sin(n * Math.PI * x / L)); ctx.stroke();
                 }
-                ctx.strokeStyle = s.color; ctx.lineWidth = s.thick; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath();
+                ctx.strokeStyle = safeTrace(s.color); ctx.lineWidth = s.thick; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath();
                 for(let x=0; x<=L; x+=2) { let y = A * Math.sin(n * Math.PI * x / L) * Math.cos(omega * s.time); ctx[x===0?'moveTo':'lineTo'](startX+x, h/2 - y); }
                 ctx.stroke();
                 const nodePath = new Path2D();
                 for(let i=0; i<=n; i++) { addDot(nodePath, startX + (i * L / n), h/2, parseInt(s.thick)+2); }
-                ctx.fillStyle = isLightMode ? '#000' : '#fff'; ctx.fill(nodePath);
-                ctx.fillStyle = isLightMode ? '#555' : '#ccc';
+                ctx.fillStyle = isLightMode ? '#18130d' : '#efeae2'; ctx.fill(nodePath);
+                ctx.fillStyle = isLightMode ? '#544c41' : '#948b7e';
                 ctx.fillRect(startX-4, h/2-A-10, 8, A*2+20);
                 ctx.fillRect(startX+L-4, h/2-A-10, 8, A*2+20);
             }
@@ -1147,24 +1662,35 @@
                 const w = cvs.width/(window.devicePixelRatio||1), h = cvs.height/(window.devicePixelRatio||1);
                 ctx.clearRect(0, 0, w, h);
 
-                const n = parseInt(s.n), L = w * 0.8, startX = w * 0.1, pipeTop = h * 0.3, pipeHeight = h * 0.4, omega = 3, A = 25;
+                const m = parseInt(s.n), isClosed = s.boundary === 'closed';
+                const actualN = isClosed ? (2*m - 1) : m;
+                const L = w * 0.8, startX = w * 0.1, pipeTop = h * 0.3, pipeHeight = h * 0.4, omega = 3, A = 25;
                 if(pipeParticles.length === 0) { for(let r=0; r<12; r++) for(let c=0; c<60; c++) pipeParticles.push(new AirParticle(startX + (c/59)*(L) + (Math.random()-0.5)*5, pipeTop + (r/11)*pipeHeight + (Math.random()-0.5)*5)); }
 
-                ctx.strokeStyle = isLightMode ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.4)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(startX, pipeTop); ctx.lineTo(startX+L, pipeTop); ctx.moveTo(startX, pipeTop+pipeHeight); ctx.lineTo(startX+L, pipeTop+pipeHeight); ctx.stroke();
+                ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.2)` : `rgba(${C_INK_DARK},0.4)`; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(startX, pipeTop); ctx.lineTo(startX+L, pipeTop); ctx.moveTo(startX, pipeTop+pipeHeight); ctx.lineTo(startX+L, pipeTop+pipeHeight); ctx.stroke();
+                if (isClosed) { ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.55)` : `rgba(${C_INK_DARK},0.8)`; ctx.lineWidth = 6; ctx.beginPath(); ctx.moveTo(startX, pipeTop-6); ctx.lineTo(startX, pipeTop+pipeHeight+6); ctx.stroke(); }
 
-                const pColor = isLightMode && s.color1 === '#ffffff' ? '#0c1424' : s.color1;
+                const pColor = safeTrace(s.color1);
                 const dotPath = new Path2D();
                 pipeParticles.forEach(p => {
                     let xNorm = Math.max(0, Math.min(1, (p.xBase - startX) / L));
-                    let disp = A * Math.cos(n * Math.PI * xNorm) * Math.cos(omega * s.time);
+                    let disp = isClosed
+                        ? A * Math.sin(actualN * Math.PI * xNorm / 2) * Math.cos(omega * s.time)
+                        : A * Math.cos(actualN * Math.PI * xNorm) * Math.cos(omega * s.time);
                     addDot(dotPath, p.xBase + disp, p.yBase, 2);
                 });
                 ctx.fillStyle = pColor; ctx.fill(dotPath);
 
                 if (s.showPressure) {
-                    ctx.strokeStyle = s.color2; ctx.lineWidth = 3; ctx.beginPath();
-                    for(let x=0; x<=L; x+=2) { let pressure = 50 * Math.sin(n * Math.PI * (x/L)) * Math.cos(omega * s.time); ctx[x===0?'moveTo':'lineTo'](startX+x, h*0.85 - pressure); }
-                    ctx.stroke(); ctx.strokeStyle = isLightMode ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(startX, h*0.85); ctx.lineTo(startX+L, h*0.85); ctx.stroke();
+                    ctx.strokeStyle = safeTrace(s.color2); ctx.lineWidth = 3; ctx.beginPath();
+                    for(let x=0; x<=L; x+=2) {
+                        let xNorm = x/L;
+                        let pressure = isClosed
+                            ? 50 * Math.cos(actualN * Math.PI * xNorm / 2) * Math.cos(omega * s.time)
+                            : 50 * Math.sin(actualN * Math.PI * xNorm) * Math.cos(omega * s.time);
+                        ctx[x===0?'moveTo':'lineTo'](startX+x, h*0.85 - pressure);
+                    }
+                    ctx.stroke(); ctx.strokeStyle = isLightMode ? `rgba(${C_INK_LIGHT},0.1)` : `rgba(${C_INK_DARK},0.2)`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(startX, h*0.85); ctx.lineTo(startX+L, h*0.85); ctx.stroke();
                 }
             }
 
@@ -1198,7 +1724,7 @@
                         else addDot(dotPath, x0 + disp, r * spacingY, s.size);
                     }
                 }
-                ctx.fillStyle = s.color; ctx.fill(dotPath);
+                ctx.fillStyle = safeTrace(s.color); ctx.fill(dotPath);
                 ctx.fillStyle = C_MAGENTA; ctx.fill(hlDotPath);
 
                 if (s.highlight && s.vectors) {
@@ -1206,6 +1732,11 @@
                     drawArrow(ctx, hlX0 + hlDisp, centerY - 15, hlX0 + hlDisp + v * 4, centerY - 15, C_VEC_V);
                     drawArrow(ctx, hlX0 + hlDisp, centerY + 15, hlX0 + hlDisp + a * 2, centerY + 15, C_VEC_A);
                 }
+            }
+
+            // --- BEATS (resultant waveform, scrolling) ---
+            else if (currentTab === 'beats') {
+                drawBeatsCanvas(s.time);
             }
 
             if (isCanvasMode && s.playing) requestRedraw();
@@ -1216,11 +1747,20 @@
         }
 
         // Init
+        loadPersistedState();
+        applyPermalinkParams();
         syncUI('prog'); syncUI('stand'); syncUI('string'); syncUI('pipe'); syncUI('long'); syncUI('db');
         updateHomeOsc();
+        setFill(document.getElementById('home-vol'));
         document.getElementById('btn-snap').disabled = true;
         document.getElementById('btn-snap').classList.add('is-disabled');
-        setTimeout(() => { resizeCanvases(); updateNavIndicator(document.querySelector('.nav-item.active')); requestRedraw(); }, 100);
+        setTimeout(() => {
+            if (pendingRestoreTab && pendingRestoreTab !== 'home') {
+                const navEl = document.querySelector(`.nav-item[data-tab="${pendingRestoreTab}"]`);
+                if (navEl) { switchTab(pendingRestoreTab, navEl); return; }
+            }
+            resizeCanvases(); updateNavIndicator(document.querySelector('.nav-item.active')); requestRedraw();
+        }, 100);
         window.addEventListener('load', () => {
             const boot = document.getElementById('boot-overlay');
             if (boot) { boot.addEventListener('animationend', () => boot.remove()); setTimeout(() => boot.remove(), 1600); }
