@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>PDF DPI Scaler</title>
+    
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Libraries for PDF Processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0d1117;
+            background-image: radial-gradient(circle at 50% 0%, #1f2a3a 0%, transparent 70%);
+            color: #f0f6fc;
+        }
+
+        /* Custom styling for the file input button to match the theme */
+        input[type="file"]::file-selector-button {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #f0f6fc;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            margin-right: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        input[type="file"]::file-selector-button:hover {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        /* Safe area padding for mobile devices */
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        
+        /* Hide scrollbar for a cleaner look */
+        ::-webkit-scrollbar {
+            display: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4 sm:p-8 pb-24">
+
+    <main class="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 sm:p-8 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex flex-col gap-6">
+        
+        <header class="text-center">
+            <h1 class="text-2xl font-semibold mb-1">PDF Rasterizer</h1>
+            <p class="text-sm text-gray-400">Adjust resolution entirely offline</p>
+        </header>
+
+        <div class="flex flex-col gap-2">
+            <label for="pdfInput" class="text-sm text-gray-300 font-medium ml-1">Select Document</label>
+            <input type="file" id="pdfInput" accept="application/pdf" class="w-full bg-black/20 border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-blue-500 transition-colors cursor-pointer text-sm">
+        </div>
+
+        <div class="flex flex-col gap-1 mt-2">
+            <span class="text-sm text-gray-300 font-medium ml-1">Resolution Mode</span>
+            <div class="flex p-1 bg-black/30 rounded-xl border border-white/5">
+                <button id="btnMultiplier" onclick="setMode('multiplier')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-400 hover:text-white transition-all">Multiplier</button>
+                <button id="btnDpi" onclick="setMode('dpi')" class="flex-1 py-1.5 text-sm font-medium rounded-lg bg-white/10 text-white shadow-sm transition-all">Target DPI</button>
+            </div>
+        </div>
+
+        <div id="multiplierContainer" class="hidden flex flex-col gap-2">
+            <label for="scaleInput" class="text-sm text-gray-300 font-medium ml-1">Resolution Multiplier</label>
+            <div class="relative">
+                <input type="number" id="scaleInput" value="1.5" step="0.1" min="0.5" max="5" class="w-full bg-black/20 border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-blue-500 transition-colors text-sm">
+                <span class="absolute right-4 top-3.5 text-gray-400 text-sm pointer-events-none">x</span>
+            </div>
+            <p class="text-xs text-gray-500 ml-1 mt-1">Values > 1 increase DPI (larger file size). Values < 1 decrease DPI.</p>
+        </div>
+
+        <div id="dpiContainer" class="flex flex-col gap-2">
+            <label for="dpiInput" class="text-sm text-gray-300 font-medium ml-1">Target DPI</label>
+            <div class="relative">
+                <input type="number" id="dpiInput" value="300" step="10" min="36" max="600" class="w-full bg-black/20 border border-white/10 text-white p-3 rounded-xl focus:outline-none focus:border-blue-500 transition-colors text-sm">
+                <span class="absolute right-4 top-3.5 text-gray-400 text-sm pointer-events-none">DPI</span>
+            </div>
+            <p class="text-xs text-gray-500 ml-1 mt-1">Standard print is 300 DPI. Web is typically 72-150 DPI.</p>
+        </div>
+
+        <button onclick="processPDF()" class="w-full bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white p-3.5 rounded-xl font-semibold transition-all shadow-lg shadow-blue-900/20 mt-2">
+            Rasterize & Download
+        </button>
+
+        <div id="statusContainer" class="hidden flex-col items-center justify-center gap-3 mt-2">
+            <!-- Loading Spinner -->
+            <div id="spinner" class="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p id="status" class="text-sm text-center text-gray-300 min-h-[1.25rem]"></p>
+        </div>
+    </main>
+
+    <nav class="fixed bottom-0 left-0 w-full bg-[#0d1117]/80 backdrop-blur-xl border-t border-white/10 flex justify-around py-3 pb-safe z-50">
+        <a href="#" class="flex flex-col items-center gap-1 text-blue-500">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
+            <span class="text-xs font-medium">Rasterizer</span>
+        </a>
+        <a href="#" class="flex flex-col items-center gap-1 text-gray-500 hover:text-gray-300 transition-colors">
+            <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+            <span class="text-xs font-medium">About</span>
+        </a>
+    </nav>
+
+    <script>
+        // Configure PDF.js worker
+        const pdfjsLib = window['pdfjs-dist/build/pdf'];
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+        const { jsPDF } = window.jspdf;
+
+        let currentMode = 'dpi';
+
+        function setMode(mode) {
+            currentMode = mode;
+            const btnMult = document.getElementById('btnMultiplier');
+            const btnDpi = document.getElementById('btnDpi');
+            const contMult = document.getElementById('multiplierContainer');
+            const contDpi = document.getElementById('dpiContainer');
+
+            if (mode === 'multiplier') {
+                btnMult.className = 'flex-1 py-1.5 text-sm font-medium rounded-lg bg-white/10 text-white shadow-sm transition-all';
+                btnDpi.className = 'flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-400 hover:text-white transition-all';
+                contMult.classList.remove('hidden');
+                contDpi.classList.add('hidden');
+            } else {
+                btnDpi.className = 'flex-1 py-1.5 text-sm font-medium rounded-lg bg-white/10 text-white shadow-sm transition-all';
+                btnMult.className = 'flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-400 hover:text-white transition-all';
+                contDpi.classList.remove('hidden');
+                contMult.classList.add('hidden');
+            }
+        }
+
+        async function processPDF() {
+            const fileInput = document.getElementById('pdfInput');
+            const statusContainer = document.getElementById('statusContainer');
+            const statusLabel = document.getElementById('status');
+            const spinner = document.getElementById('spinner');
+
+            if (!fileInput.files.length) {
+                statusContainer.classList.remove('hidden');
+                spinner.classList.add('hidden');
+                statusLabel.innerText = 'Please select a PDF file first.';
+                statusLabel.className = 'text-sm text-center text-red-400 font-medium min-h-[1.25rem]';
+                return;
+            }
+
+            // UI Reset for processing
+            statusContainer.classList.remove('hidden');
+            spinner.classList.remove('hidden');
+            statusLabel.className = 'text-sm text-center text-gray-300 min-h-[1.25rem]';
+            
+            let scale = 1.0;
+            let modifierStr = "";
+            
+            // Calculate scale based on selected mode (Base PDF is 72 DPI)
+            if (currentMode === 'multiplier') {
+                scale = parseFloat(document.getElementById('scaleInput').value) || 1.0;
+                modifierStr = `scaled_${scale}x`;
+            } else {
+                const targetDpi = parseFloat(document.getElementById('dpiInput').value) || 300;
+                scale = targetDpi / 72.0; 
+                modifierStr = `${targetDpi}dpi`;
+            }
+
+            const file = fileInput.files[0];
+            const fileReader = new FileReader();
+
+            fileReader.onload = async function() {
+                try {
+                    const typedarray = new Uint8Array(this.result);
+                    statusLabel.innerText = 'Reading document...';
+                    
+                    const pdf = await pdfjsLib.getDocument(typedarray).promise;
+                    
+                    // Initialize blank jsPDF document
+                    const newPdf = new jsPDF('p', 'pt', 'a4');
+                    newPdf.deletePage(1); // Remove the default empty page
+
+                    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+                        statusLabel.innerText = `Rasterizing page ${pageNum} of ${pdf.numPages}...`;
+                        
+                        const page = await pdf.getPage(pageNum);
+                        const viewport = page.getViewport({ scale: scale });
+                        
+                        // Render PDF page to a hidden canvas
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        canvas.height = viewport.height;
+                        canvas.width = viewport.width;
+
+                        const renderContext = { canvasContext: ctx, viewport: viewport };
+                        await page.render(renderContext).promise;
+
+                        // Extract canvas as high quality JPEG
+                        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+                        
+                        // Default size mapped to jsPDF points (72 DPI base scale)
+                        const pdfWidth = page.getViewport({scale: 1}).width;
+                        const pdfHeight = page.getViewport({scale: 1}).height;
+                        
+                        // Determine orientation dynamically per page
+                        const orientation = pdfWidth > pdfHeight ? 'l' : 'p';
+
+                        // Add image to the new PDF document
+                        newPdf.addPage([pdfWidth, pdfHeight], orientation);
+                        newPdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+                    }
+
+                    statusLabel.innerText = 'Processing complete. Initiating download...';
+                    statusLabel.className = 'text-sm text-center text-green-400 font-medium min-h-[1.25rem]';
+                    spinner.classList.add('hidden');
+                    
+                    // Trigger local download
+                    let originalName = file.name.replace(/\.[^/.]+$/, ""); // Strip original extension safely
+                    newPdf.save(`${originalName}_${modifierStr}.pdf`);
+                    
+                    // Hide status after a few seconds
+                    setTimeout(() => { 
+                        statusContainer.classList.add('hidden'); 
+                    }, 4000);
+                    
+                } catch (error) {
+                    console.error(error);
+                    spinner.classList.add('hidden');
+                    statusLabel.innerText = 'An error occurred. Check console for details.';
+                    statusLabel.className = 'text-sm text-center text-red-400 font-medium min-h-[1.25rem]';
+                }
+            };
+
+            // Start reading the file
+            fileReader.readAsArrayBuffer(file);
+        }
+    </script>
+</body>
+</html>
