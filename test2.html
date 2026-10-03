@@ -1,0 +1,2068 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Vector Visualizer</title>
+    
+    <!-- Tailwind CSS for rapid UI development -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Three.js Library and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Font Awesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f8fafc;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            display: block;
+            outline: none;
+        }
+
+        /* Custom Scrollbar for side panels */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+        /* Range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            width: 100%;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #3b82f6;
+            cursor: pointer;
+            margin-top: -5px;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #e2e8f0;
+            border-radius: 2px;
+        }
+        
+        /* Specialized number input styling for vectors */
+        .vec-input { -moz-appearance: textfield; }
+        .vec-input::-webkit-outer-spin-button,
+        .vec-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        /* Accordion summary styling to remove default arrow in webkit */
+        details > summary { list-style: none; }
+        details > summary::-webkit-details-marker { display: none; }
+    </style>
+</head>
+<body class="flex h-screen w-screen text-slate-800">
+
+    <!-- LEFT PANEL -->
+    <aside class="w-80 bg-white border-r border-slate-200 shadow-[2px_0_10px_rgba(0,0,0,0.02)] flex flex-col z-10 flex-shrink-0">
+        <div class="p-4 border-b border-slate-100 bg-slate-50 flex items-center space-x-2">
+            <i class="fa-solid fa-cube text-blue-600 text-xl"></i>
+            <h1 class="text-lg font-bold text-slate-800">Visualizer Controls</h1>
+        </div>
+        
+        <div class="p-4 overflow-y-auto flex-1 space-y-6">
+            
+            <!-- Point Management -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Points</h2>
+                    <button id="btn-add-point" class="px-2 py-1 bg-purple-100 hover:bg-purple-200 text-purple-700 text-xs font-bold rounded transition-colors flex items-center">
+                        <i class="fa-solid fa-plus mr-1"></i> Add
+                    </button>
+                </div>
+                <div id="points-container" class="space-y-3"></div>
+            </div>
+
+            <hr class="border-slate-100">
+
+            <!-- Vector Management -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Vectors</h2>
+                    <button id="btn-add-vector" class="px-2 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold rounded transition-colors flex items-center">
+                        <i class="fa-solid fa-plus mr-1"></i> Add
+                    </button>
+                </div>
+                <div id="vectors-container" class="space-y-3"></div>
+            </div>
+
+            <hr class="border-slate-100">
+
+            <!-- Planes (NEW IN STAGE 6) -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xs font-bold text-emerald-600 uppercase tracking-wider flex items-center"><i class="fa-solid fa-layer-group mr-1.5"></i> Planes</h2>
+                </div>
+                
+                <div class="space-y-3">
+                    <!-- Coord Planes -->
+                    <details class="text-xs border border-slate-200 rounded overflow-hidden">
+                        <summary class="cursor-pointer bg-slate-50 p-2 font-semibold text-slate-700 hover:bg-slate-100 border-b border-slate-100 flex justify-between items-center">
+                            <span>Coordinate Planes</span> <i class="fa-solid fa-angle-down text-[10px]"></i>
+                        </summary>
+                        <div class="p-2 space-y-2 bg-white">
+                            <!-- XY -->
+                            <div class="flex justify-between items-center">
+                                <label class="flex items-center space-x-2 cursor-pointer hover:text-blue-500">
+                                    <input type="checkbox" id="plane-xy-vis" class="rounded text-blue-500 w-3 h-3"><span>XY (z=0)</span>
+                                </label>
+                                <input type="range" id="plane-xy-op" min="0.1" max="1" step="0.1" value="0.3" class="w-16">
+                            </div>
+                            <!-- YZ -->
+                            <div class="flex justify-between items-center">
+                                <label class="flex items-center space-x-2 cursor-pointer hover:text-red-500">
+                                    <input type="checkbox" id="plane-yz-vis" class="rounded text-red-500 w-3 h-3"><span>YZ (x=0)</span>
+                                </label>
+                                <input type="range" id="plane-yz-op" min="0.1" max="1" step="0.1" value="0.3" class="w-16">
+                            </div>
+                            <!-- ZX -->
+                            <div class="flex justify-between items-center">
+                                <label class="flex items-center space-x-2 cursor-pointer hover:text-green-500">
+                                    <input type="checkbox" id="plane-zx-vis" class="rounded text-green-500 w-3 h-3"><span>ZX (y=0)</span>
+                                </label>
+                                <input type="range" id="plane-zx-op" min="0.1" max="1" step="0.1" value="0.3" class="w-16">
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Custom Plane -->
+                    <div class="border border-slate-200 rounded overflow-hidden">
+                        <div class="bg-slate-50 p-2 font-semibold text-slate-700 border-b border-slate-100 text-xs flex justify-between items-center">
+                            <span>Custom Plane</span>
+                            <label class="flex items-center space-x-1 cursor-pointer">
+                                <input type="checkbox" id="plane-cust-vis" class="rounded text-emerald-500 focus:ring-emerald-500 w-3 h-3">
+                            </label>
+                        </div>
+                        <div class="p-2 bg-white space-y-2">
+                            <div class="flex items-center space-x-1 text-[10px] font-mono">
+                                <input type="number" id="plane-cust-a" value="1" step="0.5" class="w-8 border border-slate-200 rounded p-0.5 text-center bg-slate-50"><span>x+</span>
+                                <input type="number" id="plane-cust-b" value="1" step="0.5" class="w-8 border border-slate-200 rounded p-0.5 text-center bg-slate-50"><span>y+</span>
+                                <input type="number" id="plane-cust-c" value="1" step="0.5" class="w-8 border border-slate-200 rounded p-0.5 text-center bg-slate-50"><span>z=</span>
+                                <input type="number" id="plane-cust-d" value="5" step="0.5" class="w-8 border border-slate-200 rounded p-0.5 text-center bg-slate-50">
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-y-1 mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-600">
+                                <label class="flex items-center space-x-1 cursor-pointer hover:text-emerald-500">
+                                    <input type="checkbox" id="plane-cust-grid" checked class="rounded text-emerald-500 w-3 h-3"><span>Grid</span>
+                                </label>
+                                <label class="flex items-center space-x-1 cursor-pointer hover:text-emerald-500">
+                                    <input type="checkbox" id="plane-cust-lbl" checked class="rounded text-emerald-500 w-3 h-3"><span>Label</span>
+                                </label>
+                                <label class="flex items-center space-x-1 cursor-pointer hover:text-emerald-500 col-span-2">
+                                    <input type="checkbox" id="plane-cust-norm" checked class="rounded text-emerald-500 w-3 h-3"><span>Normal Vector (n)</span>
+                                </label>
+                            </div>
+
+                            <div class="space-y-1 pt-1 border-t border-slate-100">
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] text-slate-500">Size</span>
+                                    <input type="range" id="plane-cust-size" min="10" max="50" step="5" value="20" class="w-20">
+                                </div>
+                                <div class="flex justify-between items-center">
+                                    <span class="text-[10px] text-slate-500">Opacity</span>
+                                    <input type="range" id="plane-cust-op" min="0.1" max="1" step="0.1" value="0.4" class="w-20">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-slate-100">
+
+            <!-- Vector Operations -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider text-fuchsia-600">Operations</h2>
+                </div>
+                <div class="space-y-3">
+                    <select id="op-type" class="w-full text-sm p-1.5 border rounded border-slate-200 bg-slate-50 text-slate-700 focus:outline-none focus:border-fuchsia-400 focus:ring-1 focus:ring-fuchsia-400">
+                        <option value="none">None</option>
+                        <option value="add">Addition (A + B + C)</option>
+                        <option value="sub">Subtraction (A - B)</option>
+                        <option value="scale">Scalar Mult. (k * A)</option>
+                        <option value="para">Parallelogram</option>
+                        <option value="dot">Dot Product (A · B)</option>
+                        <option value="cross">Cross Product (A × B)</option>
+                        <option value="plane_proj" class="font-bold">Vector & Plane Analysis</option>
+                    </select>
+                    <div id="op-controls" class="space-y-2 empty:hidden p-3 bg-slate-50 rounded border border-slate-100 text-sm"></div>
+                </div>
+            </div>
+
+            <hr class="border-slate-100">
+
+            <!-- Unit Vectors -->
+            <div>
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Base Unit Vectors</h2>
+                <div class="space-y-3">
+                    <div class="flex space-x-4">
+                        <label class="flex items-center space-x-2 cursor-pointer group">
+                            <input type="checkbox" id="toggle-unit-vecs" class="rounded text-blue-500 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                            <span class="text-sm group-hover:text-blue-600 transition-colors">Show i, j, k</span>
+                        </label>
+                        <label class="flex items-center space-x-2 cursor-pointer group">
+                            <input type="checkbox" id="toggle-unit-labels" checked class="rounded text-blue-500 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                            <span class="text-sm group-hover:text-blue-600 transition-colors">Labels</span>
+                        </label>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span class="text-slate-600">Vector Scale</span>
+                            <span id="val-unit-len" class="font-mono text-slate-500">2</span>
+                        </div>
+                        <input type="range" id="slider-unit-len" min="0.5" max="5" step="0.5" value="2">
+                    </div>
+                </div>
+            </div>
+
+            <hr class="border-slate-100">
+
+            <!-- Scene Visibility Toggles -->
+            <div>
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Scene Visibility</h2>
+                <div class="space-y-2">
+                    <label class="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" id="toggle-grid" checked class="rounded text-blue-500 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                        <span class="text-sm group-hover:text-blue-600 transition-colors">Show Coordinate Grid</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" id="toggle-axes" checked class="rounded text-blue-500 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                        <span class="text-sm group-hover:text-blue-600 transition-colors">Show XYZ Axes</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" id="toggle-labels" checked class="rounded text-blue-500 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                        <span class="text-sm group-hover:text-blue-600 transition-colors">Show Axis Labels</span>
+                    </label>
+                    <label class="flex items-center space-x-2 cursor-pointer group">
+                        <input type="checkbox" id="toggle-frame" class="rounded text-blue-500 focus:ring-blue-500 w-4 h-4 cursor-pointer">
+                        <span class="text-sm group-hover:text-blue-600 transition-colors">Show 3D Reference Frame</span>
+                    </label>
+                </div>
+            </div>
+
+            <hr class="border-slate-100">
+
+            <!-- Dimensions & Scaling -->
+            <div>
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">Dimensions</h2>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>Grid Size</span>
+                            <span id="val-grid-size" class="font-mono text-slate-500">20</span>
+                        </div>
+                        <input type="range" id="slider-grid-size" min="10" max="50" step="2" value="20">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>Grid Spacing</span>
+                            <span id="val-grid-spacing" class="font-mono text-slate-500">1</span>
+                        </div>
+                        <input type="range" id="slider-grid-spacing" min="0.5" max="5" step="0.5" value="1">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-xs mb-1">
+                            <span>Axis Length</span>
+                            <span id="val-axis-length" class="font-mono text-slate-500">10</span>
+                        </div>
+                        <input type="range" id="slider-axis-length" min="5" max="25" step="1" value="10">
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </aside>
+
+    <!-- CENTER MAIN WORKSPACE -->
+    <main class="flex-1 relative flex flex-col bg-slate-50 min-w-0">
+        
+        <!-- WebGL Canvas Container -->
+        <div id="canvas-container" class="flex-1 relative w-full h-full cursor-crosshair"></div>
+        
+        <!-- View Axis Indicator -->
+        <div class="absolute top-4 left-4 bg-white/80 backdrop-blur px-3 py-1.5 rounded shadow-sm text-xs font-mono text-slate-600 flex items-center space-x-3 pointer-events-none border border-slate-200">
+            <span class="flex items-center space-x-1"><span class="w-2 h-2 rounded-full bg-red-500"></span><span>X</span></span>
+            <span class="flex items-center space-x-1"><span class="w-2 h-2 rounded-full bg-green-500"></span><span>Y</span></span>
+            <span class="flex items-center space-x-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span><span>Z</span></span>
+        </div>
+
+        <!-- BOTTOM BAR (Camera Presets) -->
+        <div class="h-14 bg-white border-t border-slate-200 flex items-center justify-center space-x-2 px-4 shadow-[0_-2px_10px_rgba(0,0,0,0.02)] z-10 w-full overflow-x-auto">
+            <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2 hidden md:block">Camera Views:</span>
+            
+            <button class="cam-preset-btn px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded transition-colors border border-slate-200 hover:border-blue-200" data-view="isometric">Isometric</button>
+            <button class="cam-preset-btn px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded transition-colors border border-slate-200 hover:border-blue-200" data-view="top">Top</button>
+            <button class="cam-preset-btn px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded transition-colors border border-slate-200 hover:border-blue-200" data-view="bottom">Bottom</button>
+            <button class="cam-preset-btn px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded transition-colors border border-slate-200 hover:border-blue-200" data-view="front">Front</button>
+            <button class="cam-preset-btn px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded transition-colors border border-slate-200 hover:border-blue-200" data-view="back">Back</button>
+            <button class="cam-preset-btn px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded transition-colors border border-slate-200 hover:border-blue-200" data-view="right">Right</button>
+            <button class="cam-preset-btn px-3 py-1.5 text-xs font-medium bg-slate-100 hover:bg-blue-50 hover:text-blue-600 text-slate-600 rounded transition-colors border border-slate-200 hover:border-blue-200" data-view="left">Left</button>
+            
+            <div class="w-px h-6 bg-slate-200 mx-2"></div>
+            
+            <button id="btn-reset-cam" class="px-3 py-1.5 text-xs font-medium bg-blue-50 hover:bg-blue-100 text-blue-700 rounded transition-colors border border-blue-200 flex items-center space-x-1">
+                <i class="fa-solid fa-rotate-right text-[10px]"></i>
+                <span>Reset</span>
+            </button>
+        </div>
+    </main>
+
+    <!-- RIGHT PANEL -->
+    <aside class="w-80 bg-white border-l border-slate-200 shadow-[-2px_0_10px_rgba(0,0,0,0.02)] flex flex-col z-10 flex-shrink-0">
+        <div class="p-4 border-b border-slate-100 bg-blue-700 text-white flex justify-between items-center">
+            <div>
+                <h2 class="text-sm font-bold uppercase tracking-wider">Analytics</h2>
+                <p class="text-xs text-blue-200 mt-1">Stage 6: Planes & Ops</p>
+            </div>
+            <i class="fa-solid fa-chart-pie text-xl text-blue-400"></i>
+        </div>
+        
+        <div class="p-4 overflow-y-auto flex-1 space-y-5">
+
+            <!-- Dynamic Operation Info -->
+            <div id="op-info-wrapper" class="hidden">
+                <h3 class="text-xs font-bold text-fuchsia-600 uppercase tracking-wider mb-2 flex items-center"><i class="fa-solid fa-calculator mr-1.5"></i> Operation Result</h3>
+                <div id="op-info-container" class="space-y-3"></div>
+                <hr class="border-slate-100 mt-4">
+            </div>
+            
+            <!-- Dynamic Vector Info -->
+            <div>
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center"><i class="fa-solid fa-arrow-right mr-1.5"></i> Vectors</h3>
+                <div id="vector-info-container" class="space-y-3"></div>
+            </div>
+
+            <hr class="border-slate-100">
+
+            <!-- Dynamic Point Info -->
+            <div>
+                <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 flex items-center"><i class="fa-solid fa-location-dot mr-1.5"></i> Points</h3>
+                <div id="point-info-container" class="space-y-2"></div>
+            </div>
+
+        </div>
+    </aside>
+
+    <script>
+        // Configure Three.js for standard Mathematical/Engineering Coordinates (Z-up)
+        THREE.Object3D.DefaultUp.set(0, 0, 1);
+
+        const AppState = {
+            grid: { visible: true, size: 20, spacing: 1 },
+            axes: { visible: true, length: 10, showLabels: true },
+            frame: { visible: false },
+            unitVectors: { visible: false, length: 2, showLabels: true },
+            vectorColors: ['#3b82f6', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6'],
+            pointColors: ['#8b5cf6', '#ec4899', '#3b82f6', '#ef4444', '#f59e0b'],
+            opColor: '#d946ef', // Fuchsia for operation resultants
+            planes: {
+                coord: {
+                    xy: { visible: false, opacity: 0.3 },
+                    yz: { visible: false, opacity: 0.3 },
+                    zx: { visible: false, opacity: 0.3 }
+                },
+                custom: {
+                    visible: false, a: 1, b: 1, c: 1, d: 5,
+                    size: 20, opacity: 0.4, showGrid: true, showLabel: true, showNormal: true,
+                    color: '#10b981' // emerald-500
+                }
+            }
+        };
+
+        const COLORS = {
+            xAxis: 0xef4444, yAxis: 0x22c55e, zAxis: 0x3b82f6,
+            gridLine: 0xe2e8f0, gridCenter: 0x94a3b8, frame: 0x94a3b8, textDark: '#1e293b'
+        };
+
+        // Helper to create high quality canvas text sprites
+        function createTextSprite(text, colorStr, scaleMulti = 1) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; 
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+            
+            ctx.fillStyle = colorStr;
+            ctx.font = 'bold 64px Inter, Arial, sans-serif'; 
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(text, 256, 128);
+
+            const texture = new THREE.CanvasTexture(canvas);
+            texture.minFilter = THREE.LinearFilter;
+            texture.magFilter = THREE.LinearFilter;
+
+            const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true });
+            const sprite = new THREE.Sprite(material);
+            sprite.scale.set(2.5 * scaleMulti, 1.25 * scaleMulti, 1);
+            sprite.renderOrder = 999; 
+            return sprite;
+        }
+
+        // Helper to clean up ThreeJS groups
+        function disposeGroup(grp) {
+            while(grp.children.length > 0){ 
+                const child = grp.children[0];
+                if (child.geometry) child.geometry.dispose();
+                if (child.material) { if (child.material.map) child.material.map.dispose(); child.material.dispose(); }
+                if (child.children && child.children.length > 0) disposeGroup(child); // Recursive
+                grp.remove(child); 
+            }
+        }
+
+        // Helper to build 3D dashed construction boxes pointing to coordinate planes
+        function createConstructionLines(target, origin, colorStr) {
+            const x = target.x, y = target.y, z = target.z;
+            const ox = origin.x, oy = origin.y, oz = origin.z;
+            const pts = [];
+
+            // Lines descending from the target point to planes
+            pts.push(new THREE.Vector3(x,y,z), new THREE.Vector3(x,y,oz));
+            pts.push(new THREE.Vector3(x,y,z), new THREE.Vector3(ox,y,z));
+            pts.push(new THREE.Vector3(x,y,z), new THREE.Vector3(x,oy,z));
+
+            // Lines along the XY Plane
+            pts.push(new THREE.Vector3(x,y,oz), new THREE.Vector3(x,oy,oz));
+            pts.push(new THREE.Vector3(x,y,oz), new THREE.Vector3(ox,y,oz));
+
+            // Lines along the YZ Plane
+            pts.push(new THREE.Vector3(ox,y,z), new THREE.Vector3(ox,oy,z));
+            pts.push(new THREE.Vector3(ox,y,z), new THREE.Vector3(ox,y,oz));
+
+            // Lines along the XZ Plane
+            pts.push(new THREE.Vector3(x,oy,z), new THREE.Vector3(ox,oy,z));
+            pts.push(new THREE.Vector3(x,oy,z), new THREE.Vector3(x,oy,oz));
+
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
+            const mat = new THREE.LineDashedMaterial({ color: colorStr, dashSize: 0.2, gapSize: 0.2, transparent: true, opacity: 0.5 });
+            const lines = new THREE.LineSegments(geo, mat);
+            lines.computeLineDistances();
+            return lines;
+        }
+
+        // ---------- PLANE SYSTEM CLASSES (STAGE 6) ----------
+        class CoordinatePlanes {
+            constructor(scene) {
+                this.scene = scene;
+                this.group = new THREE.Group();
+                this.scene.add(this.group);
+                this.build();
+            }
+            build() {
+                disposeGroup(this.group);
+                const size = AppState.grid.size;
+
+                const createPlane = (colorHex, rotX, rotY, rotZ, label, state) => {
+                    const group = new THREE.Group();
+                    if (!state.visible) return group;
+
+                    const geo = new THREE.PlaneGeometry(size, size);
+                    const mat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: state.opacity, side: THREE.DoubleSide, depthWrite: false });
+                    const mesh = new THREE.Mesh(geo, mat);
+                    
+                    const grid = new THREE.GridHelper(size, size / AppState.grid.spacing, 0xffffff, 0xffffff);
+                    grid.material.transparent = true;
+                    grid.material.opacity = 0.4;
+                    grid.rotation.x = Math.PI / 2; // Flat on the local XY of the mesh
+                    mesh.add(grid);
+
+                    const sprite = createTextSprite(label, '#' + colorHex.toString(16).padStart(6, '0'), 0.8);
+                    sprite.position.set(size/2.2, size/2.2, 0); 
+                    mesh.add(sprite);
+
+                    group.add(mesh);
+                    group.rotation.set(rotX, rotY, rotZ);
+                    this.group.add(group);
+                    return group;
+                };
+
+                // In Z-up, flat is XY (normal 0,0,1). 
+                // To get YZ (normal 1,0,0) rotate around Y by PI/2.
+                // To get ZX (normal 0,1,0) rotate around X by PI/2.
+                createPlane(0x3b82f6, 0, 0, 0, 'XY Plane', AppState.planes.coord.xy);
+                createPlane(0xef4444, 0, Math.PI/2, 0, 'YZ Plane', AppState.planes.coord.yz);
+                createPlane(0x22c55e, Math.PI/2, 0, 0, 'ZX Plane', AppState.planes.coord.zx);
+            }
+        }
+
+        class CustomPlane {
+            constructor(scene) {
+                this.scene = scene;
+                this.group = new THREE.Group();
+                this.scene.add(this.group);
+                this.build();
+            }
+            build() {
+                disposeGroup(this.group);
+                const state = AppState.planes.custom;
+                if (!state.visible) return;
+
+                const n = new THREE.Vector3(state.a, state.b, state.c);
+                const nLen = n.length();
+                if (nLen < 0.0001) return; // Prevent degenerate rendering
+
+                const normal = n.clone().normalize();
+                const D = state.d / nLen; // Distance from origin
+                const center = normal.clone().multiplyScalar(D);
+
+                const geo = new THREE.PlaneGeometry(state.size, state.size);
+                const mat = new THREE.MeshBasicMaterial({ color: state.color, transparent: true, opacity: state.opacity, side: THREE.DoubleSide, depthWrite: false });
+                const mesh = new THREE.Mesh(geo, mat);
+
+                // Orient mesh so its local Z axis matches the mathematical normal
+                mesh.position.copy(center);
+                mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+                this.group.add(mesh);
+
+                if (state.showGrid) {
+                    const grid = new THREE.GridHelper(state.size, state.size / AppState.grid.spacing, 0xffffff, 0xffffff);
+                    grid.material.transparent = true;
+                    grid.material.opacity = 0.4;
+                    grid.rotation.x = Math.PI / 2; 
+                    mesh.add(grid);
+                }
+
+                if (state.showLabel) {
+                    const sprite = createTextSprite(`${state.a}x+${state.b}y+${state.c}z=${state.d}`, state.color, 0.8);
+                    sprite.position.set(state.size/2.2, state.size/2.2, 0); 
+                    mesh.add(sprite);
+                }
+
+                if (state.showNormal) {
+                    const arrLen = Math.min(state.size / 3, 6);
+                    const arrow = new THREE.ArrowHelper(normal, center, arrLen, state.color, arrLen*0.25, arrLen*0.15);
+                    const nLabel = createTextSprite('n', state.color, 0.8);
+                    nLabel.position.copy(center).add(normal.clone().multiplyScalar(arrLen + 0.5));
+                    this.group.add(arrow, nLabel);
+                }
+            }
+            
+            getPlaneData() {
+                const state = AppState.planes.custom;
+                const n = new THREE.Vector3(state.a, state.b, state.c);
+                if(n.lengthSq() < 0.0001) return null;
+                return {
+                    normal: n.clone().normalize(),
+                    d: state.d / n.length(), 
+                    equation: `${state.a}x + ${state.b}y + ${state.c}z = ${state.d}`
+                };
+            }
+        }
+
+        class PlaneManager {
+            constructor(coordPlanes, customPlane, onUpdate) {
+                this.coordPlanes = coordPlanes;
+                this.customPlane = customPlane;
+                this.onUpdate = onUpdate;
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                const bindCoord = (id, key, stateRef) => {
+                    document.getElementById(id+'-vis').addEventListener('change', (e) => {
+                        stateRef.visible = e.target.checked;
+                        this.coordPlanes.build();
+                        if(this.onUpdate) this.onUpdate();
+                    });
+                    document.getElementById(id+'-op').addEventListener('input', (e) => {
+                        stateRef.opacity = parseFloat(e.target.value);
+                        this.coordPlanes.build();
+                    });
+                };
+                bindCoord('plane-xy', 'xy', AppState.planes.coord.xy);
+                bindCoord('plane-yz', 'yz', AppState.planes.coord.yz);
+                bindCoord('plane-zx', 'zx', AppState.planes.coord.zx);
+
+                const bindCustom = (id, key, parse = 'float') => {
+                    const el = document.getElementById(`plane-cust-${id}`);
+                    el.addEventListener('input', (e) => {
+                        AppState.planes.custom[key] = parse === 'float' ? parseFloat(e.target.value) || 0 : e.target.checked;
+                        this.customPlane.build();
+                        if(this.onUpdate) this.onUpdate();
+                    });
+                };
+                bindCustom('vis', 'visible', 'checkbox');
+                bindCustom('a', 'a'); bindCustom('b', 'b'); bindCustom('c', 'c'); bindCustom('d', 'd');
+                bindCustom('grid', 'showGrid', 'checkbox');
+                bindCustom('lbl', 'showLabel', 'checkbox');
+                bindCustom('norm', 'showNormal', 'checkbox');
+                bindCustom('size', 'size'); bindCustom('op', 'opacity');
+            }
+        }
+
+        // ---------- CORE RENDERING SYSTEMS ----------
+        class GridSystem {
+            constructor(scene) {
+                this.scene = scene;
+                this.gridHelper = null;
+                this.build();
+            }
+            build() {
+                this.clear();
+                const size = AppState.grid.size;
+                const divisions = size / AppState.grid.spacing;
+                this.gridHelper = new THREE.GridHelper(size, divisions, COLORS.gridCenter, COLORS.gridLine);
+                this.gridHelper.rotation.x = Math.PI / 2; 
+                this.gridHelper.material.transparent = true;
+                this.gridHelper.material.opacity = 0.5;
+                this.gridHelper.material.depthWrite = false;
+                this.gridHelper.visible = AppState.grid.visible;
+                this.scene.add(this.gridHelper);
+            }
+            clear() {
+                if (this.gridHelper) {
+                    this.gridHelper.geometry.dispose();
+                    this.gridHelper.material.dispose();
+                    this.scene.remove(this.gridHelper);
+                    this.gridHelper = null;
+                }
+            }
+            setVisibility(visible) { if (this.gridHelper) this.gridHelper.visible = visible; }
+        }
+
+        class CoordinateSystem {
+            constructor(scene) {
+                this.scene = scene;
+                this.group = new THREE.Group();
+                this.scene.add(this.group);
+                this.labelsGroup = new THREE.Group();
+                this.scene.add(this.labelsGroup);
+                this.build();
+            }
+            build() {
+                this.clear();
+                const L = AppState.axes.length;
+                const spacing = AppState.grid.spacing;
+
+                this._createLine(new THREE.Vector3(-L, 0, 0), new THREE.Vector3(L, 0, 0), COLORS.xAxis);
+                this._createLine(new THREE.Vector3(0, -L, 0), new THREE.Vector3(0, L, 0), COLORS.yAxis);
+                this._createLine(new THREE.Vector3(0, 0, -L), new THREE.Vector3(0, 0, L), COLORS.zAxis);
+
+                this._createArrow(new THREE.Vector3(1, 0, 0), new THREE.Vector3(L, 0, 0), COLORS.xAxis);
+                this._createArrow(new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, L, 0), COLORS.yAxis);
+                this._createArrow(new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, L), COLORS.zAxis);
+
+                for (let i = -L; i <= L; i += spacing) {
+                    if (Math.abs(i) < 0.001) continue;
+                    const tickLen = 0.2;
+                    this._createLine(new THREE.Vector3(i, -tickLen/2, 0), new THREE.Vector3(i, tickLen/2, 0), COLORS.xAxis);
+                    this._createLine(new THREE.Vector3(-tickLen/2, i, 0), new THREE.Vector3(tickLen/2, i, 0), COLORS.yAxis);
+                    this._createLine(new THREE.Vector3(-tickLen/2, 0, i), new THREE.Vector3(tickLen/2, 0, i), COLORS.zAxis);
+                }
+
+                const offset = 0.8;
+                this._createLabel("X", new THREE.Vector3(L + offset, 0, 0), '#ef4444');
+                this._createLabel("Y", new THREE.Vector3(0, L + offset, 0), '#22c55e');
+                this._createLabel("Z", new THREE.Vector3(0, 0, L + offset), '#3b82f6');
+                this._createLabel("O", new THREE.Vector3(0.5, 0.5, 0.5), COLORS.textDark, 0.7);
+
+                this.group.visible = AppState.axes.visible;
+                this.labelsGroup.visible = AppState.axes.showLabels && AppState.axes.visible;
+            }
+            _createLine(start, end, colorHex) {
+                const material = new THREE.LineBasicMaterial({ color: colorHex, linewidth: 2 });
+                const geometry = new THREE.BufferGeometry().setFromPoints([start, end]);
+                this.group.add(new THREE.Line(geometry, material));
+            }
+            _createArrow(dir, origin, colorHex) {
+                const headLength = 0.8;
+                const arrowOrigin = origin.clone().sub(dir.clone().multiplyScalar(headLength)); 
+                const arrowHelper = new THREE.ArrowHelper(dir, arrowOrigin, 0.5, colorHex, headLength, 0.3);
+                arrowHelper.line.visible = false; 
+                this.group.add(arrowHelper);
+            }
+            _createLabel(text, position, colorStr, scaleMulti = 1) {
+                const sprite = createTextSprite(text, colorStr, scaleMulti);
+                sprite.position.copy(position);
+                this.labelsGroup.add(sprite);
+            }
+            clear() {
+                disposeGroup(this.group);
+                disposeGroup(this.labelsGroup);
+            }
+            setVisibility(visible) {
+                this.group.visible = visible;
+                this.labelsGroup.visible = AppState.axes.showLabels && visible;
+            }
+            setLabelsVisibility(visible) { if (this.group.visible) this.labelsGroup.visible = visible; }
+        }
+
+        class UnitVectorsSystem {
+            constructor(scene) {
+                this.scene = scene;
+                this.group = new THREE.Group();
+                this.scene.add(this.group);
+                this.build();
+            }
+            build() {
+                this.clear();
+                if (!AppState.unitVectors.visible) return;
+                const len = AppState.unitVectors.length;
+                
+                const createUV = (dir, colorHex, colorStr, label) => {
+                    const arrow = new THREE.ArrowHelper(dir, new THREE.Vector3(0,0,0), len, colorHex, len * 0.25, len * 0.15);
+                    this.group.add(arrow);
+                    if (AppState.unitVectors.showLabels) {
+                        const sprite = createTextSprite(label, colorStr, 0.9);
+                        sprite.position.copy(dir.clone().multiplyScalar(len + 0.4));
+                        this.group.add(sprite);
+                    }
+                };
+                
+                createUV(new THREE.Vector3(1,0,0), COLORS.xAxis, '#ef4444', 'i');
+                createUV(new THREE.Vector3(0,1,0), COLORS.yAxis, '#22c55e', 'j');
+                createUV(new THREE.Vector3(0,0,1), COLORS.zAxis, '#3b82f6', 'k');
+            }
+            clear() { disposeGroup(this.group); }
+        }
+
+        class ReferenceFrame {
+            constructor(scene) {
+                this.scene = scene;
+                this.boxHelper = null;
+                this.build();
+            }
+            build() {
+                this.clear();
+                const s = AppState.grid.size; 
+                const edges = new THREE.EdgesGeometry(new THREE.BoxGeometry(s, s, s));
+                const material = new THREE.LineDashedMaterial({ color: COLORS.frame, dashSize: 0.5, gapSize: 0.5, transparent: true, opacity: 0.3 });
+                this.boxHelper = new THREE.LineSegments(edges, material);
+                this.boxHelper.computeLineDistances();
+                this.boxHelper.visible = AppState.frame.visible;
+                this.scene.add(this.boxHelper);
+            }
+            clear() {
+                if (this.boxHelper) {
+                    this.boxHelper.geometry.dispose();
+                    this.boxHelper.material.dispose();
+                    this.scene.remove(this.boxHelper);
+                    this.boxHelper = null;
+                }
+            }
+            setVisibility(visible) { if (this.boxHelper) this.boxHelper.visible = visible; }
+        }
+
+        class Point3D {
+            constructor(scene, id, config) {
+                this.scene = scene;
+                this.id = id;
+                this.config = Object.assign({
+                    name: 'P', x: 2, y: 3, z: 4,
+                    color: '#8b5cf6', visible: true, showLabel: true, showLines: false
+                }, config);
+
+                this.group = new THREE.Group();
+                this.scene.add(this.group);
+                this.markerGeo = new THREE.SphereGeometry(0.15, 16, 16);
+                this.markerMat = new THREE.MeshBasicMaterial();
+                this.marker = new THREE.Mesh(this.markerGeo, this.markerMat);
+                this.group.add(this.marker);
+                
+                this.extrasGroup = new THREE.Group();
+                this.group.add(this.extrasGroup);
+
+                this.update();
+            }
+
+            update(newConfig = {}) {
+                Object.assign(this.config, newConfig);
+                const { x, y, z, color, visible, showLabel, showLines, name } = this.config;
+                this.group.visible = visible;
+                if (!visible) return;
+
+                const pos = new THREE.Vector3(x, y, z);
+                this.marker.position.copy(pos);
+                this.markerMat.color.set(color);
+
+                disposeGroup(this.extrasGroup);
+
+                if (showLabel) {
+                    const labelSprite = createTextSprite(`${name}(${x},${y},${z})`, color, 1.0);
+                    labelSprite.position.copy(pos).add(new THREE.Vector3(0.5, 0.5, 0.5));
+                    this.extrasGroup.add(labelSprite);
+                }
+
+                if (showLines) {
+                    this.extrasGroup.add(createConstructionLines(pos, new THREE.Vector3(0,0,0), color));
+                }
+            }
+
+            destroy() {
+                this.scene.remove(this.group);
+                this.markerGeo.dispose(); this.markerMat.dispose();
+                disposeGroup(this.extrasGroup);
+            }
+        }
+
+        class Vector3D {
+            constructor(scene, id, config) {
+                this.scene = scene; 
+                this.id = id;
+                
+                this.config = Object.assign({
+                    name: 'V', x: 1, y: 1, z: 1, originX: 0, originY: 0, originZ: 0, 
+                    color: '#3b82f6', thickness: 0.1, headSize: 0.6, headWidth: 0.3, opacity: 1.0, dashed: false,
+                    visible: true, showOriginal: true, showComponents: false, showLines: false, 
+                    showEndpoint: true, showLabel: true,
+                    showAngleAlpha: false, showAngleBeta: false, showAngleGamma: false, showAngleLabels: true, arcSize: 2,
+                    showProjXY: false, showProjYZ: false, showProjZX: false, showAxisDrops: false
+                }, config);
+
+                this.group = new THREE.Group();
+                this.scene.add(this.group);
+
+                // Main Vector Visuals
+                this.mainGroup = new THREE.Group();
+                this.group.add(this.mainGroup);
+                
+                this.shaftMat = this.config.dashed ? 
+                    new THREE.LineDashedMaterial({ color: this.config.color, dashSize: 0.3, gapSize: 0.2, linewidth: 2, transparent: true, opacity: this.config.opacity }) :
+                    new THREE.MeshLambertMaterial();
+                
+                if (!this.config.dashed) {
+                    this.shaftGeo = new THREE.CylinderGeometry(1, 1, 1, 16);
+                    this.shaftGeo.translate(0, 0.5, 0); 
+                    this.shaft = new THREE.Mesh(this.shaftGeo, this.shaftMat);
+                } else {
+                    this.shaftGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0), new THREE.Vector3(0,1,0)]);
+                    this.shaft = new THREE.Line(this.shaftGeo, this.shaftMat);
+                }
+                
+                this.headMat = new THREE.MeshLambertMaterial();
+                this.headGeo = new THREE.ConeGeometry(1, 1, 16);
+                this.headGeo.translate(0, 0.5, 0);
+                this.head = new THREE.Mesh(this.headGeo, this.headMat);
+                this.mainGroup.add(this.shaft, this.head);
+
+                // Endpoint
+                this.endpointMat = new THREE.MeshBasicMaterial();
+                this.endpointGeo = new THREE.SphereGeometry(1, 16, 16);
+                this.endpoint = new THREE.Mesh(this.endpointGeo, this.endpointMat);
+                this.group.add(this.endpoint);
+
+                // Sub-groups
+                this.componentsGroup = new THREE.Group(); this.group.add(this.componentsGroup);
+                this.linesGroup = new THREE.Group(); this.group.add(this.linesGroup);
+                this.anglesGroup = new THREE.Group(); this.group.add(this.anglesGroup);
+                this.projGroup = new THREE.Group(); this.group.add(this.projGroup);
+                this.labelGroup = new THREE.Group(); this.group.add(this.labelGroup);
+                
+                this.update();
+            }
+
+            update(newConfig = {}) {
+                Object.assign(this.config, newConfig);
+                const { 
+                    x, y, z, originX, originY, originZ, color, thickness, headSize, headWidth, opacity, dashed,
+                    visible, showOriginal, showComponents, showLines, showEndpoint, showLabel, name,
+                    showAngleAlpha, showAngleBeta, showAngleGamma, showAngleLabels, arcSize,
+                    showProjXY, showProjYZ, showProjZX, showAxisDrops
+                } = this.config;
+                
+                this.group.visible = visible;
+                if (!visible) return;
+
+                const origin = new THREE.Vector3(originX, originY, originZ);
+                const target = new THREE.Vector3(x, y, z);
+                const dir = new THREE.Vector3().subVectors(target, origin);
+                const length = dir.length();
+                
+                const threeColor = new THREE.Color(color);
+                const isTransparent = opacity < 1.0;
+                
+                // 1. Update Main Vector
+                this.mainGroup.visible = showOriginal;
+                if (showOriginal && length > 0.0001) {
+                    const normDir = dir.clone().normalize();
+                    const actualHeadSize = Math.min(headSize, length);
+                    const shaftLength = length - actualHeadSize;
+
+                    if (!dashed) {
+                        this.shaftMat.color.copy(threeColor);
+                        this.shaftMat.transparent = isTransparent;
+                        this.shaftMat.opacity = opacity;
+                    } else {
+                        this.shaftMat.color.copy(threeColor);
+                        this.shaftMat.opacity = opacity;
+                    }
+                    this.headMat.color.copy(threeColor);
+                    this.headMat.transparent = isTransparent;
+                    this.headMat.opacity = opacity;
+
+                    this.shaft.visible = shaftLength > 0;
+                    if (this.shaft.visible) {
+                        if (!dashed) {
+                            this.shaft.scale.set(thickness, shaftLength, thickness);
+                        } else {
+                            this.shaft.scale.set(1, shaftLength, 1);
+                            this.shaft.computeLineDistances();
+                        }
+                        this.shaft.position.copy(origin);
+                        this.shaft.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normDir);
+                    }
+
+                    this.head.visible = actualHeadSize > 0;
+                    if (this.head.visible) {
+                        this.head.scale.set(headWidth, actualHeadSize, headWidth);
+                        this.head.position.copy(origin).add(normDir.clone().multiplyScalar(shaftLength));
+                        this.head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normDir);
+                    }
+                } else {
+                    this.shaft.visible = false;
+                    this.head.visible = false;
+                }
+
+                // 2. Update Endpoint
+                this.endpoint.visible = showEndpoint;
+                if (showEndpoint) {
+                    this.endpointMat.color.copy(threeColor);
+                    this.endpointMat.transparent = isTransparent;
+                    this.endpointMat.opacity = Math.min(1.0, opacity + 0.2);
+                    const endPointSize = thickness * 2;
+                    this.endpoint.scale.set(endPointSize, endPointSize, endPointSize);
+                    this.endpoint.position.copy(target);
+                }
+
+                // 3. Components
+                disposeGroup(this.componentsGroup);
+                if (showComponents) {
+                    const drawComp = (len, axisDir, axisColor) => {
+                        if (Math.abs(len) > 0.001) {
+                            const arr = new THREE.ArrowHelper(axisDir.clone().multiplyScalar(Math.sign(len)), origin, Math.abs(len), axisColor, Math.min(0.4, Math.abs(len)), Math.min(0.2, Math.abs(len)*0.5));
+                            this.componentsGroup.add(arr);
+                        }
+                    };
+                    drawComp(x - originX, new THREE.Vector3(1,0,0), COLORS.xAxis);
+                    drawComp(y - originY, new THREE.Vector3(0,1,0), COLORS.yAxis);
+                    drawComp(z - originZ, new THREE.Vector3(0,0,1), COLORS.zAxis);
+                }
+
+                // 4. Construction Lines
+                disposeGroup(this.linesGroup);
+                if (showLines) {
+                    this.linesGroup.add(createConstructionLines(target, origin, color));
+                }
+
+                // 5. Label
+                disposeGroup(this.labelGroup);
+                if (showLabel && length > 0.0001) {
+                    const labelSprite = createTextSprite(name.includes('(') ? name : `${name}(${x.toFixed(1)},${y.toFixed(1)},${z.toFixed(1)})`, color, 1.0);
+                    labelSprite.position.copy(target).add(dir.clone().normalize().multiplyScalar(0.8));
+                    this.labelGroup.add(labelSprite);
+                }
+
+                // 6. Angles
+                disposeGroup(this.anglesGroup);
+                if (length > 0.001 && (showAngleAlpha || showAngleBeta || showAngleGamma)) {
+                    const drawArc = (axisDir, angleLabel, arcColor, isVisible) => {
+                        if(!isVisible) return;
+                        const n1 = axisDir.clone().normalize();
+                        const n2 = dir.clone().normalize();
+                        const angle = n1.angleTo(n2);
+                        if (angle < 0.001) return;
+
+                        let axis = new THREE.Vector3().crossVectors(n1, n2);
+                        let w = new THREE.Vector3();
+                        if (axis.lengthSq() < 0.0001) {
+                            axis.set(0,0,1).cross(n1);
+                            if (axis.lengthSq() < 0.0001) axis.set(0,1,0).cross(n1);
+                            axis.normalize();
+                            w.copy(n1).applyAxisAngle(axis, Math.PI/2);
+                        } else {
+                            axis.normalize();
+                            w.crossVectors(axis, n1).normalize();
+                        }
+
+                        const pts = [];
+                        const segments = 32;
+                        for(let i=0; i<=segments; i++) {
+                            const t = (i/segments) * angle;
+                            const p = new THREE.Vector3()
+                                .addScaledVector(n1, Math.cos(t) * arcSize)
+                                .addScaledVector(w, Math.sin(t) * arcSize)
+                                .add(origin);
+                            pts.push(p);
+                        }
+                        const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                        const mat = new THREE.LineBasicMaterial({ color: arcColor, linewidth: 2 });
+                        this.anglesGroup.add(new THREE.Line(geo, mat));
+
+                        if (showAngleLabels) {
+                            const midT = angle / 2;
+                            const midP = new THREE.Vector3()
+                                    .addScaledVector(n1, Math.cos(midT) * (arcSize + 0.6))
+                                    .addScaledVector(w, Math.sin(midT) * (arcSize + 0.6))
+                                    .add(origin);
+                            
+                            const angleDeg = (angle * 180 / Math.PI).toFixed(1);
+                            const sprite = createTextSprite(`${angleLabel}=${angleDeg}°`, arcColor, 0.6);
+                            sprite.position.copy(midP);
+                            this.anglesGroup.add(sprite);
+                        }
+                    };
+
+                    drawArc(new THREE.Vector3(1,0,0), 'α', COLORS.xAxis, showAngleAlpha);
+                    drawArc(new THREE.Vector3(0,1,0), 'β', COLORS.yAxis, showAngleBeta);
+                    drawArc(new THREE.Vector3(0,0,1), 'γ', COLORS.zAxis, showAngleGamma);
+                }
+
+                // 7. Projections
+                disposeGroup(this.projGroup);
+                const drawProj = (projVec, pColor) => {
+                    const pLen = projVec.length();
+                    if (pLen > 0.001) {
+                        const arrow = new THREE.ArrowHelper(projVec.clone().normalize(), origin, pLen, pColor, 0.4, 0.2);
+                        const dropPts = [target, origin.clone().add(projVec)];
+                        const dropMat = new THREE.LineDashedMaterial({ color: pColor, dashSize: 0.2, gapSize: 0.2, transparent: true, opacity: 0.7 });
+                        const dropLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(dropPts), dropMat);
+                        dropLine.computeLineDistances();
+                        this.projGroup.add(arrow, dropLine);
+                    }
+                };
+
+                const projColor = '#64748b';
+                if (showProjXY) drawProj(new THREE.Vector3(x - originX, y - originY, 0), projColor);
+                if (showProjYZ) drawProj(new THREE.Vector3(0, y - originY, z - originZ), projColor);
+                if (showProjZX) drawProj(new THREE.Vector3(x - originX, 0, z - originZ), projColor);
+
+                if (showAxisDrops) {
+                    const dropToAxis = (axisPt, color) => {
+                        const dropPts = [target, origin.clone().add(axisPt)];
+                        const dropMat = new THREE.LineDashedMaterial({ color: color, dashSize: 0.15, gapSize: 0.15, transparent: true, opacity: 0.7 });
+                        const dropLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints(dropPts), dropMat);
+                        dropLine.computeLineDistances();
+                        this.projGroup.add(dropLine);
+                    };
+                    dropToAxis(new THREE.Vector3(x - originX, 0, 0), COLORS.xAxis);
+                    dropToAxis(new THREE.Vector3(0, y - originY, 0), COLORS.yAxis);
+                    dropToAxis(new THREE.Vector3(0, 0, z - originZ), COLORS.zAxis);
+                }
+            }
+
+            destroy() {
+                this.scene.remove(this.group);
+                this.shaftGeo.dispose(); this.shaftMat.dispose();
+                this.headGeo.dispose(); this.headMat.dispose();
+                this.endpointGeo.dispose(); this.endpointMat.dispose();
+                disposeGroup(this.componentsGroup);
+                disposeGroup(this.linesGroup);
+                disposeGroup(this.anglesGroup);
+                disposeGroup(this.projGroup);
+                disposeGroup(this.labelGroup);
+            }
+        }
+
+        class PointManager {
+            constructor(scene) {
+                this.scene = scene;
+                this.points = new Map();
+                this.counter = 0;
+                this.uiContainer = document.getElementById('points-container');
+                this.infoContainer = document.getElementById('point-info-container');
+                document.getElementById('btn-add-point').addEventListener('click', () => this.addPoint());
+                
+                this.addPoint({ x: 4, y: -3, z: 3, name: 'P' });
+            }
+
+            addPoint(customConfig = null) {
+                const id = `pt_${this.counter++}`;
+                const name = customConfig?.name || 'P' + this.counter;
+                const color = AppState.pointColors[(this.counter - 1) % AppState.pointColors.length];
+                const config = customConfig || { x: Math.floor(Math.random()*6)-3, y: Math.floor(Math.random()*6)-3, z: Math.floor(Math.random()*5)+1, name, color };
+                const pt = new Point3D(this.scene, id, config);
+                this.points.set(id, pt);
+                this.renderUICard(pt);
+                this.updateInfoPanel();
+            }
+
+            removePoint(id) {
+                const pt = this.points.get(id);
+                if (pt) {
+                    pt.destroy();
+                    this.points.delete(id);
+                    document.getElementById(`card-${id}`).remove();
+                    this.updateInfoPanel();
+                }
+            }
+
+            handleUpdate(id, key, value) {
+                const pt = this.points.get(id);
+                if (pt) {
+                    pt.update({ [key]: value });
+                    if (['x', 'y', 'z', 'name', 'visible'].includes(key)) this.updateInfoPanel();
+                }
+            }
+
+            renderUICard(pt) {
+                const card = document.createElement('div');
+                card.id = `card-${pt.id}`;
+                card.className = "bg-white border border-slate-200 shadow-sm rounded-lg p-3";
+                card.innerHTML = `
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex items-center space-x-2">
+                            <input type="color" id="${pt.id}-color" value="${pt.config.color}" class="w-5 h-5 rounded cursor-pointer border-0 p-0 bg-transparent">
+                            <input type="text" id="${pt.id}-name" value="${pt.config.name}" class="font-bold w-12 bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-slate-700 text-sm">
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="${pt.id}-toggle-vis" class="text-slate-400 hover:text-blue-500 transition-colors"><i class="fa-solid fa-eye${pt.config.visible ? '' : '-slash'}"></i></button>
+                            <button id="${pt.id}-delete" class="text-slate-400 hover:text-red-500 transition-colors"><i class="fa-solid fa-trash text-xs"></i></button>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 mb-2">
+                        <div class="flex flex-col bg-slate-50 p-1 rounded border border-slate-100 focus-within:border-red-300">
+                            <label class="text-[9px] font-bold text-red-500 uppercase px-1">X</label>
+                            <input type="number" id="${pt.id}-x" value="${pt.config.x}" step="0.5" class="vec-input w-full bg-transparent text-sm px-1 outline-none text-slate-700 font-mono">
+                        </div>
+                        <div class="flex flex-col bg-slate-50 p-1 rounded border border-slate-100 focus-within:border-green-300">
+                            <label class="text-[9px] font-bold text-green-500 uppercase px-1">Y</label>
+                            <input type="number" id="${pt.id}-y" value="${pt.config.y}" step="0.5" class="vec-input w-full bg-transparent text-sm px-1 outline-none text-slate-700 font-mono">
+                        </div>
+                        <div class="flex flex-col bg-slate-50 p-1 rounded border border-slate-100 focus-within:border-blue-300">
+                            <label class="text-[9px] font-bold text-blue-500 uppercase px-1">Z</label>
+                            <input type="number" id="${pt.id}-z" value="${pt.config.z}" step="0.5" class="vec-input w-full bg-transparent text-sm px-1 outline-none text-slate-700 font-mono">
+                        </div>
+                    </div>
+                    <div class="flex space-x-3 mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-600">
+                        <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                            <input type="checkbox" id="${pt.id}-lines" ${pt.config.showLines ? 'checked' : ''} class="rounded text-blue-500 w-3 h-3"><span>Const. Lines</span>
+                        </label>
+                        <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                            <input type="checkbox" id="${pt.id}-label" ${pt.config.showLabel ? 'checked' : ''} class="rounded text-blue-500 w-3 h-3"><span>Label</span>
+                        </label>
+                    </div>
+                `;
+                this.uiContainer.appendChild(card);
+
+                const bindInput = (elId, key, parseType = 'float') => {
+                    document.getElementById(`${pt.id}-${elId}`).addEventListener('input', (e) => {
+                        let val = parseType === 'float' ? parseFloat(e.target.value) || 0 : (parseType === 'checkbox' ? e.target.checked : e.target.value);
+                        this.handleUpdate(pt.id, key, val);
+                    });
+                };
+                bindInput('x', 'x'); bindInput('y', 'y'); bindInput('z', 'z');
+                bindInput('name', 'name', 'string'); bindInput('color', 'color', 'string');
+                bindInput('lines', 'showLines', 'checkbox'); bindInput('label', 'showLabel', 'checkbox');
+
+                const visBtn = document.getElementById(`${pt.id}-toggle-vis`);
+                visBtn.addEventListener('click', () => {
+                    const isVis = !pt.config.visible;
+                    this.handleUpdate(pt.id, 'visible', isVis);
+                    visBtn.innerHTML = `<i class="fa-solid fa-eye${isVis ? '' : '-slash'}"></i>`;
+                });
+                document.getElementById(`${pt.id}-delete`).addEventListener('click', () => this.removePoint(pt.id));
+            }
+
+            updateInfoPanel() {
+                this.infoContainer.innerHTML = '';
+                let activeCount = 0;
+                this.points.forEach(pt => {
+                    if (!pt.config.visible) return;
+                    activeCount++;
+                    const { name, x, y, z, color } = pt.config;
+                    this.infoContainer.insertAdjacentHTML('beforeend', `
+                        <div class="bg-white p-2 rounded border border-slate-200 shadow-sm flex flex-col relative overflow-hidden">
+                            <div class="absolute left-0 top-0 bottom-0 w-1" style="background-color: ${color}"></div>
+                            <div class="pl-2 flex justify-between items-center">
+                                <span class="font-bold text-sm" style="color: ${color}">${name}</span>
+                                <div class="font-mono text-xs text-slate-600 bg-slate-50 px-1 py-0.5 rounded">
+                                    (<span class="text-red-500">${x}</span>, <span class="text-green-500">${y}</span>, <span class="text-blue-500">${z}</span>)
+                                </div>
+                            </div>
+                        </div>
+                    `);
+                });
+                if (activeCount === 0) this.infoContainer.innerHTML = `<div class="text-xs text-slate-500 italic">No visible points.</div>`;
+            }
+        }
+
+        class VectorManager {
+            constructor(scene) {
+                this.scene = scene;
+                this.vectors = new Map(); 
+                this.counter = 0;
+                this.uiContainer = document.getElementById('vectors-container');
+                this.infoContainer = document.getElementById('vector-info-container');
+                this.onUpdate = null; // Callback for OperationManager
+                
+                document.getElementById('btn-add-vector').addEventListener('click', () => this.addVector());
+                
+                this.addVector({ x: 3, y: 0, z: 0, name: 'A', showLines: false, showComponents: false, color: '#ef4444' });
+                this.addVector({ x: 0, y: 4, z: 0, name: 'B', showLines: false, showComponents: false, color: '#3b82f6' });
+            }
+
+            addVector(customConfig = null) {
+                const id = `vec_${this.counter++}`;
+                const name = customConfig?.name || String.fromCharCode(65 + (this.counter - 1) % 26);
+                const color = customConfig?.color || AppState.vectorColors[(this.counter - 1) % AppState.vectorColors.length];
+                const config = customConfig || { x: Math.floor(Math.random()*5)+1, y: Math.floor(Math.random()*5)+1, z: Math.floor(Math.random()*5)+1, name, color };
+                const vec = new Vector3D(this.scene, id, config);
+                this.vectors.set(id, vec);
+                this.renderUICard(vec);
+                this.updateInfoPanel();
+                if (this.onUpdate) this.onUpdate();
+            }
+
+            removeVector(id) {
+                const vec = this.vectors.get(id);
+                if (vec) {
+                    vec.destroy();
+                    this.vectors.delete(id);
+                    document.getElementById(`card-${id}`).remove();
+                    this.updateInfoPanel();
+                    if (this.onUpdate) this.onUpdate();
+                }
+            }
+
+            handleUpdate(id, key, value) {
+                const vec = this.vectors.get(id);
+                if (vec) {
+                    vec.update({ [key]: value });
+                    if (['x', 'y', 'z', 'name', 'visible'].includes(key)) {
+                        this.updateInfoPanel();
+                        if (this.onUpdate) this.onUpdate();
+                    }
+                }
+            }
+
+            getVectorData(id) {
+                const vec = this.vectors.get(id);
+                if (!vec) return null;
+                return {
+                    name: vec.config.name,
+                    color: vec.config.color,
+                    v: new THREE.Vector3(vec.config.x, vec.config.y, vec.config.z),
+                    // Passed down full config reference for complex operations
+                    config: vec.config
+                };
+            }
+
+            renderUICard(vec) {
+                const card = document.createElement('div');
+                card.id = `card-${vec.id}`;
+                card.className = "bg-white border border-slate-200 shadow-sm rounded-lg p-3";
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-center mb-3">
+                        <div class="flex items-center space-x-2">
+                            <input type="color" id="${vec.id}-color" value="${vec.config.color}" class="w-5 h-5 rounded cursor-pointer border-0 p-0 bg-transparent">
+                            <input type="text" id="${vec.id}-name" value="${vec.config.name}" class="font-bold w-12 bg-transparent border-b border-transparent focus:border-blue-500 outline-none text-slate-700 text-sm">
+                        </div>
+                        <div class="flex space-x-2">
+                            <button id="${vec.id}-toggle-vis" class="text-slate-400 hover:text-blue-500 transition-colors"><i class="fa-solid fa-eye${vec.config.visible ? '' : '-slash'}"></i></button>
+                            <button id="${vec.id}-delete" class="text-slate-400 hover:text-red-500 transition-colors"><i class="fa-solid fa-trash text-xs"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-2 mb-2">
+                        <div class="flex flex-col bg-slate-50 p-1 rounded border border-slate-100 focus-within:border-red-300">
+                            <label class="text-[9px] font-bold text-red-500 uppercase px-1">X</label>
+                            <input type="number" id="${vec.id}-x" value="${vec.config.x}" step="0.5" class="vec-input w-full bg-transparent text-sm px-1 outline-none text-slate-700 font-mono">
+                        </div>
+                        <div class="flex flex-col bg-slate-50 p-1 rounded border border-slate-100 focus-within:border-green-300">
+                            <label class="text-[9px] font-bold text-green-500 uppercase px-1">Y</label>
+                            <input type="number" id="${vec.id}-y" value="${vec.config.y}" step="0.5" class="vec-input w-full bg-transparent text-sm px-1 outline-none text-slate-700 font-mono">
+                        </div>
+                        <div class="flex flex-col bg-slate-50 p-1 rounded border border-slate-100 focus-within:border-blue-300">
+                            <label class="text-[9px] font-bold text-blue-500 uppercase px-1">Z</label>
+                            <input type="number" id="${vec.id}-z" value="${vec.config.z}" step="0.5" class="vec-input w-full bg-transparent text-sm px-1 outline-none text-slate-700 font-mono">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-y-1 mt-2 pt-2 border-t border-slate-100 text-[10px] text-slate-600">
+                        <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                            <input type="checkbox" id="${vec.id}-showOrig" ${vec.config.showOriginal ? 'checked' : ''} class="rounded text-blue-500 w-3 h-3"><span>Main</span>
+                        </label>
+                        <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                            <input type="checkbox" id="${vec.id}-showComp" ${vec.config.showComponents ? 'checked' : ''} class="rounded text-blue-500 w-3 h-3"><span>Comps</span>
+                        </label>
+                        <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                            <input type="checkbox" id="${vec.id}-showLines" ${vec.config.showLines ? 'checked' : ''} class="rounded text-blue-500 w-3 h-3"><span>Box</span>
+                        </label>
+                        <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                            <input type="checkbox" id="${vec.id}-showEnd" ${vec.config.showEndpoint ? 'checked' : ''} class="rounded text-blue-500 w-3 h-3"><span>Point</span>
+                        </label>
+                        <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500 col-span-2">
+                            <input type="checkbox" id="${vec.id}-label" ${vec.config.showLabel ? 'checked' : ''} class="rounded text-blue-500 w-3 h-3"><span>Label</span>
+                        </label>
+                    </div>
+
+                    <!-- Angles Accordion -->
+                    <details class="mt-2 text-xs border border-slate-200 rounded overflow-hidden">
+                        <summary class="cursor-pointer bg-slate-50 p-1.5 font-semibold text-slate-600 hover:bg-slate-100 border-b border-slate-100">Angles & Arcs <i class="fa-solid fa-angle-down text-[10px] ml-1"></i></summary>
+                        <div class="p-2 grid grid-cols-2 gap-2 bg-white">
+                            <label class="flex items-center space-x-1 cursor-pointer hover:text-red-500">
+                                <input type="checkbox" id="${vec.id}-sAlpha" ${vec.config.showAngleAlpha ? 'checked' : ''} class="rounded text-red-500 w-3 h-3"><span>α (X Axis)</span>
+                            </label>
+                            <label class="flex items-center space-x-1 cursor-pointer hover:text-green-500">
+                                <input type="checkbox" id="${vec.id}-sBeta" ${vec.config.showAngleBeta ? 'checked' : ''} class="rounded text-green-500 w-3 h-3"><span>β (Y Axis)</span>
+                            </label>
+                            <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                                <input type="checkbox" id="${vec.id}-sGamma" ${vec.config.showAngleGamma ? 'checked' : ''} class="rounded text-blue-500 w-3 h-3"><span>γ (Z Axis)</span>
+                            </label>
+                            <label class="flex items-center space-x-1 cursor-pointer hover:text-slate-700">
+                                <input type="checkbox" id="${vec.id}-sALabels" ${vec.config.showAngleLabels ? 'checked' : ''} class="rounded text-slate-500 w-3 h-3"><span>Labels</span>
+                            </label>
+                            <div class="col-span-2 pt-1 border-t border-slate-100">
+                                <div class="flex justify-between text-[9px] mb-1 text-slate-500"><span>Arc Size</span></div>
+                                <input type="range" id="${vec.id}-arcSize" min="0.5" max="5" step="0.5" value="${vec.config.arcSize}">
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Projections Accordion -->
+                    <details class="mt-1 text-xs border border-slate-200 rounded overflow-hidden">
+                        <summary class="cursor-pointer bg-slate-50 p-1.5 font-semibold text-slate-600 hover:bg-slate-100 border-b border-slate-100">Projections <i class="fa-solid fa-angle-down text-[10px] ml-1"></i></summary>
+                        <div class="p-2 grid grid-cols-2 gap-2 bg-white">
+                            <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                                <input type="checkbox" id="${vec.id}-pXY" ${vec.config.showProjXY ? 'checked' : ''} class="rounded text-slate-600 w-3 h-3"><span>XY Plane</span>
+                            </label>
+                            <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                                <input type="checkbox" id="${vec.id}-pYZ" ${vec.config.showProjYZ ? 'checked' : ''} class="rounded text-slate-600 w-3 h-3"><span>YZ Plane</span>
+                            </label>
+                            <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                                <input type="checkbox" id="${vec.id}-pZX" ${vec.config.showProjZX ? 'checked' : ''} class="rounded text-slate-600 w-3 h-3"><span>ZX Plane</span>
+                            </label>
+                            <label class="flex items-center space-x-1 cursor-pointer hover:text-blue-500">
+                                <input type="checkbox" id="${vec.id}-pAxes" ${vec.config.showAxisDrops ? 'checked' : ''} class="rounded text-slate-600 w-3 h-3"><span>Axis Drops</span>
+                            </label>
+                        </div>
+                    </details>
+                `;
+                this.uiContainer.appendChild(card);
+
+                const bindInput = (elId, key, parseType = 'float') => {
+                    document.getElementById(`${vec.id}-${elId}`).addEventListener('input', (e) => {
+                        let val = parseType === 'float' ? parseFloat(e.target.value) || 0 : (parseType === 'checkbox' ? e.target.checked : e.target.value);
+                        this.handleUpdate(vec.id, key, val);
+                    });
+                };
+
+                bindInput('x', 'x'); bindInput('y', 'y'); bindInput('z', 'z');
+                bindInput('name', 'name', 'string'); bindInput('color', 'color', 'string');
+                bindInput('showOrig', 'showOriginal', 'checkbox'); bindInput('showComp', 'showComponents', 'checkbox');
+                bindInput('showLines', 'showLines', 'checkbox'); bindInput('showEnd', 'showEndpoint', 'checkbox');
+                bindInput('label', 'showLabel', 'checkbox');
+                bindInput('sAlpha', 'showAngleAlpha', 'checkbox'); bindInput('sBeta', 'showAngleBeta', 'checkbox');
+                bindInput('sGamma', 'showAngleGamma', 'checkbox'); bindInput('sALabels', 'showAngleLabels', 'checkbox');
+                bindInput('arcSize', 'arcSize');
+                bindInput('pXY', 'showProjXY', 'checkbox'); bindInput('pYZ', 'showProjYZ', 'checkbox');
+                bindInput('pZX', 'showProjZX', 'checkbox'); bindInput('pAxes', 'showAxisDrops', 'checkbox');
+
+                const visBtn = document.getElementById(`${vec.id}-toggle-vis`);
+                visBtn.addEventListener('click', () => {
+                    const isVis = !vec.config.visible;
+                    this.handleUpdate(vec.id, 'visible', isVis);
+                    visBtn.innerHTML = `<i class="fa-solid fa-eye${isVis ? '' : '-slash'}"></i>`;
+                });
+                document.getElementById(`${vec.id}-delete`).addEventListener('click', () => this.removeVector(vec.id));
+            }
+
+            updateInfoPanel() {
+                this.infoContainer.innerHTML = '';
+                let activeCount = 0;
+                this.vectors.forEach(vec => {
+                    if (!vec.config.visible) return;
+                    activeCount++;
+                    const { name, x, y, z, color } = vec.config;
+                    
+                    const mag = Math.sqrt(x*x + y*y + z*z);
+                    const l = mag > 0 ? (x/mag) : 0;
+                    const m = mag > 0 ? (y/mag) : 0;
+                    const n = mag > 0 ? (z/mag) : 0;
+                    const alpha = mag > 0 ? (Math.acos(l) * 180 / Math.PI) : 0;
+                    const beta = mag > 0 ? (Math.acos(m) * 180 / Math.PI) : 0;
+                    const gamma = mag > 0 ? (Math.acos(n) * 180 / Math.PI) : 0;
+                    const sumSq = (l*l + m*m + n*n).toFixed(2);
+
+                    const infoHTML = `
+                        <div class="bg-white rounded border border-slate-200 shadow-sm flex flex-col relative overflow-hidden">
+                            <div class="absolute left-0 top-0 bottom-0 w-1" style="background-color: ${color}"></div>
+                            
+                            <div class="p-2 border-b border-slate-100 bg-slate-50/50 flex justify-between items-center ml-1">
+                                <span class="font-bold text-sm" style="color: ${color}">${name} = (<span class="text-red-500">${x.toFixed(1)}</span>, <span class="text-green-500">${y.toFixed(1)}</span>, <span class="text-blue-500">${z.toFixed(1)}</span>)</span>
+                                <span class="font-mono text-xs text-slate-700 font-bold bg-white px-1.5 py-0.5 rounded border border-slate-200 shadow-sm">|${name}| = ${mag.toFixed(2)}</span>
+                            </div>
+
+                            <details class="text-[11px] text-slate-600">
+                                <summary class="cursor-pointer p-1.5 ml-1 bg-white hover:bg-slate-50 font-semibold border-b border-slate-100 flex items-center justify-between">
+                                    <span>Details & Angles</span><i class="fa-solid fa-angle-down text-[9px] mr-1"></i>
+                                </summary>
+                                <div class="p-2.5 ml-1 space-y-3 bg-slate-50/30">
+                                    <div>
+                                        <h4 class="font-bold text-slate-700 uppercase tracking-wide text-[9px] mb-1 border-b border-slate-100 pb-0.5">Direction Angles</h4>
+                                        <div class="grid grid-cols-3 gap-1 font-mono">
+                                            <div class="bg-white p-1 rounded border border-slate-200 text-center shadow-sm"><span class="text-red-500">α</span> = ${alpha.toFixed(1)}°</div>
+                                            <div class="bg-white p-1 rounded border border-slate-200 text-center shadow-sm"><span class="text-green-500">β</span> = ${beta.toFixed(1)}°</div>
+                                            <div class="bg-white p-1 rounded border border-slate-200 text-center shadow-sm"><span class="text-blue-500">γ</span> = ${gamma.toFixed(1)}°</div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-slate-700 uppercase tracking-wide text-[9px] mb-1 border-b border-slate-100 pb-0.5 flex justify-between">
+                                            <span>Direction Cosines</span>
+                                            <span class="font-mono lowercase normal-case">l² + m² + n² = ${sumSq}</span>
+                                        </h4>
+                                        <div class="grid grid-cols-3 gap-1 font-mono">
+                                            <div class="text-center">l = ${l.toFixed(2)}</div>
+                                            <div class="text-center">m = ${m.toFixed(2)}</div>
+                                            <div class="text-center">n = ${n.toFixed(2)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                    `;
+                    this.infoContainer.insertAdjacentHTML('beforeend', infoHTML);
+                });
+                if (activeCount === 0) this.infoContainer.innerHTML = `<div class="text-xs text-slate-500 italic">No visible vectors.</div>`;
+            }
+        }
+
+        class OperationManager {
+            constructor(scene, vectorManager) {
+                this.scene = scene;
+                this.vm = vectorManager;
+                this.pm = null; // Injected PlaneManager
+                this.group = new THREE.Group();
+                this.scene.add(this.group);
+                
+                this.opObjects = []; 
+
+                this.state = {
+                    type: 'none',
+                    v1: null, v2: null, v3: null, 
+                    planeTarget: 'xy', // Custom for Plane operations
+                    k: 2.0, 
+                    showConst: true,
+                    showPara: true,
+                    showDiag: true,
+                    showRHR: true
+                };
+
+                this.uiTypeSelect = document.getElementById('op-type');
+                this.uiControls = document.getElementById('op-controls');
+                this.uiInfoWrapper = document.getElementById('op-info-wrapper');
+                this.uiInfoContainer = document.getElementById('op-info-container');
+
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                this.uiTypeSelect.addEventListener('change', (e) => {
+                    this.state.type = e.target.value;
+                    this.state.v1 = null; this.state.v2 = null; this.state.v3 = null;
+                    this.buildControlsUI();
+                    this.refresh();
+                });
+            }
+
+            buildControlsUI() {
+                this.uiControls.innerHTML = '';
+                if (this.state.type === 'none') {
+                    this.uiControls.classList.add('hidden');
+                    return;
+                }
+                this.uiControls.classList.remove('hidden');
+
+                const createSelect = (id, label) => {
+                    let html = `<div class="flex flex-col"><label class="text-[10px] font-bold text-slate-500 uppercase">${label}</label>
+                                <select id="op-${id}" class="w-full text-xs p-1 border rounded border-slate-200 outline-none">
+                                <option value="">-- Select Vector --</option>`;
+                    this.vm.vectors.forEach((v, key) => {
+                        if(v.config.visible) html += `<option value="${key}">${v.config.name} (${v.config.x}, ${v.config.y}, ${v.config.z})</option>`;
+                    });
+                    html += `</select></div>`;
+                    return html;
+                };
+
+                const createToggle = (id, label, checkedVar) => {
+                    return `<label class="flex items-center space-x-1 cursor-pointer hover:text-fuchsia-600">
+                                <input type="checkbox" id="op-${id}" ${this.state[checkedVar] ? 'checked' : ''} class="rounded text-fuchsia-500 focus:ring-fuchsia-500 w-3 h-3">
+                                <span>${label}</span>
+                            </label>`;
+                };
+
+                let content = '';
+
+                switch(this.state.type) {
+                    case 'add':
+                        content += `<div class="grid grid-cols-3 gap-2">${createSelect('v1', 'Vector 1')}${createSelect('v2', 'Vector 2')}${createSelect('v3', 'Vector 3 (Opt)')}</div>`;
+                        content += `<div class="mt-2 pt-2 border-t border-slate-200 flex space-x-3">${createToggle('showConst', 'Show Head-to-Tail', 'showConst')}</div>`;
+                        break;
+                    case 'sub':
+                        content += `<div class="grid grid-cols-2 gap-2">${createSelect('v1', 'Vector 1 (A)')}${createSelect('v2', 'Vector 2 (B)')}</div>`;
+                        content += `<div class="mt-2 pt-2 border-t border-slate-200 flex space-x-3">${createToggle('showConst', 'Show Geometric Const.', 'showConst')}</div>`;
+                        break;
+                    case 'scale':
+                        content += `<div class="grid grid-cols-1 gap-2">${createSelect('v1', 'Vector')}</div>`;
+                        content += `<div class="mt-2 pt-2 border-t border-slate-200">
+                                        <div class="flex justify-between text-[10px] mb-1"><span class="font-bold text-slate-500">Scalar (k)</span><span id="op-k-val" class="font-mono text-fuchsia-600 font-bold">${this.state.k.toFixed(1)}</span></div>
+                                        <input type="range" id="op-k" min="-5" max="5" step="0.1" value="${this.state.k}">
+                                    </div>`;
+                        break;
+                    case 'para':
+                        content += `<div class="grid grid-cols-2 gap-2">${createSelect('v1', 'Vector 1')}${createSelect('v2', 'Vector 2')}</div>`;
+                        content += `<div class="mt-2 pt-2 border-t border-slate-200 grid grid-cols-2 gap-1">
+                                        ${createToggle('showPara', 'Show Parallelogram', 'showPara')}
+                                        ${createToggle('showDiag', 'Show Diagonal', 'showDiag')}
+                                    </div>`;
+                        break;
+                    case 'dot':
+                        content += `<div class="grid grid-cols-2 gap-2">${createSelect('v1', 'Vector 1')}${createSelect('v2', 'Vector 2')}</div>`;
+                        break;
+                    case 'cross':
+                        content += `<div class="grid grid-cols-2 gap-2">${createSelect('v1', 'Vector 1')}${createSelect('v2', 'Vector 2')}</div>`;
+                        content += `<div class="mt-2 pt-2 border-t border-slate-200 grid grid-cols-2 gap-1">
+                                        ${createToggle('showPara', 'Show Parallelogram Area', 'showPara')}
+                                        ${createToggle('showRHR', 'Show Right-Hand Rule', 'showRHR')}
+                                    </div>`;
+                        break;
+                    case 'plane_proj':
+                        content += `<div class="grid grid-cols-2 gap-2">
+                                        ${createSelect('v1', 'Vector')}
+                                        <div class="flex flex-col"><label class="text-[10px] font-bold text-slate-500 uppercase">Plane Target</label>
+                                        <select id="op-planeTarget" class="w-full text-xs p-1 border rounded border-slate-200 outline-none">
+                                            <option value="xy" ${this.state.planeTarget === 'xy' ? 'selected' : ''}>XY Plane (z=0)</option>
+                                            <option value="yz" ${this.state.planeTarget === 'yz' ? 'selected' : ''}>YZ Plane (x=0)</option>
+                                            <option value="zx" ${this.state.planeTarget === 'zx' ? 'selected' : ''}>ZX Plane (y=0)</option>
+                                            <option value="custom" ${this.state.planeTarget === 'custom' ? 'selected' : ''}>Custom Plane</option>
+                                        </select></div>
+                                    </div>`;
+                        break;
+                }
+                
+                this.uiControls.innerHTML = content;
+
+                // Bind inputs
+                ['v1', 'v2', 'v3'].forEach(id => {
+                    const el = document.getElementById(`op-${id}`);
+                    if(el) {
+                        el.value = this.state[id] || '';
+                        el.addEventListener('change', (e) => { this.state[id] = e.target.value; this.refresh(); });
+                    }
+                });
+                ['showConst', 'showPara', 'showDiag', 'showRHR'].forEach(id => {
+                    const el = document.getElementById(`op-${id}`);
+                    if(el) el.addEventListener('change', (e) => { this.state[id] = e.target.checked; this.refresh(); });
+                });
+                const kEl = document.getElementById('op-k');
+                if (kEl) {
+                    kEl.addEventListener('input', (e) => {
+                        this.state.k = parseFloat(e.target.value);
+                        document.getElementById('op-k-val').innerText = this.state.k.toFixed(1);
+                        this.refresh();
+                    });
+                }
+                const ptEl = document.getElementById('op-planeTarget');
+                if (ptEl) {
+                    ptEl.addEventListener('change', (e) => {
+                        this.state.planeTarget = e.target.value;
+                        this.refresh();
+                    });
+                }
+            }
+
+            clear() {
+                this.opObjects.forEach(obj => { if(obj.destroy) obj.destroy(); });
+                this.opObjects = [];
+                disposeGroup(this.group);
+                this.uiInfoWrapper.classList.add('hidden');
+                this.uiInfoContainer.innerHTML = '';
+            }
+
+            refresh() {
+                this.clear();
+                if (this.state.type === 'none') return;
+                
+                const v1Data = this.state.v1 ? this.vm.getVectorData(this.state.v1) : null;
+                const v2Data = this.state.v2 ? this.vm.getVectorData(this.state.v2) : null;
+                const v3Data = this.state.v3 ? this.vm.getVectorData(this.state.v3) : null;
+
+                let canRender = false;
+                switch(this.state.type) {
+                    case 'add': canRender = v1Data && v2Data; break;
+                    case 'sub': canRender = v1Data && v2Data; break;
+                    case 'scale': canRender = !!v1Data; break;
+                    case 'para': canRender = v1Data && v2Data; break;
+                    case 'dot': canRender = v1Data && v2Data; break;
+                    case 'cross': canRender = v1Data && v2Data; break;
+                    case 'plane_proj': canRender = !!v1Data; break;
+                }
+
+                if (!canRender) {
+                    this.uiInfoWrapper.classList.remove('hidden');
+                    this.uiInfoContainer.innerHTML = `<div class="text-xs text-slate-500 italic">Awaiting valid vector selections...</div>`;
+                    return;
+                }
+
+                this.uiInfoWrapper.classList.remove('hidden');
+
+                switch(this.state.type) {
+                    case 'add': this.renderAddition(v1Data, v2Data, v3Data); break;
+                    case 'sub': this.renderSubtraction(v1Data, v2Data); break;
+                    case 'scale': this.renderScalar(v1Data); break;
+                    case 'para': this.renderParallelogram(v1Data, v2Data); break;
+                    case 'dot': this.renderDotProduct(v1Data, v2Data); break;
+                    case 'cross': this.renderCrossProduct(v1Data, v2Data); break;
+                    case 'plane_proj': this.renderPlaneProj(v1Data, this.state.planeTarget); break;
+                }
+            }
+
+            _drawVector(name, origin, target, color, dashed = false, thickness = 0.1) {
+                const vec = new Vector3D(this.group, 'tmp_' + Math.random(), {
+                    name: name, x: target.x, y: target.y, z: target.z,
+                    originX: origin.x, originY: origin.y, originZ: origin.z,
+                    color: color, dashed: dashed, thickness: thickness,
+                    showEndpoint: false, opacity: dashed ? 0.6 : 1.0, headSize: dashed ? 0.4 : 0.6
+                });
+                this.opObjects.push(vec);
+                return vec;
+            }
+
+            _drawInfoBlock(title, expression, resultText, vectorResult = null) {
+                let html = `
+                    <div class="bg-fuchsia-50/50 p-2 rounded border border-fuchsia-200 shadow-sm relative overflow-hidden">
+                        <div class="absolute left-0 top-0 bottom-0 w-1 bg-fuchsia-500"></div>
+                        <div class="pl-2">
+                            <h4 class="font-bold text-fuchsia-800 text-[10px] uppercase mb-1 border-b border-fuchsia-100 pb-0.5">${title}</h4>
+                            <div class="font-mono text-xs text-slate-700 mb-1 font-bold">${expression}</div>
+                            <div class="font-mono text-xs text-fuchsia-700">${resultText}</div>`;
+                
+                if (vectorResult) {
+                    const mag = vectorResult.length();
+                    html += `<div class="grid grid-cols-3 gap-1 font-mono text-[9px] mt-2">
+                                <div class="bg-white p-1 rounded border border-fuchsia-100 text-center shadow-sm">X: ${vectorResult.x.toFixed(2)}</div>
+                                <div class="bg-white p-1 rounded border border-fuchsia-100 text-center shadow-sm">Y: ${vectorResult.y.toFixed(2)}</div>
+                                <div class="bg-white p-1 rounded border border-fuchsia-100 text-center shadow-sm">Z: ${vectorResult.z.toFixed(2)}</div>
+                             </div>
+                             <div class="font-mono text-[10px] mt-1 text-slate-500">Magnitude: ${mag.toFixed(2)}</div>`;
+                }
+                html += `</div></div>`;
+                this.uiInfoContainer.innerHTML = html;
+            }
+
+            renderAddition(v1, v2, v3) {
+                let currentTip = v1.v.clone();
+                
+                if (this.state.showConst) {
+                    this._drawVector(`+${v2.name}`, currentTip, currentTip.clone().add(v2.v), v2.color, true);
+                }
+                currentTip.add(v2.v);
+                
+                let titleExp = `R = ${v1.name} + ${v2.name}`;
+                
+                if (v3) {
+                    if (this.state.showConst) {
+                        this._drawVector(`+${v3.name}`, currentTip, currentTip.clone().add(v3.v), v3.color, true);
+                    }
+                    currentTip.add(v3.v);
+                    titleExp += ` + ${v3.name}`;
+                }
+
+                this._drawVector('R', new THREE.Vector3(0,0,0), currentTip, AppState.opColor, false, 0.15);
+                this._drawInfoBlock('Vector Addition', titleExp, `R = (${currentTip.x.toFixed(1)}, ${currentTip.y.toFixed(1)}, ${currentTip.z.toFixed(1)})`, currentTip);
+            }
+
+            renderSubtraction(v1, v2) {
+                const res = v1.v.clone().sub(v2.v);
+                
+                if (this.state.showConst) {
+                    const minusB = v2.v.clone().negate();
+                    this._drawVector(`-${v2.name}`, new THREE.Vector3(0,0,0), minusB, v2.color, true);
+                    this._drawVector(`-${v2.name}`, v1.v, v1.v.clone().add(minusB), v2.color, true);
+                    const geoLineMat = new THREE.LineDashedMaterial({color: AppState.opColor, dashSize: 0.2, gapSize: 0.2, transparent: true, opacity: 0.5});
+                    const geoLineGeo = new THREE.BufferGeometry().setFromPoints([v2.v, v1.v]);
+                    const geoLine = new THREE.Line(geoLineGeo, geoLineMat);
+                    geoLine.computeLineDistances();
+                    this.group.add(geoLine);
+                }
+                
+                this._drawVector('R', new THREE.Vector3(0,0,0), res, AppState.opColor, false, 0.15);
+                this._drawInfoBlock('Vector Subtraction', `R = ${v1.name} - ${v2.name}`, `R = (${res.x.toFixed(1)}, ${res.y.toFixed(1)}, ${res.z.toFixed(1)})`, res);
+            }
+
+            renderScalar(v1) {
+                const res = v1.v.clone().multiplyScalar(this.state.k);
+                this._drawVector(`k${v1.name}`, new THREE.Vector3(0,0,0), res, AppState.opColor, false, 0.15);
+                this._drawInfoBlock('Scalar Multiplication', `R = ${this.state.k.toFixed(1)} * ${v1.name}`, `R = (${res.x.toFixed(1)}, ${res.y.toFixed(1)}, ${res.z.toFixed(1)})`, res);
+            }
+
+            renderParallelogram(v1, v2) {
+                const res = v1.v.clone().add(v2.v);
+                
+                if (this.state.showPara) {
+                    this._drawVector('', v1.v, res, v2.color, true);
+                    this._drawVector('', v2.v, res, v1.color, true);
+                    
+                    const pts = [new THREE.Vector3(0,0,0), v1.v, res, v2.v, new THREE.Vector3(0,0,0)];
+                    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                    geo.setIndex([0,1,2, 0,2,3]); 
+                    geo.computeVertexNormals();
+                    const mat = new THREE.MeshBasicMaterial({ color: AppState.opColor, transparent: true, opacity: 0.1, side: THREE.DoubleSide });
+                    this.group.add(new THREE.Mesh(geo, mat));
+                }
+
+                if (this.state.showDiag) {
+                    this._drawVector('Diag', new THREE.Vector3(0,0,0), res, AppState.opColor, false, 0.1);
+                }
+
+                this._drawInfoBlock('Parallelogram', `Diag = ${v1.name} + ${v2.name}`, `Area = |${v1.name} × ${v2.name}| = ${v1.v.clone().cross(v2.v).length().toFixed(2)}`);
+            }
+
+            renderDotProduct(v1, v2) {
+                const dot = v1.v.dot(v2.v);
+                let angle = v1.v.angleTo(v2.v);
+                const angleDeg = (angle * 180 / Math.PI).toFixed(1);
+                
+                if (angle > 0.001) {
+                    const n1 = v1.v.clone().normalize();
+                    const n2 = v2.v.clone().normalize();
+                    let axis = new THREE.Vector3().crossVectors(n1, n2);
+                    let w = new THREE.Vector3();
+                    if (axis.lengthSq() < 0.0001) {
+                        axis.set(0,0,1).cross(n1).normalize();
+                        w.copy(n1).applyAxisAngle(axis, Math.PI/2);
+                    } else {
+                        axis.normalize();
+                        w.crossVectors(axis, n1).normalize();
+                    }
+                    const arcSize = Math.min(v1.v.length(), v2.v.length()) * 0.4;
+                    const pts = [];
+                    for(let i=0; i<=32; i++) {
+                        const t = (i/32) * angle;
+                        pts.push(new THREE.Vector3().addScaledVector(n1, Math.cos(t) * arcSize).addScaledVector(w, Math.sin(t) * arcSize));
+                    }
+                    const mat = new THREE.LineBasicMaterial({ color: AppState.opColor, linewidth: 2 });
+                    this.group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+
+                    const midT = angle / 2;
+                    const midP = new THREE.Vector3().addScaledVector(n1, Math.cos(midT) * (arcSize + 0.4)).addScaledVector(w, Math.sin(midT) * (arcSize + 0.4));
+                    const sprite = createTextSprite(`θ=${angleDeg}°`, AppState.opColor, 0.6);
+                    sprite.position.copy(midP);
+                    this.group.add(sprite);
+                }
+
+                this._drawInfoBlock('Dot Product (Scalar)', `${v1.name} · ${v2.name} = |${v1.name}||${v2.name}|cos(θ)`, 
+                    `${v1.name} · ${v2.name} = ${dot.toFixed(2)}<br>θ = ${angleDeg}°`);
+            }
+
+            renderCrossProduct(v1, v2) {
+                const cross = v1.v.clone().cross(v2.v);
+                const area = cross.length();
+                
+                if (area < 0.001) {
+                    this._drawInfoBlock('Cross Product (Vector)', `C = ${v1.name} × ${v2.name}`, `Vectors are parallel (Area = 0)`);
+                    return;
+                }
+
+                this._drawVector(`C = ${v1.name}×${v2.name}`, new THREE.Vector3(0,0,0), cross, AppState.opColor, false, 0.15);
+
+                if (this.state.showPara) {
+                    const resPara = v1.v.clone().add(v2.v);
+                    this._drawVector('', v1.v, resPara, v2.color, true);
+                    this._drawVector('', v2.v, resPara, v1.color, true);
+                    
+                    const pts = [new THREE.Vector3(0,0,0), v1.v, resPara, v2.v, new THREE.Vector3(0,0,0)];
+                    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+                    geo.setIndex([0,1,2, 0,2,3]);
+                    geo.computeVertexNormals();
+                    const mat = new THREE.MeshBasicMaterial({ color: AppState.opColor, transparent: true, opacity: 0.2, side: THREE.DoubleSide });
+                    this.group.add(new THREE.Mesh(geo, mat));
+                }
+
+                if (this.state.showRHR) {
+                    const n1 = v1.v.clone().normalize();
+                    const n2 = v2.v.clone().normalize();
+                    const axis = cross.clone().normalize();
+                    const angle = v1.v.angleTo(v2.v);
+                    
+                    const w = new THREE.Vector3().crossVectors(axis, n1).normalize();
+                    const arcSize = Math.min(v1.v.length(), v2.v.length()) * 0.7;
+                    
+                    const pts = [];
+                    for(let i=0; i<=32; i++) {
+                        const t = (i/32) * angle;
+                        pts.push(new THREE.Vector3().addScaledVector(n1, Math.cos(t) * arcSize).addScaledVector(w, Math.sin(t) * arcSize));
+                    }
+                    const mat = new THREE.LineBasicMaterial({ color: AppState.opColor, linewidth: 3 });
+                    this.group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+
+                    const endDir = new THREE.Vector3().addScaledVector(n1, -Math.sin(angle)).addScaledVector(w, Math.cos(angle)).normalize();
+                    const headGeo = new THREE.ConeGeometry(0.3, 0.6, 16);
+                    headGeo.translate(0, 0.3, 0);
+                    const headMat = new THREE.MeshBasicMaterial({color: AppState.opColor});
+                    const head = new THREE.Mesh(headGeo, headMat);
+                    head.position.copy(pts[pts.length-1]);
+                    head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), endDir);
+                    this.group.add(head);
+                }
+
+                this._drawInfoBlock('Cross Product (Vector)', `C = ${v1.name} × ${v2.name}`, `|C| = Area = ${area.toFixed(2)}`, cross);
+            }
+
+            renderPlaneProj(v1, planeTarget) {
+                let n, D, name;
+                if (planeTarget === 'xy') { n = new THREE.Vector3(0,0,1); D = 0; name = 'XY Plane'; }
+                else if (planeTarget === 'yz') { n = new THREE.Vector3(1,0,0); D = 0; name = 'YZ Plane'; }
+                else if (planeTarget === 'zx') { n = new THREE.Vector3(0,1,0); D = 0; name = 'ZX Plane'; }
+                else { 
+                    if (!this.pm) return;
+                    const pData = this.pm.customPlane.getPlaneData(); 
+                    if(!pData) {
+                        this.uiInfoContainer.innerHTML = `<div class="text-xs text-red-500 italic">Invalid custom plane definition.</div>`;
+                        return;
+                    }
+                    n = pData.normal; D = pData.d; name = pData.equation;
+                }
+
+                const O = new THREE.Vector3(v1.config.originX, v1.config.originY, v1.config.originZ);
+                const T = new THREE.Vector3(v1.config.x, v1.config.y, v1.config.z);
+                
+                // Point Projection: P' = P - (P.n - D)n
+                const projPt = (P) => P.clone().sub(n.clone().multiplyScalar(P.dot(n) - D));
+                const O_proj = projPt(O);
+                const T_proj = projPt(T);
+
+                // Projected Vector on plane
+                const V_proj = new THREE.Vector3().subVectors(T_proj, O_proj);
+                
+                const v = v1.v;
+                const vLen = v.length();
+                let angleRad = 0;
+                if (vLen > 0.0001) angleRad = Math.asin(Math.abs(v.dot(n)) / vLen);
+                const angleDeg = (angleRad * 180 / Math.PI).toFixed(1);
+
+                // 1. Draw projection along the plane itself
+                this._drawVector(`${v1.name}'`, O_proj, T_proj, AppState.opColor, false, 0.12);
+
+                // 2. Draw orthogonal drop lines from vector endpoints to plane
+                const dropMat = new THREE.LineDashedMaterial({ color: '#94a3b8', dashSize: 0.2, gapSize: 0.2, transparent: true, opacity: 0.8 });
+                const dropGeoO = new THREE.BufferGeometry().setFromPoints([O, O_proj]);
+                const dropLineO = new THREE.Line(dropGeoO, dropMat); dropLineO.computeLineDistances();
+                const dropGeoT = new THREE.BufferGeometry().setFromPoints([T, T_proj]);
+                const dropLineT = new THREE.Line(dropGeoT, dropMat); dropLineT.computeLineDistances();
+                this.group.add(dropLineO, dropLineT);
+
+                // 3. Draw Plane Normal reference
+                const nDrawLen = vLen * 0.5 || 2;
+                this._drawVector(`n`, O_proj, O_proj.clone().add(n.clone().multiplyScalar(nDrawLen)), '#10b981', true, 0.05);
+
+                // 4. Draw Angle Arc geometry (Translate projection back to origin to measure angle cleanly)
+                if (angleRad > 0.001) {
+                    const translatedProj = O.clone().add(V_proj);
+                    this._drawVector(``, O, translatedProj, AppState.opColor, true, 0.05);
+
+                    const n1 = V_proj.clone().normalize();
+                    const n2 = v.clone().normalize();
+                    let axis = new THREE.Vector3().crossVectors(n1, n2).normalize();
+                    let w = new THREE.Vector3().crossVectors(axis, n1).normalize();
+                    
+                    const arcSize = vLen * 0.4;
+                    const pts = [];
+                    for(let i=0; i<=32; i++) {
+                        const t = (i/32) * angleRad;
+                        pts.push(O.clone().addScaledVector(n1, Math.cos(t) * arcSize).addScaledVector(w, Math.sin(t) * arcSize));
+                    }
+                    const mat = new THREE.LineBasicMaterial({ color: AppState.opColor, linewidth: 2 });
+                    this.group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), mat));
+
+                    const midT = angleRad / 2;
+                    const midP = O.clone().addScaledVector(n1, Math.cos(midT) * (arcSize + 0.4)).addScaledVector(w, Math.sin(midT) * (arcSize + 0.4));
+                    const sprite = createTextSprite(`θ=${angleDeg}°`, AppState.opColor, 0.6);
+                    sprite.position.copy(midP);
+                    this.group.add(sprite);
+                }
+
+                this._drawInfoBlock('Vector & Plane Analysis', `Proj = ${v1.name} onto Plane`, 
+                    `Target: ${name}<br>Angle θ = ${angleDeg}°<br>Proj Mag = ${V_proj.length().toFixed(2)}`, V_proj);
+            }
+        }
+
+        class SceneManager {
+            constructor(containerId) {
+                this.container = document.getElementById(containerId);
+                this.scene = new THREE.Scene();
+                this.scene.background = new THREE.Color('#f8fafc'); 
+
+                const aspect = this.container.clientWidth / this.container.clientHeight;
+                this.camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 1000);
+                this.camera.up.set(0, 0, 1); 
+
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+                this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+                this.renderer.setPixelRatio(window.devicePixelRatio);
+                this.container.appendChild(this.renderer.domElement);
+
+                this.scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+                
+                const dirLight1 = new THREE.DirectionalLight(0xffffff, 0.6);
+                dirLight1.position.set(10, 10, 20);
+                this.scene.add(dirLight1);
+                
+                const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+                dirLight2.position.set(-10, -10, -20);
+                this.scene.add(dirLight2);
+
+                this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+                this.controls.enableDamping = true;
+                this.controls.dampingFactor = 0.05;
+                this.controls.screenSpacePanning = true;
+
+                this.setCameraPreset('isometric');
+
+                window.addEventListener('resize', this.onWindowResize.bind(this), false);
+                this.animate = this.animate.bind(this);
+                this.animate();
+            }
+
+            setCameraPreset(preset) {
+                const dist = AppState.grid.size * 0.8;
+                switch(preset) {
+                    case 'isometric': this.camera.position.set(dist, -dist, dist * 0.8); break;
+                    case 'top':       this.camera.position.set(0, 0, dist * 1.5); break;
+                    case 'bottom':    this.camera.position.set(0, 0, -dist * 1.5); break;
+                    case 'front':     this.camera.position.set(0, -dist * 1.5, 0); break;
+                    case 'back':      this.camera.position.set(0, dist * 1.5, 0); break;
+                    case 'right':     this.camera.position.set(dist * 1.5, 0, 0); break;
+                    case 'left':      this.camera.position.set(-dist * 1.5, 0, 0); break;
+                }
+                this.controls.target.set(0, 0, 0);
+                this.camera.lookAt(0, 0, 0);
+                this.controls.update();
+            }
+
+            onWindowResize() {
+                if (!this.container) return;
+                const width = this.container.clientWidth;
+                const height = this.container.clientHeight;
+                this.camera.aspect = width / height;
+                this.camera.updateProjectionMatrix();
+                this.renderer.setSize(width, height);
+            }
+
+            animate() {
+                requestAnimationFrame(this.animate);
+                this.controls.update();
+                this.renderer.render(this.scene, this.camera);
+            }
+        }
+
+        class App {
+            constructor() {
+                this.sceneManager = new SceneManager('canvas-container');
+                const scene = this.sceneManager.scene;
+
+                // Base systems
+                this.gridSystem = new GridSystem(scene);
+                this.coordSystem = new CoordinateSystem(scene);
+                this.refFrame = new ReferenceFrame(scene);
+                this.unitSystem = new UnitVectorsSystem(scene);
+
+                // Entity Systems
+                this.pointManager = new PointManager(scene);
+                this.vectorManager = new VectorManager(scene);
+                
+                // Mathematical Engine Systems (Stage 6)
+                this.coordPlanes = new CoordinatePlanes(scene);
+                this.customPlane = new CustomPlane(scene);
+                this.operationManager = new OperationManager(scene, this.vectorManager);
+                
+                // Manager binding
+                this.planeManager = new PlaneManager(this.coordPlanes, this.customPlane, () => this.operationManager.refresh());
+                this.operationManager.pm = this.planeManager; // Pass plane reference down for operation usage
+                
+                // Wire VectorManager to trigger Operations live-update
+                this.vectorManager.onUpdate = () => this.operationManager.refresh();
+
+                this.bindEvents();
+            }
+
+            bindEvents() {
+                // Toggles
+                document.getElementById('toggle-grid').addEventListener('change', (e) => {
+                    AppState.grid.visible = e.target.checked;
+                    this.gridSystem.setVisibility(AppState.grid.visible);
+                });
+                document.getElementById('toggle-axes').addEventListener('change', (e) => {
+                    AppState.axes.visible = e.target.checked;
+                    this.coordSystem.setVisibility(AppState.axes.visible);
+                });
+                document.getElementById('toggle-labels').addEventListener('change', (e) => {
+                    AppState.axes.showLabels = e.target.checked;
+                    this.coordSystem.setLabelsVisibility(AppState.axes.showLabels);
+                });
+                document.getElementById('toggle-frame').addEventListener('change', (e) => {
+                    AppState.frame.visible = e.target.checked;
+                    this.refFrame.setVisibility(AppState.frame.visible);
+                });
+
+                // Unit Vectors
+                document.getElementById('toggle-unit-vecs').addEventListener('change', (e) => {
+                    AppState.unitVectors.visible = e.target.checked;
+                    this.unitSystem.build();
+                });
+                document.getElementById('toggle-unit-labels').addEventListener('change', (e) => {
+                    AppState.unitVectors.showLabels = e.target.checked;
+                    this.unitSystem.build();
+                });
+                document.getElementById('slider-unit-len').addEventListener('input', (e) => {
+                    AppState.unitVectors.length = parseFloat(e.target.value);
+                    document.getElementById('val-unit-len').innerText = AppState.unitVectors.length;
+                    this.unitSystem.build();
+                });
+
+                // Sliders
+                document.getElementById('slider-grid-size').addEventListener('input', (e) => {
+                    AppState.grid.size = parseFloat(e.target.value);
+                    document.getElementById('val-grid-size').innerText = AppState.grid.size;
+                    this.gridSystem.build(); this.refFrame.build();
+                });
+                document.getElementById('slider-grid-spacing').addEventListener('input', (e) => {
+                    AppState.grid.spacing = parseFloat(e.target.value);
+                    document.getElementById('val-grid-spacing').innerText = AppState.grid.spacing;
+                    this.gridSystem.build(); this.coordSystem.build();
+                });
+                document.getElementById('slider-axis-length').addEventListener('input', (e) => {
+                    AppState.axes.length = parseFloat(e.target.value);
+                    document.getElementById('val-axis-length').innerText = AppState.axes.length;
+                    this.coordSystem.build();
+                });
+
+                // Camera Presets
+                document.querySelectorAll('.cam-preset-btn').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        this.sceneManager.setCameraPreset(e.target.dataset.view);
+                    });
+                });
+                document.getElementById('btn-reset-cam').addEventListener('click', () => {
+                    this.sceneManager.setCameraPreset('isometric');
+                });
+            }
+        }
+
+        window.onload = () => new App();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Vector Visualizer</title>
+    
+    <!-- KaTeX for Math Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    
+    <!-- Three.js and OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <style>
+        :root {
+            --glass-bg: rgba(20, 20, 25, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --accent: #0a84ff;
+        }
+
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #050505;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            color: #ffffff;
+        }
+
+        #webgl-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 0;
+        }
+
+        /* iOS-style Glassmorphism */
+        .glass-panel {
+            position: absolute;
+            z-index: 10;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 10px; }
+
+        #left-panel { top: 24px; left: 24px; width: 320px; }
+        #right-panel { top: 24px; right: 24px; width: 350px; }
+
+        h2, h3 { margin-top: 0; font-weight: 500; font-size: 1.2rem; letter-spacing: 0.5px; }
+        hr { border: 0; height: 1px; background: var(--glass-border); margin: 16px 0; }
+
+        /* Form Controls */
+        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        .input-group label { display: flex; flex-direction: column; font-size: 0.85rem; color: #aaa; }
+        input[type="number"] {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            color: #fff;
+            padding: 8px;
+            font-size: 1rem;
+            width: 100%;
+            outline: none;
+            transition: border 0.3s;
+        }
+        input[type="number"]:focus { border-color: var(--accent); }
+        
+        button {
+            background: var(--accent);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            width: 100%;
+            font-weight: 500;
+            transition: background 0.2s, transform 0.1s;
+        }
+        button:hover { background: #0070e0; }
+        button:active { transform: scale(0.98); }
+
+        .vector-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            padding: 10px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .color-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 8px; }
+        
+        .math-block {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 12px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            overflow-x: auto;
+        }
+        
+        .toggle-group { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem;}
+        input[type="checkbox"] { accent-color: var(--accent); transform: scale(1.2); }
+    </style>
+</head>
+<body>
+
+    <div id="webgl-container"></div>
+
+    <!-- Left Panel: Controls & Objects -->
+    <div id="left-panel" class="glass-panel">
+        <h2>Add Vector</h2>
+        <div class="input-group">
+            <label>X (i)<input type="number" id="vecX" value="3" step="0.5"></label>
+            <label>Y (j)<input type="number" id="vecY" value="4" step="0.5"></label>
+            <label>Z (k)<input type="number" id="vecZ" value="5" step="0.5"></label>
+        </div>
+        <button onclick="addVector()">Create Vector</button>
+
+        <hr>
+
+        <h3>Scene Settings</h3>
+        <div class="toggle-group">
+            <label>Show Projections</label>
+            <input type="checkbox" id="showProjections" checked onchange="renderScene()">
+        </div>
+        <div class="toggle-group">
+            <label>Show Resultant (A+B+...)</label>
+            <input type="checkbox" id="showResultant" onchange="renderScene()">
+        </div>
+
+        <hr>
+
+        <h3>Vector List</h3>
+        <div id="vector-list"></div>
+    </div>
+
+    <!-- Right Panel: Mathematical Explanations -->
+    <div id="right-panel" class="glass-panel">
+        <h2>Geometric Properties</h2>
+        <div id="math-content">
+            <p style="color: #aaa; font-size: 0.9rem;">Add a vector to see its mathematical properties.</p>
+        </div>
+    </div>
+
+    <script>
+        // --- THREE.JS SETUP ---
+        const container = document.getElementById('webgl-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x0a0a0f);
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(15, 12, 20);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        container.appendChild(renderer.domElement);
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // Base Grid and Axes
+        const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+        scene.add(gridHelper);
+
+        const axesHelper = new THREE.AxesHelper(10);
+        scene.add(axesHelper);
+
+        // Resize handler
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // --- STATE MANAGEMENT ---
+        let vectors = [];
+        let sceneObjects = []; // Meshes to clear on re-render
+        const colors = [0xff2a2a, 0x00e5ff, 0x39ff14, 0xff00ff, 0xffea00];
+
+        // --- CORE LOGIC ---
+        function addVector() {
+            const x = parseFloat(document.getElementById('vecX').value) || 0;
+            const y = parseFloat(document.getElementById('vecY').value) || 0;
+            const z = parseFloat(document.getElementById('vecZ').value) || 0;
+            
+            if (x === 0 && y === 0 && z === 0) return;
+
+            const name = String.fromCharCode(65 + vectors.length); // A, B, C...
+            vectors.push({ 
+                x, y, z, 
+                name: name,
+                color: colors[vectors.length % colors.length],
+                visible: true 
+            });
+            
+            updateUI();
+            renderScene();
+        }
+
+        function removeVector(index) {
+            vectors.splice(index, 1);
+            vectors.forEach((v, i) => v.name = String.fromCharCode(65 + i)); // Rename
+            updateUI();
+            renderScene();
+        }
+
+        function toggleVector(index) {
+            vectors[index].visible = !vectors[index].visible;
+            renderScene();
+        }
+
+        // --- 3D RENDERING ---
+        function drawDashedLine(p1, p2, color) {
+            const material = new THREE.LineDashedMaterial({ color: color, dashSize: 0.2, gapSize: 0.1, transparent: true, opacity: 0.7 });
+            const geometry = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+            const line = new THREE.Line(geometry, material);
+            line.computeLineDistances(); // Required for dashed lines
+            scene.add(line);
+            sceneObjects.push(line);
+        }
+
+        function renderScene() {
+            // Clear old objects
+            sceneObjects.forEach(obj => scene.remove(obj));
+            sceneObjects = [];
+
+            const showProj = document.getElementById('showProjections').checked;
+            const origin = new THREE.Vector3(0, 0, 0);
+            
+            let resultant = new THREE.Vector3(0,0,0);
+            let activeVectors = 0;
+
+            vectors.forEach(v => {
+                if (!v.visible) return;
+                
+                const target = new THREE.Vector3(v.x, v.y, v.z);
+                const length = target.length();
+                const dir = target.clone().normalize();
+                
+                // Draw Vector Arrow
+                const arrow = new THREE.ArrowHelper(dir, origin, length, v.color, 0.6, 0.4);
+                scene.add(arrow);
+                sceneObjects.push(arrow);
+
+                // Draw Projections (Construction Lines)
+                if (showProj) {
+                    const xyProj = new THREE.Vector3(v.x, 0, v.z); // Shadow on XZ plane (Three.js Y is up)
+                    const xProj = new THREE.Vector3(v.x, 0, 0);
+                    const zProj = new THREE.Vector3(0, 0, v.z);
+                    const yProj = new THREE.Vector3(0, v.y, 0);
+
+                    // Drop to ground plane
+                    drawDashedLine(target, xyProj, v.color);
+                    // Drop to Y axis
+                    drawDashedLine(target, yProj, v.color);
+                    // Connect ground point to X and Z axes
+                    drawDashedLine(xyProj, xProj, v.color);
+                    drawDashedLine(xyProj, zProj, v.color);
+                    drawDashedLine(origin, xyProj, 0x888888); // Shadow vector
+                }
+
+                resultant.add(target);
+                activeVectors++;
+            });
+
+            // Draw Resultant Vector
+            if (document.getElementById('showResultant').checked && activeVectors > 1) {
+                const resLen = resultant.length();
+                if (resLen > 0) {
+                    const resDir = resultant.clone().normalize();
+                    const resArrow = new THREE.ArrowHelper(resDir, origin, resLen, 0xffffff, 0.8, 0.5);
+                    scene.add(resArrow);
+                    sceneObjects.push(resArrow);
+                    
+                    // Add dashed line connecting last vector to resultant tip (parallelogram/polygon closure)
+                    // (Simplified logic: just visualizing resultant for now)
+                }
+            }
+            
+            updateMathPanel();
+        }
+
+        // --- MATH RENDERING (KaTeX) ---
+        function formatNumber(num) {
+            return Number.isInteger(num) ? num : num.toFixed(2);
+        }
+
+        function updateMathPanel() {
+            const mathDiv = document.getElementById('math-content');
+            if (vectors.length === 0) {
+                mathDiv.innerHTML = '<p style="color: #aaa; font-size: 0.9rem;">Add a vector to see its mathematical properties.</p>';
+                return;
+            }
+
+            let html = '';
+            
+            vectors.forEach(v => {
+                if (!v.visible) return;
+                
+                const mag = Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+                const cosA = v.x / mag;
+                const cosB = v.y / mag;
+                const cosG = v.z / mag;
+                
+                const angA = Math.acos(cosA) * (180/Math.PI);
+                const angB = Math.acos(cosB) * (180/Math.PI);
+                const angG = Math.acos(cosG) * (180/Math.PI);
+
+                html += `
+                    <div style="margin-bottom: 20px;">
+                        <div style="display:flex; align-items:center;">
+                            <span class="color-dot" style="background:#${v.color.toString(16).padStart(6,'0')}"></span>
+                            <b style="font-size: 1.1rem;">Vector ${v.name}</b>
+                        </div>
+                        <div class="math-block" id="math-vec-${v.name}"></div>
+                        <div class="math-block" id="math-mag-${v.name}"></div>
+                        <div class="math-block" id="math-ang-${v.name}"></div>
+                    </div>
+                `;
+            });
+
+            mathDiv.innerHTML = html;
+
+            // Render KaTeX for each vector
+            vectors.forEach(v => {
+                if (!v.visible) return;
+                
+                const mag = Math.sqrt(v.x*v.x + v.y*v.y + v.z*v.z);
+                const cosA = v.x / mag;
+                const cosB = v.y / mag;
+                const cosG = v.z / mag;
+
+                const angA = formatNumber(Math.acos(cosA) * (180/Math.PI));
+                const angB = formatNumber(Math.acos(cosB) * (180/Math.PI));
+                const angG = formatNumber(Math.acos(cosG) * (180/Math.PI));
+
+                const vecEq = `\\vec{${v.name}} = ${v.x}\\mathbf{i} ${v.y >= 0 ? '+' : ''} ${v.y}\\mathbf{j} ${v.z >= 0 ? '+' : ''} ${v.z}\\mathbf{k}`;
+                const magEq = `|\\vec{${v.name}}| = \\sqrt{${v.x}^2 + ${v.y}^2 + ${v.z}^2} = ${formatNumber(mag)}`;
+                const angEq = `\\begin{aligned} 
+                    \\alpha &= ${angA}^\\circ \\\\ 
+                    \\beta &= ${angB}^\\circ \\\\ 
+                    \\gamma &= ${angG}^\\circ 
+                \\end{aligned}`;
+
+                katex.render(vecEq, document.getElementById(`math-vec-${v.name}`), { displayMode: true });
+                katex.render(magEq, document.getElementById(`math-mag-${v.name}`), { displayMode: true });
+                katex.render(angEq, document.getElementById(`math-ang-${v.name}`), { displayMode: true });
+            });
+        }
+
+        // --- UI UPDATES ---
+        function updateUI() {
+            const list = document.getElementById('vector-list');
+            list.innerHTML = '';
+            
+            vectors.forEach((v, index) => {
+                const hexColor = '#' + v.color.toString(16).padStart(6, '0');
+                list.innerHTML += `
+                    <div class="vector-item">
+                        <div>
+                            <span class="color-dot" style="background:${hexColor}"></span>
+                            <b>${v.name}</b> = (${v.x}, ${v.y}, ${v.z})
+                        </div>
+                        <div>
+                            <input type="checkbox" ${v.visible ? 'checked' : ''} onchange="toggleVector(${index})">
+                            <button style="width:auto; padding: 4px 8px; font-size: 0.8rem; background: #ff3b30; margin-left:5px;" onclick="removeVector(${index})">X</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // --- ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Start
+        addVector(); // Add initial vector A = 3i + 4j + 5k
+        animate();
+    </script>
+</body>
+</html>

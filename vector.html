@@ -1,0 +1,2478 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta
+            name="viewport"
+            content="width=device-width,initial-scale=1,viewport-fit=cover"
+        />
+        <title>3D Vector Visualizer</title>
+        <style>
+            * {
+                box-sizing: border-box;
+            }
+            body {
+                margin: 0;
+                height: 100vh;
+                height: 100dvh;
+                display: flex;
+                flex-direction: column;
+                font:
+                    14px/1.5 system-ui,
+                    "Segoe UI",
+                    Roboto,
+                    sans-serif;
+                background: var(--bg);
+                color: var(--tx);
+                --bg: #0f1420;
+                --pn: #151c2b;
+                --ln: #26314a;
+                --tx: #e8edf7;
+                --mu: #93a0bd;
+                --ac: #6cb4ff;
+                --glass: rgba(21, 28, 43, 0.86);
+            }
+            body.lt {
+                color-scheme: light;
+                --bg: #fff;
+                --pn: #f4f6fb;
+                --ln: #d8deeb;
+                --tx: #182033;
+                --mu: #5d6985;
+                --ac: #1f7ae0;
+                --glass: rgba(244, 246, 251, 0.9);
+            }
+            [hidden] {
+                display: none !important;
+            }
+            header {
+                display: flex;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 8px;
+                padding: 8px 12px;
+                background: var(--pn);
+                border-bottom: 1px solid var(--ln);
+            }
+            .brand {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                font-weight: 700;
+                font-size: 15px;
+                margin-right: 6px;
+                white-space: nowrap;
+            }
+            .sp {
+                flex: 1;
+            }
+            .hm {
+                display: flex;
+                gap: 8px;
+            }
+            button,
+            select,
+            input {
+                font: inherit;
+                color: var(--tx);
+                background: var(--bg);
+                border: 1px solid var(--ln);
+                border-radius: 8px;
+                padding: 5px 10px;
+                transition:
+                    border-color 0.15s,
+                    background 0.15s;
+            }
+            button,
+            select {
+                cursor: pointer;
+            }
+            button:hover,
+            select:hover {
+                border-color: var(--ac);
+            }
+            :focus-visible {
+                outline: 2px solid var(--ac);
+                outline-offset: 1px;
+            }
+            #pre {
+                border-color: var(--ac);
+            }
+            input[type="color"] {
+                width: 32px;
+                height: 28px;
+                padding: 2px;
+                flex: none;
+            }
+            input[type="range"] {
+                padding: 0;
+                flex: 1;
+            }
+            input[type="checkbox"] {
+                padding: 0;
+                width: auto;
+                accent-color: var(--ac);
+            }
+            input[type="number"] {
+                appearance: textfield;
+                -moz-appearance: textfield;
+                text-align: center;
+                padding: 5px 2px;
+                font-variant-numeric: tabular-nums;
+            }
+            input[type="number"]::-webkit-inner-spin-button,
+            input[type="number"]::-webkit-outer-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+            }
+            main {
+                flex: 1;
+                min-height: 0;
+                display: grid;
+                grid-template-columns: 310px 1fr 350px;
+                grid-template-rows: minmax(0, 1fr);
+            }
+            aside {
+                overflow: auto;
+                padding: 4px 14px 18px;
+                background: var(--pn);
+            }
+            #LP {
+                border-right: 1px solid var(--ln);
+            }
+            #RP {
+                border-left: 1px solid var(--ln);
+            }
+            h3 {
+                margin: 18px 0 8px;
+                font-size: 13px;
+                font-weight: 600;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+            }
+            h3 button {
+                padding: 2px 10px;
+                font-size: 12px;
+                font-weight: 400;
+            }
+            h3 label {
+                font-weight: 400;
+                color: var(--mu);
+                font-size: 12px;
+            }
+            .card {
+                border: 1px solid var(--ln);
+                border-radius: 10px;
+                padding: 8px;
+                margin-bottom: 8px;
+                background: var(--bg);
+                cursor: pointer;
+            }
+            .card.sel {
+                border-color: var(--ac);
+                box-shadow: 0 0 0 1px var(--ac);
+            }
+            .card:not(.sel) .sub,
+            .card.sel .sum {
+                display: none;
+            }
+            .sum {
+                color: var(--mu);
+                font-size: 12px;
+                margin: 2px 0 0 2px;
+                font-variant-numeric: tabular-nums;
+            }
+            .row {
+                display: flex;
+                gap: 4px;
+                align-items: center;
+                margin: 4px 0;
+            }
+            .row label {
+                white-space: nowrap;
+                font-size: 12px;
+                color: var(--mu);
+            }
+            .row span {
+                width: 34px;
+                color: var(--mu);
+                font-size: 12px;
+                flex: none;
+            }
+            .row input[type="number"],
+            .row input:not([type]),
+            .row select {
+                width: 0;
+                flex: 1;
+                min-width: 0;
+            }
+            .ax {
+                flex: 1;
+                text-align: center;
+                font-size: 12px;
+            }
+            .empty {
+                color: var(--mu);
+                font-size: 12.5px;
+                padding: 6px 2px;
+            }
+            .ck {
+                display: block;
+                margin: 4px 0;
+            }
+            #cv {
+                position: relative;
+                min-width: 0;
+                overflow: hidden;
+            }
+            canvas {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                touch-action: none;
+                cursor: grab;
+            }
+            canvas:active {
+                cursor: grabbing;
+            }
+            .ov {
+                position: absolute;
+                background: var(--glass);
+                backdrop-filter: blur(8px);
+                -webkit-backdrop-filter: blur(8px);
+                border: 1px solid var(--ln);
+                border-radius: 12px;
+            }
+            #views {
+                top: 10px;
+                left: 10px;
+                display: flex;
+                gap: 2px;
+                padding: 3px;
+                max-width: calc(100% - 20px);
+                overflow-x: auto;
+            }
+            #views button {
+                border: 0;
+                background: none;
+                padding: 4px 9px;
+                border-radius: 8px;
+                font-size: 12.5px;
+            }
+            #views button:hover {
+                background: var(--ln);
+            }
+            #hint {
+                top: 54px;
+                left: 10px;
+                padding: 5px 10px;
+                font-size: 12px;
+                color: var(--mu);
+                pointer-events: none;
+                transition: opacity 0.5s;
+            }
+            #bar {
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
+                display: flex;
+                flex-wrap: wrap;
+                gap: 6px;
+                align-items: center;
+                justify-content: center;
+                padding: 7px 9px;
+            }
+            #tv {
+                display: contents;
+            }
+            #ks {
+                width: 110px;
+            }
+            #selname {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                font-size: 12.5px;
+                color: var(--mu);
+                padding-right: 4px;
+            }
+            #selname i {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+            }
+            .chip {
+                position: relative;
+            }
+            .chip input[type="checkbox"] {
+                position: absolute;
+                inset: 0;
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                opacity: 0;
+                cursor: pointer;
+            }
+            .chip span {
+                display: block;
+                width: auto;
+                padding: 5px 12px;
+                border: 1px solid var(--ln);
+                border-radius: 99px;
+                font-size: 12.5px;
+                background: var(--bg);
+                user-select: none;
+                color: var(--tx);
+            }
+            .chip:hover span {
+                border-color: var(--ac);
+            }
+            .chip input:checked + span {
+                background: var(--ac);
+                border-color: var(--ac);
+                color: #06121f;
+                font-weight: 600;
+            }
+            .chip input:focus-visible + span {
+                outline: 2px solid var(--ac);
+                outline-offset: 2px;
+            }
+            #ex {
+                border-left: 3px solid var(--ac);
+                background: var(--bg);
+                border-radius: 0 10px 10px 0;
+                padding: 9px 12px;
+                margin-top: 12px;
+                line-height: 1.55;
+            }
+            #ex:empty {
+                display: none;
+            }
+            #calc div {
+                padding: 4px 0;
+                border-bottom: 1px solid var(--ln);
+                font-size: 13px;
+                font-variant-numeric: tabular-nums;
+            }
+            #calc hr {
+                border: 0;
+                margin: 8px 0;
+            }
+            #calc b {
+                color: var(--ac);
+            }
+            details {
+                margin-top: 16px;
+                border-top: 1px solid var(--ln);
+                padding-top: 8px;
+            }
+            summary {
+                cursor: pointer;
+                font-weight: 600;
+                padding: 4px 0;
+            }
+            #tabs {
+                display: none;
+            }
+            #xp {
+                display: none;
+                position: fixed;
+                top: 10px;
+                right: 10px;
+            }
+            body.pres header,
+            body.pres aside,
+            body.pres #hint {
+                display: none;
+            }
+            body.pres main {
+                grid-template-columns: 1fr;
+            }
+            body.pres #xp {
+                display: block;
+            }
+            @media (max-width: 900px) {
+                main {
+                    display: block;
+                    position: relative;
+                }
+                #cv {
+                    position: absolute;
+                    inset: 0;
+                }
+                aside {
+                    position: absolute;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    max-height: 58%;
+                    display: none;
+                    z-index: 5;
+                    border: 0;
+                    border-top: 1px solid var(--ln);
+                    border-radius: 16px 16px 0 0;
+                    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.35);
+                }
+                body[data-t="LP"] #LP,
+                body[data-t="RP"] #RP {
+                    display: block;
+                }
+                #tabs {
+                    display: flex;
+                    background: var(--pn);
+                    border-top: 1px solid var(--ln);
+                }
+                #tabs button {
+                    flex: 1;
+                    border: 0;
+                    border-radius: 0;
+                    background: none;
+                    padding: 12px;
+                }
+                body[data-t="view"] #tabs [data-t="view"],
+                body[data-t="LP"] #tabs [data-t="LP"],
+                body[data-t="RP"] #tabs [data-t="RP"] {
+                    color: var(--ac);
+                    font-weight: 600;
+                }
+                .hm,
+                #pp,
+                #hint {
+                    display: none;
+                }
+            }
+            .sc {
+                display: inline-flex;
+            }
+            .sc .chip span {
+                border-radius: 99px 0 0 99px;
+                padding-right: 9px;
+            }
+            .sc .gear {
+                border-radius: 0 99px 99px 0;
+                padding: 5px 10px 5px 7px;
+                border-left: 0;
+                color: var(--mu);
+                font-size: 14px;
+                line-height: 1.2;
+            }
+            .sc .gear:hover {
+                color: var(--ac);
+            }
+            .sc:has(input:checked) .gear {
+                background: var(--ac);
+                border-color: var(--ac);
+                color: #06121f;
+            }
+            .sc:not(:has(.gear)) .chip span {
+                border-radius: 99px;
+                padding-right: 12px;
+            }
+            #pop,
+            #adv {
+                padding: 6px 14px 10px;
+                z-index: 4;
+            }
+            #pop {
+                left: 50%;
+                transform: translateX(-50%);
+                bottom: 96px;
+                width: min(320px, calc(100% - 20px));
+            }
+            #adv {
+                top: 10px;
+                right: 10px;
+                width: 310px;
+                max-height: calc(100% - 90px);
+                overflow: auto;
+            }
+            #pop h3,
+            #adv h3 {
+                margin: 12px 0 4px;
+            }
+            output {
+                width: 40px;
+                text-align: right;
+                font-size: 12px;
+                color: var(--mu);
+                flex: none;
+            }
+            input.bad {
+                border-color: #ff5d5d;
+            }
+            * {
+                -webkit-tap-highlight-color: transparent;
+            }
+            canvas {
+                user-select: none;
+            }
+            aside {
+                overscroll-behavior: contain;
+            }
+            #adv:has(input[type="range"]:active),
+            #pop:has(input[type="range"]:active) {
+                opacity: 0.2;
+            }
+            @media (max-width: 1200px) {
+                main {
+                    grid-template-columns: 260px 1fr 290px;
+                }
+            }
+            @media (max-width: 900px) {
+                header {
+                    gap: 6px;
+                    padding: 6px 8px;
+                    padding-top: max(6px, env(safe-area-inset-top));
+                }
+                #pre {
+                    flex: 1;
+                    min-width: 0;
+                }
+                input,
+                select {
+                    font-size: 16px;
+                }
+                #bar {
+                    flex-wrap: nowrap;
+                    overflow-x: auto;
+                    justify-content: flex-start;
+                    scrollbar-width: none;
+                    padding: 6px 8px;
+                }
+                #bar::-webkit-scrollbar {
+                    display: none;
+                }
+                #bar > *,
+                #tv > * {
+                    flex: none;
+                }
+                #pop {
+                    left: 10px;
+                    right: 10px;
+                    width: auto;
+                    transform: none;
+                    bottom: 68px;
+                    max-height: 46%;
+                    overflow: auto;
+                }
+                #adv {
+                    left: 10px;
+                    right: 10px;
+                    top: auto;
+                    bottom: 68px;
+                    width: auto;
+                    max-height: 46%;
+                }
+                #tabs {
+                    padding-bottom: env(safe-area-inset-bottom);
+                }
+            }
+            @media (max-width: 640px) {
+                .bt {
+                    display: none;
+                }
+            }
+            @media (pointer: coarse) {
+                button,
+                select,
+                input:not([type="checkbox"]):not([type="range"]):not(
+                        [type="color"]
+                    ) {
+                    min-height: 40px;
+                }
+                .chip span {
+                    padding: 10px 14px;
+                }
+                .sc .gear {
+                    padding: 10px 12px 10px 8px;
+                }
+                #views button {
+                    padding: 9px 12px;
+                }
+                .row input[type="checkbox"] {
+                    width: 20px;
+                    height: 20px;
+                }
+            }
+            @media (max-height: 480px) {
+                header {
+                    padding: 4px 8px;
+                }
+                aside {
+                    max-height: 72%;
+                }
+            }
+            .cb,
+            .rh {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 30px;
+                height: 30px;
+                padding: 0;
+                flex: none;
+                color: var(--mu);
+            }
+            .cb:hover,
+            .rh:hover {
+                color: var(--ac);
+            }
+            .cb::before,
+            .rh::before {
+                content: "";
+                width: 7px;
+                height: 7px;
+                border: solid currentColor;
+                border-width: 0 2px 2px 0;
+                transform: rotate(var(--r));
+            }
+            [data-c="l"].cb,
+            [data-c="v"].cb {
+                --r: 135deg;
+            }
+            [data-c="r"].cb,
+            body.xv [data-c="v"].cb {
+                --r: -45deg;
+            }
+            [data-c="t"].cb {
+                --r: -135deg;
+            }
+            [data-c="b"].cb {
+                --r: 45deg;
+            }
+            .colhead {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                position: sticky;
+                top: 0;
+                z-index: 2;
+                background: var(--pn);
+                padding: 8px 0 2px;
+                font-weight: 600;
+            }
+            #views .cb {
+                height: 28px;
+            }
+            body.xv #views button:not(.cb) {
+                display: none;
+            }
+            .rh {
+                display: none;
+                z-index: 3;
+                opacity: 0.85;
+            }
+            .rh:hover {
+                opacity: 1;
+            }
+            #rl {
+                --r: -45deg;
+                left: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 22px;
+                height: 56px;
+                border-radius: 0 12px 12px 0;
+                border-left: 0;
+            }
+            #rr {
+                --r: 135deg;
+                right: 0;
+                top: 50%;
+                transform: translateY(-50%);
+                width: 22px;
+                height: 56px;
+                border-radius: 12px 0 0 12px;
+                border-right: 0;
+            }
+            #rt {
+                --r: 45deg;
+                top: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 56px;
+                height: 22px;
+                border-radius: 0 0 12px 12px;
+                border-top: 0;
+            }
+            #rb {
+                --r: -135deg;
+                bottom: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 56px;
+                height: 22px;
+                border-radius: 12px 12px 0 0;
+                border-bottom: 0;
+                margin-bottom: env(safe-area-inset-bottom);
+            }
+            body.xt header {
+                display: none;
+            }
+            body.xt #rt,
+            body.xb #rb {
+                display: inline-flex;
+            }
+            body.xt #views {
+                top: 30px;
+            }
+            body.xt #hint {
+                top: 74px;
+            }
+            body.xb #bar,
+            body.xb #tabs {
+                display: none;
+            }
+            @media (min-width: 901px) {
+                body {
+                    --lw: 310px;
+                    --rw: 350px;
+                }
+                main {
+                    grid-template-columns: var(--lw) 1fr var(--rw);
+                    transition: grid-template-columns 0.25s ease;
+                }
+                body.xl {
+                    --lw: 0px;
+                }
+                body.xr {
+                    --rw: 0px;
+                }
+                body.xl #LP,
+                body.xr #RP {
+                    visibility: hidden;
+                    padding: 0;
+                    border-width: 0;
+                }
+                body.xl #rl,
+                body.xr #rr {
+                    display: inline-flex;
+                }
+            }
+            @media (min-width: 901px) and (max-width: 1200px) {
+                body {
+                    --lw: 260px;
+                    --rw: 290px;
+                }
+            }
+            @media (max-width: 900px) {
+                [data-c="l"].cb,
+                [data-c="r"].cb {
+                    --r: 45deg;
+                }
+                #tabs .cb {
+                    flex: none;
+                    width: 52px;
+                    height: auto;
+                }
+            }
+            @media (pointer: coarse) {
+                .cb {
+                    width: 40px;
+                }
+            }
+        </style>
+    </head>
+    <body data-t="view">
+        <header>
+            <div class="brand">
+                <svg
+                    width="22"
+                    height="22"
+                    viewBox="0 0 22 22"
+                    fill="none"
+                    stroke-width="2.4"
+                    stroke-linecap="round"
+                >
+                    <path d="M11 12V3" stroke="#5aa9ff" />
+                    <path d="M11 12l8 5" stroke="#ff5d5d" />
+                    <path d="M11 12l-8 5" stroke="#3ddc84" /></svg
+                ><span class="bt">3D Vector Visualizer</span>
+            </div>
+            <select id="pre" title="Load an example"></select
+            ><span class="sp"></span>
+            <button id="pp" title="Switch between perspective and orthographic">
+                Perspective</button
+            ><button id="th">Light / dark</button
+            ><button id="adb" title="Text size, thickness, arrowheads and more">
+                Advanced
+            </button>
+            <span class="hm"
+                ><button id="sv">Save</button><button id="ld">Load</button
+                ><button id="sh">PNG</button
+                ><button id="pm">Present</button></span
+            >
+            <button
+                class="cb"
+                data-c="t"
+                title="Hide top bar"
+                aria-label="Hide top bar"
+            ></button
+            ><input type="file" id="fi" accept=".json" hidden />
+        </header>
+        <main>
+            <aside id="LP">
+                <div class="colhead">
+                    <b>Objects</b
+                    ><button
+                        class="cb"
+                        data-c="l"
+                        title="Hide objects panel"
+                        aria-label="Hide objects panel"
+                    ></button>
+                </div>
+                <h3>Vectors <button id="av">Add</button></h3>
+                <div id="vl"></div>
+                <h3>Points <button id="ap">Add</button></h3>
+                <div id="pl"></div>
+                <h3>
+                    Plane ax + by + cz = d
+                    <label
+                        ><input
+                            type="checkbox"
+                            data-a="pl"
+                            data-i="0"
+                            data-k="on"
+                        />
+                        show</label
+                    >
+                </h3>
+                <div class="row">
+                    <input
+                        type="number"
+                        step="any"
+                        placeholder="a"
+                        data-a="pl"
+                        data-i="0"
+                        data-k="p"
+                        data-j="0"
+                    /><input
+                        type="number"
+                        step="any"
+                        placeholder="b"
+                        data-a="pl"
+                        data-i="0"
+                        data-k="p"
+                        data-j="1"
+                    /><input
+                        type="number"
+                        step="any"
+                        placeholder="c"
+                        data-a="pl"
+                        data-i="0"
+                        data-k="p"
+                        data-j="2"
+                    /><input
+                        type="number"
+                        step="any"
+                        placeholder="d"
+                        data-a="pl"
+                        data-i="0"
+                        data-k="p"
+                        data-j="3"
+                    />
+                </div>
+            </aside>
+            <section id="cv">
+                <canvas id="c"></canvas>
+                <div id="views" class="ov"></div>
+                <button
+                    class="ov rh"
+                    id="rl"
+                    data-c="l"
+                    title="Show objects panel"
+                    aria-label="Show objects panel"
+                ></button
+                ><button
+                    class="ov rh"
+                    id="rr"
+                    data-c="r"
+                    title="Show results panel"
+                    aria-label="Show results panel"
+                ></button
+                ><button
+                    class="ov rh"
+                    id="rt"
+                    data-c="t"
+                    title="Show top bar"
+                    aria-label="Show top bar"
+                ></button
+                ><button
+                    class="ov rh"
+                    id="rb"
+                    data-c="b"
+                    title="Show bottom bar"
+                    aria-label="Show bottom bar"
+                ></button>
+                <div id="pop" class="ov" hidden></div>
+                <div id="adv" class="ov" hidden>
+                    <div class="row" style="justify-content: space-between">
+                        <b>Advanced</b>
+                        <div>
+                            <button data-reset>Reset all</button>
+                            <button id="advx" title="Close">✕</button>
+                        </div>
+                    </div>
+                    <div id="advb"></div>
+                </div>
+                <div id="hint" class="ov">
+                    Drag to rotate · Shift-drag to pan · Scroll to zoom · F for
+                    full view
+                </div>
+                <div id="bar" class="ov">
+                    <button
+                        class="cb"
+                        data-c="b"
+                        title="Hide bottom bar"
+                        aria-label="Hide bottom bar"
+                    ></button
+                    ><span id="selname"></span><span id="tv"></span
+                    ><input
+                        type="range"
+                        id="ks"
+                        data-z="k"
+                        min="-3"
+                        max="3"
+                        step="0.1"
+                        hidden
+                    />
+                </div>
+            </section>
+            <aside id="RP">
+                <div class="colhead">
+                    <b>Results</b
+                    ><button
+                        class="cb"
+                        data-c="r"
+                        title="Hide results panel"
+                        aria-label="Hide results panel"
+                    ></button>
+                </div>
+                <div id="ex"></div>
+                <h3>Combine the selected vector with…</h3>
+                <select id="zo" data-z="op" style="width: 100%"></select>
+                <div class="row" id="opr">
+                    <span>with</span
+                    ><select id="zb" data-z="b"></select
+                    ><span id="cl">and</span
+                    ><select id="zc" data-z="c"></select>
+                </div>
+                <h3>Results</h3>
+                <div id="calc"></div>
+                <details>
+                    <summary>Scene settings</summary>
+                    <div id="to"></div>
+                    <div class="row">
+                        <span>Axis</span
+                        ><input
+                            type="range"
+                            min="3"
+                            max="20"
+                            step="1"
+                            data-z="L"
+                        />
+                    </div>
+                    <div class="row">
+                        <span>Grid</span
+                        ><input
+                            type="range"
+                            min="0.5"
+                            max="5"
+                            step="0.5"
+                            data-z="g"
+                        />
+                    </div>
+                </details>
+            </aside>
+        </main>
+        <nav id="tabs">
+            <button data-t="view">Scene</button
+            ><button data-t="LP">Objects</button
+            ><button data-t="RP">Results</button
+            ><button
+                class="cb"
+                data-c="b"
+                title="Hide bottom bar"
+                aria-label="Hide bottom bar"
+            ></button>
+        </nav>
+        <button id="xp">Exit presentation</button>
+        <script>
+            const $ = (i) => document.getElementById(i),
+                AX = ["#ff5d5d", "#3ddc84", "#5aa9ff"],
+                PAL = [
+                    "#ff6b6b",
+                    "#ffd166",
+                    "#06d6a0",
+                    "#4cc9f0",
+                    "#c77dff",
+                    "#ff9f43",
+                ],
+                add = (a, b) => a.map((x, i) => x + b[i]),
+                sub = (a, b) => a.map((x, i) => x - b[i]),
+                mul = (a, s) => a.map((x) => x * s),
+                dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2],
+                cross = (a, b) => [
+                    a[1] * b[2] - a[2] * b[1],
+                    a[2] * b[0] - a[0] * b[2],
+                    a[0] * b[1] - a[1] * b[0],
+                ],
+                len = (a) => Math.hypot(...a),
+                norm = (a) => mul(a, 1 / (len(a) || 1)),
+                cl = (x, a, b) => Math.max(a, Math.min(b, x)),
+                clamp = (x) => cl(x, -1, 1),
+                mid = (a, b) => mul(add(a, b), 0.5),
+                f = (x) => (+x.toFixed(P.dc)).toString(),
+                fv = (v) => "(" + v.map((x) => f(x)).join(", ") + ")",
+                dg = (x) => +((x * 180) / Math.PI).toFixed(2) + "°",
+                sq = (x) => (x < 0 ? "(" + f(x) + ")" : f(x)) + "²",
+                esc = (s) =>
+                    String(s).replace(
+                        /[&<>"]/g,
+                        (c) => "&#" + c.charCodeAt(0) + ";",
+                    );
+            let S,
+                O,
+                Z,
+                W,
+                H,
+                dpr,
+                E,
+                F,
+                R,
+                U,
+                BG,
+                LT,
+                P,
+                tw = 0;
+            const dk = (c) =>
+                "#" +
+                [1, 3, 5]
+                    .map((i) =>
+                        ((parseInt(c.substr(i, 2), 16) * 0.62) | 0)
+                            .toString(16)
+                            .padStart(2, "0"),
+                    )
+                    .join("");
+            const mv = (n, t, v, i) => ({ n, t, v, c: PAL[i % 6], on: 1 }),
+                mp = (n, p) => ({ n, p, c: "#ffd166", on: 1 }),
+                dv = () => ({
+                    vecs: [],
+                    pts: [],
+                    pl: [{ p: [2, 3, 1, 6], on: 0 }],
+                    sel: 0,
+                    ex: "",
+                    O: {
+                        grid: 1,
+                        frame: 1,
+                        tick: 1,
+                        pcon: 0,
+                        comp: 0,
+                        box: 0,
+                        unit: 0,
+                        ang: 0,
+                        proj: 0,
+                        lab: 1,
+                        kon: 0,
+                    },
+                    Z: { L: 6, g: 1, k: 2, op: "none", b: 1, c: 2 },
+                }),
+                PRE = [
+                    [
+                        "Vector components",
+                        (s) => {
+                            s.vecs = [mv("A", [0, 0, 0], [3, 4, 5], 0)];
+                            s.O.comp = s.O.unit = s.O.box = 1;
+                            s.ex =
+                                "A = 3i + 4j + 5k: walk 3 along x, 4 along y, then 5 along z.";
+                        },
+                    ],
+                    [
+                        "Direction angles & cosines",
+                        (s) => {
+                            s.vecs = [mv("A", [0, 0, 0], [3, 4, 5], 0)];
+                            s.O.ang = 1;
+                            s.ex =
+                                "α, β, γ are the angles A makes with +x, +y and +z.";
+                        },
+                    ],
+                    [
+                        "Projections & plane angles",
+                        (s) => {
+                            s.vecs = [mv("A", [0, 0, 0], [3, 4, 5], 0)];
+                            s.O.proj = 1;
+                            s.ex =
+                                "Zeroing one coordinate projects A onto a coordinate plane; θ is the angle between A and its shadow.";
+                        },
+                    ],
+                    [
+                        "Points & vector AB",
+                        (s) => {
+                            s.vecs = [mv("AB", [1, 2, 1], [3, 4, 4], 0)];
+                            s.pts = [mp("A", [1, 2, 1]), mp("B", [4, 6, 5])];
+                            s.O.pcon = s.O.comp = s.O.box = 1;
+                            s.ex =
+                                "A and B are points; the vector AB = B − A runs from A to B.";
+                        },
+                    ],
+                    [
+                        "Addition (parallelogram)",
+                        (s) => {
+                            s.vecs = [
+                                mv("A", [0, 0, 0], [3, 1, 0], 0),
+                                mv("B", [0, 0, 0], [1, 3, 2], 1),
+                            ];
+                            s.Z.op = "para";
+                        },
+                    ],
+                    [
+                        "Subtraction",
+                        (s) => {
+                            s.vecs = [
+                                mv("A", [0, 0, 0], [3, 1, 0], 0),
+                                mv("B", [0, 0, 0], [1, 3, 2], 1),
+                            ];
+                            s.Z.op = "sub";
+                        },
+                    ],
+                    [
+                        "Dot product & projection",
+                        (s) => {
+                            s.vecs = [
+                                mv("A", [0, 0, 0], [4, 1, 2], 0),
+                                mv("B", [0, 0, 0], [2, 3, 0], 1),
+                            ];
+                            s.Z.op = "dot";
+                        },
+                    ],
+                    [
+                        "Cross product",
+                        (s) => {
+                            s.vecs = [
+                                mv("A", [0, 0, 0], [3, 0, 1], 0),
+                                mv("B", [0, 0, 0], [0, 2, 1], 1),
+                            ];
+                            s.Z.op = "cross";
+                            s.Z.L = 8;
+                        },
+                    ],
+                    [
+                        "Scalar triple product",
+                        (s) => {
+                            s.vecs = [
+                                mv("A", [0, 0, 0], [2, 0, 0], 0),
+                                mv("B", [0, 0, 0], [1, 2, 0], 1),
+                                mv("C", [0, 0, 0], [0, 1, 3], 2),
+                            ];
+                            s.Z.op = "triple";
+                        },
+                    ],
+                    [
+                        "Plane, normal & distance",
+                        (s) => {
+                            s.pl[0].on = 1;
+                            s.vecs = [mv("A", [0, 0, 0], [1, 1, 3], 0)];
+                            s.pts = [mp("P", [2, 2, 2])];
+                            s.ex =
+                                "The plane 2x + 3y + z = 6 has normal n = (2, 3, 1).";
+                        },
+                    ],
+                    [
+                        "Scalar multiple kA",
+                        (s) => {
+                            s.vecs = [mv("A", [0, 0, 0], [2, 1, 1], 0)];
+                            s.O.kon = 1;
+                            s.Z.k = -2;
+                            s.ex =
+                                "Move the k slider: a negative k reverses A.";
+                        },
+                    ],
+                ],
+                OPS = [
+                    ["none", "— none —"],
+                    ["add", "A + B (head-to-tail)"],
+                    ["para", "A + B (parallelogram)"],
+                    ["sub", "A − B"],
+                    ["dot", "A · B (dot product)"],
+                    ["cross", "A × B (cross product)"],
+                    ["triple", "A · (B × C) (triple product)"],
+                ],
+                HINT = {
+                    none: "Drag to rotate, right-drag or Shift-drag to pan, scroll or pinch to zoom. Click a vector card to select it.",
+                    add: "Head-to-tail: slide B so its tail sits on the head of A. The arrow from the start of A to the end of B is the resultant.",
+                    para: "Draw A and B from one point; the diagonal of the parallelogram is the resultant A + B.",
+                    sub: "With both vectors from one point, A − B runs from the head of B to the head of A.",
+                    dot: "A·B = |A||B|cosθ. The gold arrow is the projection of B on A; its signed length is (A·B)/|A|.",
+                    cross: "A × B is perpendicular to A and B (right-hand rule); its length is the area of the parallelogram they span.",
+                    triple: "|A·(B×C)| is the volume of the parallelepiped spanned by A, B and C.",
+                },
+                TO = [
+                    ["grid", "Grid"],
+                    ["frame", "3D frame"],
+                    ["tick", "Ticks & numbers"],
+                    ["pcon", "Point coordinate boxes"],
+                ],
+                TV = [
+                    ["comp", "Components"],
+                    ["box", "Cubic box"],
+                    ["unit", "Unit vectors"],
+                    ["ang", "Angles α β γ"],
+                    ["proj", "Projections"],
+                    ["lab", "Values"],
+                    ["kon", "k·A"],
+                ],
+                VW = {
+                    Front: [-90, 0],
+                    Back: [90, 0],
+                    Left: [180, 0],
+                    Right: [0, 0],
+                    Top: [-90, 89.5],
+                    Bottom: [-90, -89.5],
+                    Iso: [-45, 35],
+                };
+            const PD = {
+                    cs: "path",
+                    cl: 1,
+                    bs: "d",
+                    bo: "t",
+                    bg: 0,
+                    bl: 1,
+                    us: 1,
+                    uh: 1,
+                    ar: 0.35,
+                    ag: 1,
+                    pf: 1,
+                    pa: 1,
+                    dc: 3,
+                    ts: 1,
+                    ht: 1,
+                    vw: 1,
+                    as: 1,
+                    aa: 0.4,
+                    ah: "t",
+                    gl: 12,
+                    ax: 1,
+                    go: 1,
+                    fo: 1,
+                    nd: 1,
+                    cw: 2.5,
+                    bw: 1,
+                    dl: 1,
+                    ps: 5,
+                    rv: 1,
+                    zv: 1,
+                },
+                OP = {
+                    comp: [
+                        [
+                            "cs",
+                            "Style",
+                            "sel",
+                            [
+                                ["path", "Head-to-tail path"],
+                                ["axes", "Along the x, y, z axes"],
+                            ],
+                        ],
+                        ["cl", "Value labels", "chk"],
+                    ],
+                    box: [
+                        [
+                            "bs",
+                            "Lines",
+                            "sel",
+                            [
+                                ["d", "Dotted"],
+                                ["s", "Solid"],
+                            ],
+                        ],
+                        [
+                            "bo",
+                            "Starts at",
+                            "sel",
+                            [
+                                ["t", "Vector start"],
+                                ["o", "Origin"],
+                            ],
+                        ],
+                        ["bg", "Face diagonals from the start corner", "chk"],
+                        ["bl", "Diagonal lengths", "chk"],
+                    ],
+                    unit: [
+                        ["us", "Length", "rng", 0.5, 3, 0.1],
+                        ["uh", "Show û of selected vector", "chk"],
+                    ],
+                    ang: [
+                        ["ar", "Arc radius", "rng", 0.15, 0.8, 0.05],
+                        ["ag", "Guide rays along axes", "chk"],
+                    ],
+                    proj: [
+                        ["pf", "Plane fills", "chk"],
+                        ["pa", "Plane angles θ", "chk"],
+                    ],
+                    lab: [["dc", "Decimals", "rng", 0, 5, 1]],
+                },
+                ADV = [
+                    [
+                        "Text",
+                        [
+                            ["ts", "Text size", "rng", 0.6, 2.5, 0.05],
+                            ["ht", "Text outline", "chk"],
+                        ],
+                    ],
+                    [
+                        "Vectors",
+                        [
+                            ["vw", "Thickness", "rng", 0.4, 3, 0.1],
+                            ["as", "Arrowhead size", "rng", 0.4, 3, 0.1],
+                            ["aa", "Arrowhead width", "rng", 0.2, 0.9, 0.05],
+                            [
+                                "ah",
+                                "Arrowhead shape",
+                                "sel",
+                                [
+                                    ["t", "Triangle"],
+                                    ["n", "Swept-back"],
+                                ],
+                            ],
+                            ["gl", "Glow on selected", "rng", 0, 30, 1],
+                        ],
+                    ],
+                    [
+                        "Axes & grid",
+                        [
+                            ["ax", "Axis thickness", "rng", 0.5, 4, 0.1],
+                            ["nd", "Dashed negative axes", "chk"],
+                            ["go", "Grid opacity", "rng", 0, 1, 0.05],
+                            ["fo", "Frame opacity", "rng", 0, 1, 0.05],
+                        ],
+                    ],
+                    [
+                        "Construction",
+                        [
+                            ["cw", "Component thickness", "rng", 0.5, 6, 0.1],
+                            ["bw", "Box line width", "rng", 0.5, 4, 0.1],
+                            ["dl", "Dash length", "rng", 0.3, 3, 0.1],
+                            ["ps", "Point size", "rng", 2, 12, 1],
+                        ],
+                    ],
+                    [
+                        "Interaction",
+                        [
+                            ["rv", "Rotate speed", "rng", 0.3, 3, 0.1],
+                            ["zv", "Zoom speed", "rng", 0.3, 3, 0.1],
+                        ],
+                    ],
+                ];
+            const C = { az: -0.785, el: 0.61, d: 22, t: [0, 0, 0], ortho: 0 },
+                cv = $("c"),
+                ctx = cv.getContext("2d");
+
+            function setup() {
+                const ce = Math.cos(C.el),
+                    u = [
+                        ce * Math.cos(C.az),
+                        ce * Math.sin(C.az),
+                        Math.sin(C.el),
+                    ];
+                E = add(C.t, mul(u, C.d));
+                F = mul(u, -1);
+                R = norm(cross(F, [0, 0, 1]));
+                U = cross(R, F);
+            }
+            function pr(p) {
+                const r = sub(p, E),
+                    z = dot(r, F);
+                if (!C.ortho && z < 0.2) return null;
+                const s = (Math.min(W, H) * 1.2) / (C.ortho ? C.d : z);
+                return [W / 2 + s * dot(r, R), H / 2 - s * dot(r, U), z];
+            }
+            function seg(a, b, c, w = 1, d) {
+                const p = pr(a),
+                    q = pr(b);
+                if (!p || !q) return;
+                ctx.beginPath();
+                ctx.setLineDash(d ? [6 * P.dl, 5 * P.dl] : []);
+                ctx.strokeStyle = c;
+                ctx.lineWidth = w;
+                ctx.moveTo(p[0], p[1]);
+                ctx.lineTo(q[0], q[1]);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+            function arr(a, b, c, w = 3, d, m = P.vw) {
+                w *= m;
+                const p = pr(a),
+                    q = pr(b);
+                if (!p || !q) return;
+                const dx = q[0] - p[0],
+                    dy = q[1] - p[1],
+                    l = Math.hypot(dx, dy),
+                    x = dx / l || 0,
+                    y = dy / l || 0,
+                    h = Math.min((9 + w * 2) * P.as, l * 0.6),
+                    k = Math.max(h * P.aa, w),
+                    nt = P.ah == "n",
+                    e = l < 6 ? l : Math.max(0, l - h * (nt ? 0.6 : 0.85));
+                ctx.beginPath();
+                ctx.setLineDash(d ? [6 * P.dl, 5 * P.dl] : []);
+                ctx.strokeStyle = c;
+                ctx.lineWidth = w;
+                ctx.moveTo(p[0], p[1]);
+                ctx.lineTo(p[0] + x * e, p[1] + y * e);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                if (l < 6) return;
+                ctx.fillStyle = c;
+                ctx.beginPath();
+                ctx.moveTo(q[0], q[1]);
+                ctx.lineTo(q[0] - x * h + y * k, q[1] - y * h - x * k);
+                if (nt) ctx.lineTo(q[0] - x * h * 0.7, q[1] - y * h * 0.7);
+                ctx.lineTo(q[0] - x * h - y * k, q[1] - y * h + x * k);
+                ctx.fill();
+            }
+            function tx(p, s, c, dx = 6, dy = -6, fs = 13) {
+                const q = pr(p);
+                if (!q) return;
+                ctx.font = "600 " + fs * P.ts + "px system-ui,sans-serif";
+                if (P.ht) {
+                    ctx.lineJoin = "round";
+                    ctx.lineWidth = 4;
+                    ctx.strokeStyle = BG;
+                    ctx.strokeText(s, q[0] + dx, q[1] + dy);
+                }
+                ctx.fillStyle = LT ? dk(c) : c;
+                ctx.fillText(s, q[0] + dx, q[1] + dy);
+            }
+            function pg(ps, fill, stroke) {
+                const q = ps.map(pr);
+                if (q.some((x) => !x)) return;
+                ctx.beginPath();
+                q.forEach((x, i) =>
+                    i ? ctx.lineTo(x[0], x[1]) : ctx.moveTo(x[0], x[1]),
+                );
+                ctx.closePath();
+                ctx.fillStyle = fill;
+                ctx.fill();
+                if (stroke) {
+                    ctx.strokeStyle = stroke;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            }
+            function box(o, a, b, c, col, w, d) {
+                const q = [];
+                for (let i = 0; i < 8; i++)
+                    q.push(
+                        add(
+                            o,
+                            add(
+                                mul(a, i & 1),
+                                add(mul(b, (i >> 1) & 1), mul(c, (i >> 2) & 1)),
+                            ),
+                        ),
+                    );
+                for (let i = 0; i < 8; i++)
+                    for (let k = 0; k < 3; k++) {
+                        const j = i | (1 << k);
+                        if (j != i) seg(q[i], q[j], col, w, d);
+                    }
+            }
+            function arc(o, u, v, r, c, s) {
+                const cs = clamp(dot(u, v)),
+                    th = Math.acos(cs),
+                    w = sub(v, mul(u, cs)),
+                    lw = len(w);
+                if (th < 0.02 || lw < 1e-6) return;
+                const w1 = mul(w, 1 / lw),
+                    pt = (a) =>
+                        add(
+                            o,
+                            mul(
+                                add(mul(u, Math.cos(a)), mul(w1, Math.sin(a))),
+                                r,
+                            ),
+                        );
+                ctx.beginPath();
+                for (let i = 0; i <= 20; i++) {
+                    const q = pr(pt((th * i) / 20));
+                    if (!q) return;
+                    i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]);
+                }
+                ctx.strokeStyle = c;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]);
+                ctx.stroke();
+                if (s)
+                    tx(add(o, mul(sub(pt(th / 2), o), 1.35)), s, c, 4, 4, 13);
+            }
+
+            function draw() {
+                if (!W) return;
+                setup();
+                const lt = document.body.classList.contains("lt"),
+                    T = lt
+                        ? {
+                              bg: "#fff",
+                              gr: "#e3e7f0",
+                              fr: "#a9b3c8",
+                              mu: "#66728f",
+                          }
+                        : {
+                              bg: "#0f1420",
+                              gr: "#212b41",
+                              fr: "#3a4868",
+                              mu: "#8b97b3",
+                          },
+                    LL = +Z.L,
+                    g = +Z.g,
+                    n = Math.floor(LL / g + 1e-9),
+                    o0 = [0, 0, 0];
+                BG = T.bg;
+                LT = lt;
+                ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+                ctx.fillStyle = T.bg;
+                ctx.fillRect(0, 0, W, H);
+                ctx.globalAlpha = P.go;
+                if (O.grid)
+                    for (let i = -n; i <= n; i++) {
+                        const q = i * g;
+                        seg([q, -LL, 0], [q, LL, 0], T.gr);
+                        seg([-LL, q, 0], [LL, q, 0], T.gr);
+                    }
+                ctx.globalAlpha = P.fo;
+                if (O.frame)
+                    box(
+                        [-LL, -LL, -LL],
+                        [2 * LL, 0, 0],
+                        [0, 2 * LL, 0],
+                        [0, 0, 2 * LL],
+                        T.fr,
+                        1,
+                    );
+                ctx.globalAlpha = 1;
+                AX.forEach((c, k) => {
+                    const e = [0, 0, 0];
+                    e[k] = 1;
+                    seg(mul(e, -LL), o0, c + "88", 1.5 * P.ax, P.nd);
+                    arr(o0, mul(e, LL), c, 2, 0, P.ax);
+                    tx(mul(e, LL * 1.05), "xyz"[k], c, 4, 5, 16);
+                    tx(mul(e, -LL * 1.05), "−" + "xyz"[k], c + "aa", 4, 5, 12);
+                    if (O.tick)
+                        for (let i = -n; i <= n; i++)
+                            if (i) tx(mul(e, i * g), f(i * g), T.mu, 3, 13, 10);
+                });
+                tx(o0, "O", T.mu, -12, 14, 12);
+                const Pl = S.pl[0],
+                    nv = Pl.p.slice(0, 3),
+                    nm = len(nv);
+                if (Pl.on && nm > 1e-9) {
+                    const u = mul(nv, 1 / nm),
+                        p0 = mul(u, Pl.p[3] / nm),
+                        e1 = norm(
+                            cross(
+                                u,
+                                Math.abs(u[2]) > 0.9 ? [1, 0, 0] : [0, 0, 1],
+                            ),
+                        ),
+                        e2 = cross(u, e1),
+                        s = LL * 0.8,
+                        lc = (a, b) => add(p0, add(mul(e1, a), mul(e2, b))),
+                        tip = add(p0, mul(u, Math.min(3, LL / 2)));
+                    pg(
+                        [lc(s, s), lc(-s, s), lc(-s, -s), lc(s, -s)],
+                        "rgba(90,169,255,.16)",
+                        "#5aa9ff",
+                    );
+                    seg(o0, p0, "#5aa9ff", 1, 1);
+                    arr(p0, tip, "#5aa9ff", 3);
+                    tx(tip, "n", "#5aa9ff", 6, -6, 15);
+                }
+                S.pts.forEach((p) => {
+                    if (p.on && O.pcon) {
+                        const [x, y, z] = p.p;
+                        box(
+                            o0,
+                            [x, 0, 0],
+                            [0, y, 0],
+                            [0, 0, z],
+                            p.c + "88",
+                            1,
+                            1,
+                        );
+                    }
+                });
+                S.vecs.forEach((V, i) => {
+                    if (!V.on) return;
+                    const s = i == S.sel,
+                        h = add(V.t, V.v);
+                    if (s && P.gl) {
+                        ctx.shadowColor = V.c;
+                        ctx.shadowBlur = P.gl;
+                    }
+                    arr(V.t, h, V.c, s ? 4.5 : 3);
+                    ctx.shadowBlur = 0;
+                    tx(h, V.n + (O.lab ? " = " + fv(V.v) : ""), V.c, 8, -8, 14);
+                });
+                const A = S.vecs[S.sel];
+                if (A) {
+                    const t = A.t,
+                        v = A.v,
+                        h = add(t, v),
+                        m = len(v),
+                        u = m > 1e-9 ? mul(v, 1 / m) : 0;
+                    const bo = P.bo == "o" ? o0 : t,
+                        bx = [v[0], 0, 0],
+                        by = [0, v[1], 0],
+                        bz = [0, 0, v[2]];
+                    if (O.box) {
+                        box(bo, bx, by, bz, "#8b97b3cc", P.bw, P.bs == "d");
+                        if (P.bg)
+                            [
+                                [[v[0], v[1], 0], "#ffd166"],
+                                [[0, v[1], v[2]], "#c792ea"],
+                                [[v[0], 0, v[2]], "#4dd0e1"],
+                            ].forEach(([d, c]) => {
+                                const e = add(bo, d);
+                                seg(bo, e, c, 1.8);
+                                if (P.bl)
+                                    tx(mid(bo, e), f(len(d)), c, 4, -4, 12);
+                            });
+                    }
+                    if (O.comp) {
+                        if (P.cs == "axes") {
+                            [0, 1, 2].forEach((k) => {
+                                const e = [0, 0, 0];
+                                e[k] = v[k];
+                                arr(o0, e, AX[k], P.cw, 0, 1);
+                                seg(e, v, AX[k] + "99", 1, 1);
+                                if (P.cl)
+                                    tx(
+                                        mid(o0, e),
+                                        A.n + "xyz"[k] + " = " + f(v[k]),
+                                        AX[k],
+                                        6,
+                                        14,
+                                        12,
+                                    );
+                            });
+                            if (t.some((x) => x))
+                                arr(o0, v, A.c + "99", 2, 1, 1);
+                        } else {
+                            const p1 = add(t, bx),
+                                p2 = add(p1, by);
+                            arr(t, p1, AX[0], P.cw, 0, 1);
+                            arr(p1, p2, AX[1], P.cw, 0, 1);
+                            arr(p2, h, AX[2], P.cw, 0, 1);
+                            if (P.cl) {
+                                tx(
+                                    mid(t, p1),
+                                    A.n + "x = " + f(v[0]),
+                                    AX[0],
+                                    0,
+                                    16,
+                                    12,
+                                );
+                                tx(
+                                    mid(p1, p2),
+                                    A.n + "y = " + f(v[1]),
+                                    AX[1],
+                                    6,
+                                    14,
+                                    12,
+                                );
+                                tx(
+                                    mid(p2, h),
+                                    A.n + "z = " + f(v[2]),
+                                    AX[2],
+                                    6,
+                                    0,
+                                    12,
+                                );
+                            }
+                        }
+                    }
+                    if (O.unit) {
+                        [0, 1, 2].forEach((k) => {
+                            const e = [0, 0, 0];
+                            e[k] = P.us;
+                            arr(o0, e, AX[k], 4);
+                            tx(e, "ijk"[k], AX[k], 6, -6, 16);
+                        });
+                        if (u && P.uh) {
+                            const w = add(t, mul(u, P.us));
+                            arr(t, w, "#ffd166", 3);
+                            tx(w, "û", "#ffd166", 6, -6, 16);
+                        }
+                    }
+                    if (O.ang && u) {
+                        const r = m * P.ar;
+                        [0, 1, 2].forEach((k) => {
+                            const e = [0, 0, 0];
+                            e[k] = 1;
+                            if (P.ag)
+                                seg(t, add(t, mul(e, m * 0.6)), AX[k], 1, 1);
+                            arc(
+                                t,
+                                e,
+                                u,
+                                r,
+                                AX[k],
+                                "αβγ"[k] + " = " + dg(Math.acos(clamp(u[k]))),
+                            );
+                        });
+                    }
+                    if (O.proj)
+                        [
+                            [2, "xy", "#ffd166"],
+                            [0, "yz", "#c792ea"],
+                            [1, "zx", "#4dd0e1"],
+                        ].forEach(([z, nn, c]) => {
+                            const o2 = [0, 1, 2].filter((i) => i != z),
+                                qd = [
+                                    [1, 1],
+                                    [-1, 1],
+                                    [-1, -1],
+                                    [1, -1],
+                                ].map(([a, b]) => {
+                                    const p = [0, 0, 0];
+                                    p[o2[0]] = a * LL;
+                                    p[o2[1]] = b * LL;
+                                    return p;
+                                });
+                            if (P.pf) pg(qd, c + "14");
+                            const pt = t.slice(),
+                                ph = h.slice();
+                            pt[z] = ph[z] = 0;
+                            seg(t, pt, c, 1, 1);
+                            seg(h, ph, c, 1, 1);
+                            arr(pt, ph, c, 3);
+                            tx(ph, A.n + "_" + nn, c, 6, 14, 13);
+                            const pv = v.slice();
+                            pv[z] = 0;
+                            const lp = len(pv);
+                            if (P.pa && u && lp > 1e-9)
+                                arc(
+                                    t,
+                                    mul(pv, 1 / lp),
+                                    u,
+                                    m * 0.3,
+                                    c,
+                                    "θ" +
+                                        nn +
+                                        " = " +
+                                        dg(Math.asin(Math.abs(v[z]) / m)),
+                                );
+                        });
+                    if (O.kon) {
+                        const k = +Z.k,
+                            kv = add(t, mul(v, k));
+                        arr(t, kv, "#ff9f43", 3, 1);
+                        tx(
+                            kv,
+                            "k" + A.n + " (k = " + f(k) + ")",
+                            "#ff9f43",
+                            8,
+                            -8,
+                            14,
+                        );
+                    }
+                }
+                ops();
+                S.pts.forEach((p) => {
+                    if (!p.on) return;
+                    const q = pr(p.p);
+                    if (!q) return;
+                    ctx.beginPath();
+                    ctx.arc(q[0], q[1], P.ps, 0, 7);
+                    ctx.fillStyle = p.c;
+                    ctx.fill();
+                    tx(p.p, p.n + fv(p.p), p.c, 8, -8, 14);
+                });
+            }
+
+            function ops() {
+                const A = S.vecs[S.sel],
+                    B = S.vecs[+Z.b],
+                    Cv = S.vecs[+Z.c],
+                    o = Z.op;
+                if (!A || !B || o == "none") return;
+                const t = A.t,
+                    a = A.v,
+                    b = B.v,
+                    ta = add(t, a),
+                    tb = add(t, b),
+                    tab = add(ta, b),
+                    G = "#ffd166",
+                    lab = (p, s, c) => tx(p, s, c, 8, -8, 14);
+                if (o == "triple") {
+                    if (!Cv) return;
+                    box(t, a, b, Cv.v, G, 1.5);
+                    [A, B, Cv].forEach((X) => arr(t, add(t, X.v), X.c, 3.5));
+                    return;
+                }
+                if (o == "para" || o == "cross")
+                    pg([t, ta, tab, tb], "rgba(255,209,102,.16)", G);
+                arr(t, ta, A.c, 3.5);
+                if (o == "add") {
+                    arr(ta, tab, B.c, 3.5, 1);
+                    arr(t, tab, G, 4.5);
+                    lab(tab, A.n + " + " + B.n, G);
+                } else if (o == "para") {
+                    arr(t, tb, B.c, 3.5);
+                    arr(t, tab, G, 4.5);
+                    lab(tab, A.n + " + " + B.n, G);
+                } else if (o == "sub") {
+                    arr(t, tb, B.c, 3.5);
+                    arr(tb, ta, G, 4.5);
+                    lab(mid(tb, ta), A.n + " − " + B.n, G);
+                } else {
+                    arr(t, tb, B.c, 3.5);
+                    if (o == "dot") {
+                        const la = len(a),
+                            lb = len(b);
+                        if (la > 1e-9 && lb > 1e-9) {
+                            const p = add(t, mul(a, dot(a, b) / (la * la)));
+                            seg(tb, p, G, 1, 1);
+                            arr(t, p, G, 4.5);
+                            lab(p, "proj", G);
+                            arc(
+                                t,
+                                mul(a, 1 / la),
+                                mul(b, 1 / lb),
+                                Math.min(la, lb) * 0.3,
+                                G,
+                                "θ = " +
+                                    dg(Math.acos(clamp(dot(a, b) / (la * lb)))),
+                            );
+                        }
+                    } else {
+                        const tc = add(t, cross(a, b));
+                        arr(t, tc, "#ff6bd6", 4.5);
+                        lab(tc, A.n + " × " + B.n, "#ff6bd6");
+                    }
+                }
+            }
+
+            function calc() {
+                const A = S.vecs[S.sel],
+                    B = S.vecs[+Z.b],
+                    Cv = S.vecs[+Z.c],
+                    o = Z.op,
+                    h = [],
+                    pl = S.pl[0],
+                    nv = pl.p.slice(0, 3),
+                    nm = len(nv);
+                if (A) {
+                    const v = A.v,
+                        m = len(v),
+                        n = esc(A.n);
+                    h.push(
+                        `<div><b>${n}</b> = ${fv(v)}, tail ${fv(A.t)}, head ${fv(add(A.t, v))}</div>`,
+                        `<div>|${n}| = √(${v.map(sq).join(" + ")}) = √${f(dot(v, v))} = <b>${f(m)}</b></div>`,
+                    );
+                    if (m > 1e-9) {
+                        const u = mul(v, 1 / m),
+                            a = u.map((x) => Math.acos(clamp(x))),
+                            p = u.map((x) => Math.asin(Math.abs(clamp(x))));
+                        h.push(
+                            `<div>unit vector = ${fv(u)}</div>`,
+                            `<div>direction cosines: l = ${f(u[0])}, m = ${f(u[1])}, n = ${f(u[2])}</div>`,
+                            `<div>l² + m² + n² = ${f(dot(u, u))}</div>`,
+                            `<div>α = ${dg(a[0])}, β = ${dg(a[1])}, γ = ${dg(a[2])}</div>`,
+                            `<div>angle with planes: XY ${dg(p[2])}, YZ ${dg(p[0])}, ZX ${dg(p[1])}</div>`,
+                        );
+                    }
+                }
+                if (A && B && o != "none") {
+                    const a = A.v,
+                        b = B.v,
+                        n = esc(A.n),
+                        k = esc(B.n),
+                        la = len(a),
+                        lb = len(b);
+                    h.push("<hr>");
+                    if (o == "add" || o == "para") {
+                        const r = add(a, b);
+                        h.push(
+                            `<div>${n} + ${k} = ${fv(r)}, |${n} + ${k}| = <b>${f(len(r))}</b></div>`,
+                        );
+                    } else if (o == "sub") {
+                        const r = sub(a, b);
+                        h.push(
+                            `<div>${n} − ${k} = ${fv(r)}, magnitude <b>${f(len(r))}</b></div>`,
+                        );
+                    } else if (o == "dot") {
+                        const x = dot(a, b);
+                        h.push(
+                            `<div>${n}·${k} = ${f(a[0] * b[0])} + ${f(a[1] * b[1])} + ${f(a[2] * b[2])} = <b>${f(x)}</b></div>`,
+                        );
+                        if (la > 1e-9 && lb > 1e-9) {
+                            const th = Math.acos(clamp(x / (la * lb)));
+                            h.push(
+                                `<div>θ = cos⁻¹(${n}·${k} / |${n}||${k}|) = <b>${dg(th)}</b></div>`,
+                                `<div>|${n}||${k}|cosθ = ${f(la * lb * Math.cos(th))}</div>`,
+                                `<div>scalar projection of ${k} on ${n} = ${f(x / la)}</div>`,
+                            );
+                        }
+                    } else if (o == "cross") {
+                        const c = cross(a, b);
+                        h.push(
+                            `<div>${n} × ${k} = ${fv(c)}</div>`,
+                            `<div>|${n} × ${k}| = <b>${f(len(c))}</b> = parallelogram area</div>`,
+                            `<div>triangle area = ${f(len(c) / 2)}</div>`,
+                        );
+                    } else if (o == "triple" && Cv) {
+                        const c = cross(b, Cv.v),
+                            x = dot(a, c),
+                            q = esc(Cv.n);
+                        h.push(
+                            `<div>${k} × ${q} = ${fv(c)}</div>`,
+                            `<div>${n}·(${k} × ${q}) = <b>${f(x)}</b></div>`,
+                            `<div>volume = |${f(x)}| = <b>${f(Math.abs(x))}</b></div>`,
+                        );
+                    }
+                } else if (o != "none")
+                    h.push(
+                        "<hr><div>Add more vectors to use this operation.</div>",
+                    );
+                if (pl.on && nm > 1e-9) {
+                    h.push(
+                        "<hr>",
+                        `<div>plane ${f(pl.p[0])}x + ${f(pl.p[1])}y + ${f(pl.p[2])}z = ${f(pl.p[3])}</div>`,
+                        `<div>normal n = ${fv(nv)}, |n| = ${f(nm)}</div>`,
+                        `<div>distance from origin = |d| / |n| = ${f(Math.abs(pl.p[3]) / nm)}</div>`,
+                    );
+                    if (A && len(A.v) > 1e-9)
+                        h.push(
+                            `<div>angle between ${esc(A.n)} and plane = ${dg(Math.asin(clamp(Math.abs(dot(nv, A.v)) / (nm * len(A.v)))))}</div>`,
+                        );
+                    S.pts.forEach((p) =>
+                        h.push(
+                            `<div>distance from ${esc(p.n)} to plane = |n·${esc(p.n)} − d| / |n| = ${f(Math.abs(dot(nv, p.p) - pl.p[3]) / nm)}</div>`,
+                        ),
+                    );
+                }
+                $("calc").innerHTML = h.join("");
+                $("ex").textContent = (
+                    (S.ex || "") +
+                    " " +
+                    (HINT[o] || "")
+                ).trim();
+            }
+            const upd = () => {
+                draw();
+                calc();
+                const A = S.vecs[S.sel];
+                $("selname").innerHTML = A
+                    ? `Show for <i style="background:${esc(A.c)}"></i>${esc(A.n)}`
+                    : "Add a vector";
+                $("opr").hidden = Z.op == "none";
+                $("zc").hidden = $("cl").hidden = Z.op != "triple";
+                $("ks").hidden = !O.kon;
+            };
+
+            const inp = (a, i, k, j) =>
+                    `<input type=number step=any data-a=${a} data-i=${i} data-k=${k} data-j=${j}>`,
+                rw = (a, i, k, l, n) =>
+                    `<div class=row><span>${l}</span>${[...Array(n)].map((_, j) => inp(a, i, k, j)).join("")}</div>`,
+                hd = (a, i, o) =>
+                    `<div class=row><input type=color data-a=${a} data-i=${i} data-k=c value="${esc(o.c)}"><input data-a=${a} data-i=${i} data-k=n value="${esc(o.n)}"><label><input type=checkbox data-a=${a} data-i=${i} data-k=on> show</label><button data-x="${a}:${i}" title="Delete">✕</button></div>`;
+            function ui() {
+                $("vl").innerHTML =
+                    S.vecs
+                        .map(
+                            (v, i) =>
+                                `<div class="card${i == S.sel ? " sel" : ""}" data-a=vecs data-i=${i}>${hd("vecs", i, v)}<div class=sum></div><div class=sub><div class=row><span></span><b class=ax style=color:#ff5d5d>i</b><b class=ax style=color:#3ddc84>j</b><b class=ax style=color:#5aa9ff>k</b></div>${rw("vecs", i, "v", "", 3)}<div class=row><input data-a=vecs data-i=${i} data-k=ts placeholder="from 0, 0, 0"><b class=ax style="flex:none;color:var(--mu)">→</b><input data-a=vecs data-i=${i} data-k=te placeholder="to x, y, z"></div></div></div>`,
+                        )
+                        .join("") ||
+                    "<div class=empty>No vectors yet. Press Add to create one.</div>";
+                $("pl").innerHTML =
+                    S.pts
+                        .map(
+                            (p, i) =>
+                                `<div class=card data-a=pts data-i=${i}>${hd("pts", i, p)}${rw("pts", i, "p", "xyz", 3)}</div>`,
+                        )
+                        .join("") || "<div class=empty>No points yet.</div>";
+                fill();
+            }
+            function fill(skip) {
+                const L = $("LP");
+                L.querySelectorAll("input[type=number]").forEach((e) => {
+                    if (e === skip) return;
+                    const o = S[e.dataset.a][+e.dataset.i],
+                        k = e.dataset.k,
+                        j = +e.dataset.j;
+                    e.value = f(k == "h" ? o.t[j] + o.v[j] : o[k][j]);
+                });
+                L.querySelectorAll("[data-k=ts],[data-k=te]").forEach((e) => {
+                    if (e === skip) return;
+                    const o = S.vecs[+e.dataset.i],
+                        s = e.dataset.k == "ts";
+                    e.value =
+                        s && !o.t.some((x) => x)
+                            ? ""
+                            : (s ? o.t : add(o.t, o.v))
+                                  .map((x) => f(x))
+                                  .join(", ");
+                    e.classList.remove("bad");
+                });
+                L.querySelectorAll(".sum").forEach((e) => {
+                    const o = S.vecs[+e.parentNode.dataset.i];
+                    e.textContent =
+                        fv(o.v) + "   |" + o.n + "| = " + f(len(o.v));
+                });
+                L.querySelectorAll("[data-k=on]").forEach(
+                    (e) => (e.checked = !!S[e.dataset.a][+e.dataset.i].on),
+                );
+            }
+            function sel() {
+                const o = S.vecs
+                        .map(
+                            (v, i) => `<option value=${i}>${esc(v.n)}</option>`,
+                        )
+                        .join(""),
+                    n = S.vecs.length - 1;
+                ["b", "c"].forEach((k, j) => {
+                    const s = $("z" + k);
+                    s.innerHTML = o;
+                    s.value = Z[k];
+                    if (s.selectedIndex < 0)
+                        s.selectedIndex = Math.min(j + 1, n);
+                    Z[k] = s.value;
+                });
+            }
+            function sync() {
+                const r = document;
+                r.querySelectorAll("[data-o]").forEach(
+                    (e) => (e.checked = !!O[e.dataset.o]),
+                );
+                r.querySelectorAll("[data-z]").forEach((e) => {
+                    if (Z[e.dataset.z] != null) e.value = Z[e.dataset.z];
+                });
+            }
+            function loadScene() {
+                O = S.O;
+                Z = S.Z;
+                P = S.P = Object.assign({}, PD, S.P);
+                ui();
+                sel();
+                sync();
+                syncP();
+                upd();
+            }
+            function hin(ev) {
+                const t = ev.target,
+                    a = t.dataset.a;
+                if (!a) return;
+                const o = S[a][+t.dataset.i],
+                    k = t.dataset.k,
+                    j = +t.dataset.j;
+                if (k == "c" || k == "n") o[k] = t.value;
+                else if (k == "on") o.on = t.checked ? 1 : 0;
+                else if (k == "ts" || k == "te") {
+                    const s = t.value.trim();
+                    let q = null;
+                    if (!s && k == "ts") q = [0, 0, 0];
+                    else {
+                        const m = s.match(
+                            /[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?/gi,
+                        );
+                        if (m && m.length == 3) q = m.map(Number);
+                    }
+                    t.classList.toggle("bad", !q);
+                    if (!q) return;
+                    if (k == "ts") {
+                        const e = add(o.t, o.v);
+                        o.t = q;
+                        o.v = sub(e, q);
+                    } else o.v = sub(q, o.t);
+                } else {
+                    const x = parseFloat(t.value);
+                    if (isNaN(x)) return;
+                    if (k == "h") o.v[j] = x - o.t[j];
+                    else o[k][j] = x;
+                }
+                if (k == "n") sel();
+                fill(t);
+                upd();
+            }
+            const LP = $("LP");
+            ["input", "change"].forEach((n) => LP.addEventListener(n, hin));
+            LP.addEventListener("focusin", (ev) => {
+                if (/^(number|text)$/.test(ev.target.type)) ev.target.select();
+            });
+            LP.onclick = (ev) => {
+                const x = ev.target.dataset.x;
+                if (x) {
+                    const [a, i] = x.split(":");
+                    S[a].splice(+i, 1);
+                    S.sel = cl(S.sel, 0, Math.max(0, S.vecs.length - 1));
+                    ui();
+                    sel();
+                    upd();
+                    return;
+                }
+                const c = ev.target.closest(".card[data-a=vecs]");
+                if (c) {
+                    S.sel = +c.dataset.i;
+                    [...$("vl").children].forEach((n, i) =>
+                        n.classList.toggle("sel", i == S.sel),
+                    );
+                    upd();
+                }
+            };
+            ["input", "change"].forEach((n) =>
+                document.addEventListener(n, (ev) => {
+                    const t = ev.target,
+                        d = t.dataset;
+                    if (d.o) O[d.o] = t.checked ? 1 : 0;
+                    else if (d.z)
+                        Z[d.z] = t.type == "range" ? +t.value : t.value;
+                    else if (d.p) {
+                        P[d.p] =
+                            t.type == "checkbox"
+                                ? +t.checked
+                                : t.type == "range"
+                                  ? +t.value
+                                  : t.value;
+                        syncP();
+                    } else return;
+                    upd();
+                }),
+            );
+            $("av").onclick = () => {
+                const i = S.vecs.length;
+                S.vecs.push(
+                    mv(
+                        String.fromCharCode(65 + (i % 26)),
+                        [0, 0, 0],
+                        [1, 1, 1],
+                        i,
+                    ),
+                );
+                S.sel = i;
+                ui();
+                sel();
+                upd();
+            };
+            $("ap").onclick = () => {
+                const i = S.pts.length;
+                S.pts.push(mp(String.fromCharCode(80 + (i % 11)), [1, 1, 1]));
+                ui();
+                upd();
+            };
+
+            function rs() {
+                const r = cv.getBoundingClientRect();
+                dpr = devicePixelRatio || 1;
+                W = r.width;
+                H = r.height;
+                cv.width = Math.round(W * dpr);
+                cv.height = Math.round(H * dpr);
+                draw();
+            }
+            const ptr = new Map(),
+                pd = () => {
+                    const [a, b] = [...ptr.values()];
+                    return Math.hypot(a[0] - b[0], a[1] - b[1]) || 1;
+                };
+            let p0 = 0;
+            cv.onpointerdown = (ev) => {
+                tw++;
+                $("hint").style.opacity = 0;
+                cv.setPointerCapture(ev.pointerId);
+                ptr.set(ev.pointerId, [
+                    ev.clientX,
+                    ev.clientY,
+                    ev.button,
+                    ev.shiftKey,
+                ]);
+                if (ptr.size == 2) p0 = pd();
+            };
+            cv.onpointermove = (ev) => {
+                const p = ptr.get(ev.pointerId);
+                if (!p) return;
+                const dx = ev.clientX - p[0],
+                    dy = ev.clientY - p[1];
+                p[0] = ev.clientX;
+                p[1] = ev.clientY;
+                if (ptr.size == 2) {
+                    const n = pd();
+                    C.d = cl((C.d * p0) / n, 2, 300);
+                    p0 = n;
+                } else if (p[2] > 0 || p[3]) {
+                    const s = C.d / (Math.min(W, H) * 1.2);
+                    for (let i = 0; i < 3; i++)
+                        C.t[i] += (-dx * R[i] + dy * U[i]) * s;
+                } else {
+                    C.az -= dx * 0.008 * P.rv;
+                    C.el = cl(C.el + dy * 0.008 * P.rv, -1.55, 1.55);
+                }
+                draw();
+            };
+            cv.onpointerup = cv.onpointercancel = (ev) =>
+                ptr.delete(ev.pointerId);
+            cv.onwheel = (ev) => {
+                tw++;
+                $("hint").style.opacity = 0;
+                ev.preventDefault();
+                C.d = cl(C.d * Math.exp(ev.deltaY * 0.001 * P.zv), 2, 300);
+                draw();
+            };
+            cv.oncontextmenu = (ev) => ev.preventDefault();
+
+            $("views").innerHTML =
+                Object.keys(VW)
+                    .concat("Reset")
+                    .map((k) => `<button data-v=${k}>${k}</button>`)
+                    .join("") +
+                '<button class="cb" data-c="v" title="Hide view buttons" aria-label="Hide view buttons"></button>';
+            function go(az, el, ms) {
+                const id = ++tw,
+                    a0 = C.az,
+                    e0 = C.el,
+                    t0 = performance.now();
+                let da = az - a0;
+                da -= Math.round(da / 6.2832) * 6.2832;
+                (function st(n) {
+                    if (id != tw) return;
+                    const k = ms ? Math.min(1, (n - t0) / ms) : 1,
+                        e =
+                            k < 0.5
+                                ? 2 * k * k
+                                : 1 - Math.pow(2 - 2 * k, 2) / 2;
+                    C.az = a0 + da * e;
+                    C.el = e0 + (el - e0) * e;
+                    draw();
+                    if (k < 1) requestAnimationFrame(st);
+                })(t0);
+            }
+            $("views").onclick = (ev) => {
+                let k = ev.target.dataset.v;
+                if (!k) return;
+                if (k == "Reset") {
+                    C.t = [0, 0, 0];
+                    C.d = 22;
+                    k = "Iso";
+                }
+                go(
+                    (VW[k][0] * Math.PI) / 180,
+                    (VW[k][1] * Math.PI) / 180,
+                    matchMedia("(prefers-reduced-motion:reduce)").matches
+                        ? 0
+                        : 380,
+                );
+            };
+            $("pp").onclick = (ev) => {
+                C.ortho = C.ortho ? 0 : 1;
+                ev.target.textContent = C.ortho
+                    ? "Orthographic"
+                    : "Perspective";
+                draw();
+            };
+            $("th").onclick = () => {
+                document.body.classList.toggle("lt");
+                draw();
+            };
+            $("pm").onclick = () => document.body.classList.add("pres");
+            $("xp").onclick = () => document.body.classList.remove("pres");
+            onkeydown = (ev) => {
+                if (ev.key == "Escape") {
+                    document.body.classList.remove("pres");
+                    pop(0);
+                    $("adv").hidden = true;
+                } else if (
+                    (ev.key == "f" || ev.key == "F") &&
+                    !ev.ctrlKey &&
+                    !ev.metaKey &&
+                    !/^(INPUT|SELECT|TEXTAREA)$/.test(
+                        document.activeElement.tagName,
+                    )
+                ) {
+                    const B = document.body,
+                        a = ["xl", "xr", "xt", "xb", "xv"],
+                        all = a.every((c) => B.classList.contains(c));
+                    a.forEach((c) => B.classList.toggle(c, !all));
+                    B.dataset.t = "view";
+                    pop(0);
+                }
+            };
+            const dl = (u, n) => {
+                const a = document.createElement("a");
+                a.href = u;
+                a.download = n;
+                a.click();
+            };
+            $("sv").onclick = () =>
+                dl(
+                    URL.createObjectURL(
+                        new Blob([JSON.stringify({ ...S, cam: C })], {
+                            type: "application/json",
+                        }),
+                    ),
+                    "vector-scene.json",
+                );
+            $("ld").onclick = () => $("fi").click();
+            $("fi").onchange = (ev) => {
+                const fl = ev.target.files[0];
+                if (!fl) return;
+                const r = new FileReader();
+                r.onload = () => {
+                    try {
+                        const s = JSON.parse(r.result);
+                        Object.assign(C, s.cam);
+                        delete s.cam;
+                        S = Object.assign(dv(), s);
+                        loadScene();
+                    } catch (x) {
+                        alert("Could not read this scene file.");
+                    }
+                };
+                r.readAsText(fl);
+                ev.target.value = "";
+            };
+            $("sh").onclick = () => {
+                draw();
+                cv.toBlob((b) =>
+                    dl(URL.createObjectURL(b), "vector-scene.png"),
+                );
+            };
+
+            const ck = ([k, n]) =>
+                `<label class=ck><input type=checkbox data-o=${k}> ${n}</label>`;
+            $("to").innerHTML = TO.map(ck).join("");
+            $("tv").innerHTML = TV.map(
+                ([k, n]) =>
+                    `<span class=sc><label class=chip><input type=checkbox data-o=${k}><span>${n}</span></label>${OP[k] ? `<button class=gear data-g=${k} title="${n} options" aria-label="${n} options">&#9881;&#xFE0E;</button>` : ""}</span>`,
+            ).join("");
+            $("zo").innerHTML = OPS.map(
+                ([k, n]) => `<option value=${k}>${n}</option>`,
+            ).join("");
+            $("pre").innerHTML =
+                '<option value="">Examples…</option>' +
+                PRE.map((p, i) => `<option value=${i}>${p[0]}</option>`).join(
+                    "",
+                );
+            $("pre").onchange = (ev) => {
+                const i = ev.target.value;
+                if (i === "") return;
+                S = dv();
+                PRE[+i][1](S);
+                loadScene();
+            };
+            S = dv();
+            PRE[0][1](S);
+            loadScene();
+            const fld = ([k, l, t, a, b, c]) =>
+                t == "chk"
+                    ? `<label class=ck><input type=checkbox data-p=${k}> ${l}</label>`
+                    : t == "sel"
+                      ? `<div class=row><span style="width:92px">${l}</span><select data-p=${k}>${a.map(([v, n]) => `<option value=${v}>${n}</option>`).join("")}</select></div>`
+                      : `<div class=row><span style="width:112px">${l}</span><input type=range data-p=${k} min=${a} max=${b} step=${c}><output data-q=${k}></output></div>`;
+            function syncP() {
+                document.querySelectorAll("[data-p]").forEach((e) => {
+                    const v = P[e.dataset.p];
+                    if (e.type == "checkbox") e.checked = !!v;
+                    else e.value = v;
+                });
+                document
+                    .querySelectorAll("output[data-q]")
+                    .forEach(
+                        (e) => (e.textContent = +(+P[e.dataset.q]).toFixed(2)),
+                    );
+            }
+            function pop(k) {
+                const p = $("pop");
+                if (!k || (p.dataset.k == k && !p.hidden)) {
+                    p.hidden = true;
+                    p.dataset.k = "";
+                    return;
+                }
+                p.dataset.k = k;
+                p.hidden = false;
+                p.innerHTML =
+                    "<h3>" +
+                    TV.find((x) => x[0] == k)[1] +
+                    " options</h3>" +
+                    OP[k].map(fld).join("");
+                syncP();
+            }
+            let dn = [0, 0];
+            document.addEventListener(
+                "pointerdown",
+                (ev) => {
+                    dn = [ev.clientX, ev.clientY];
+                },
+                true,
+            );
+            document.addEventListener("click", (ev) => {
+                const t = ev.target,
+                    g = t.closest("[data-g]"),
+                    B = document.body;
+                if (t.closest("[data-reset]")) {
+                    Object.assign(P, PD);
+                    syncP();
+                    upd();
+                    return;
+                }
+                const cb = t.closest("[data-c]");
+                if (cb) {
+                    const k = cb.dataset.c;
+                    if ((k == "l" || k == "r") && innerWidth <= 900)
+                        B.dataset.t = "view";
+                    else {
+                        B.classList.toggle("x" + k);
+                        if (k == "b") B.dataset.t = "view";
+                    }
+                    pop(0);
+                    return;
+                }
+                if (t.closest("#advx")) {
+                    $("adv").hidden = true;
+                    return;
+                }
+                if (g) {
+                    $("adv").hidden = true;
+                    B.dataset.t = "view";
+                    pop(g.dataset.g);
+                    return;
+                }
+                if (t.closest("#adb")) {
+                    const o = $("adv").hidden;
+                    pop(0);
+                    B.dataset.t = "view";
+                    $("adv").hidden = !o;
+                    return;
+                }
+                if (t.closest("#tabs")) {
+                    pop(0);
+                    $("adv").hidden = true;
+                    return;
+                }
+                if (Math.hypot(ev.clientX - dn[0], ev.clientY - dn[1]) > 8)
+                    return;
+                const sg =
+                    t.closest(".sc") &&
+                    t.closest(".sc").querySelector("[data-g]");
+                if (
+                    !t.closest("#pop") &&
+                    !(sg && sg.dataset.g == $("pop").dataset.k)
+                )
+                    pop(0);
+                if (!t.closest("#adv")) $("adv").hidden = true;
+                if (!t.closest("aside")) B.dataset.t = "view";
+            });
+            $("advb").innerHTML = ADV.map(
+                ([t, fs]) => "<h3>" + t + "</h3>" + fs.map(fld).join(""),
+            ).join("");
+            $("tabs").onclick = (ev) => {
+                const t = ev.target.dataset.t;
+                if (t)
+                    document.body.dataset.t =
+                        document.body.dataset.t == t ? "view" : t;
+            };
+            new ResizeObserver(rs).observe($("cv"));
+        </script>
+    </body>
+</html>
