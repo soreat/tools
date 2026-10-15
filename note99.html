@@ -1,0 +1,4464 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>ExcaliNote3 — 4K Smartboard & PDF Whiteboard</title>
+
+  <script id="lib-react" src="https://unpkg.com/react@18.2.0/umd/react.production.min.js" crossorigin="anonymous"></script>
+  <script id="lib-react-dom" src="https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+  <script id="lib-excalidraw" src="https://unpkg.com/@excalidraw/excalidraw@0.17.6/dist/excalidraw.production.min.js" crossorigin="anonymous"></script>
+  <script id="lib-pdfjs" src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" crossorigin="anonymous"></script>
+  <script id="lib-jspdf" src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" crossorigin="anonymous"></script>
+
+  <style>
+    :root,
+    [data-theme="dark"] {
+      --bg-canvas: #121212;
+      --island-bg: #232329;
+      --island-border: #363640;
+      --island-shadow: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      --icon-color: #e2e8f0;
+      --icon-muted: #94a3b8;
+      --btn-hover: #31303b;
+      --btn-active-bg: #403e6a;
+      --btn-active-text: #e0dfff;
+      --accent: #6965db;
+      --popover-bg: #232329;
+    }
+
+    [data-theme="light"] {
+      --bg-canvas: #f8f9fa;
+      --island-bg: #ffffff;
+      --island-border: #e2e8f0;
+      --island-shadow: 0 4px 16px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(15, 23, 42, 0.06);
+      --icon-color: #1e293b;
+      --icon-muted: #64748b;
+      --btn-hover: #f1f5f9;
+      --btn-active-bg: #e0dfff;
+      --btn-active-text: #403e6a;
+      --accent: #6965db;
+      --popover-bg: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
+    }
+
+    html,
+    body,
+    #root {
+      margin: 0;
+      padding: 0;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg-canvas);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Inter, sans-serif;
+    }
+
+    .app-shell {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: var(--bg-canvas);
+    }
+
+    .canvas-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+
+    /* Prevent Excalidraw's dark theme from inverting canvas PDF/background/ink colors */
+    .excalidraw.theme--dark .excalidraw__canvas,
+    .excalidraw.theme--dark canvas {
+      filter: none !important;
+    }
+
+    /* Completely remove Excalidraw's native upper bar, side property popup, mobile floating bar, and footer */
+    .excalidraw .App-menu_top,
+    .excalidraw .App-menu_bottom,
+    .excalidraw .App-bottom-bar,
+    .excalidraw .App-toolbar,
+    .excalidraw .App-toolbar-container,
+    .excalidraw .mobile-misc-tools-container,
+    .excalidraw .sidebar-trigger,
+    .excalidraw .default-sidebar-trigger,
+    .excalidraw .help-icon,
+    .excalidraw .HintViewer,
+    .excalidraw .layer-ui__wrapper__top-right,
+    .excalidraw .layer-ui__wrapper__footer,
+    .excalidraw .zen-mode-transition {
+      display: none !important;
+    }
+
+    /* Excalidraw-Style Island Containers */
+    .exc-island {
+      background: var(--island-bg);
+      border-radius: 10px;
+      padding: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: var(--island-shadow);
+      z-index: 40;
+      transition: opacity 0.18s ease, transform 0.18s ease;
+    }
+
+    /* Top Navbar Island (Vanishes in Fullscreen Mode) */
+    .top-navbar {
+      position: fixed;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: calc(100vw - 24px);
+      overflow-x: auto;
+      z-index: 45;
+      padding: 4px 8px;
+      gap: 6px;
+    }
+
+    .nav-pill-btn {
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--icon-color);
+      font-size: 12px;
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.12s ease, color 0.12s ease;
+    }
+
+    .nav-pill-btn:hover:not(:disabled) {
+      background: var(--btn-hover);
+    }
+
+    .nav-pill-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .nav-pill-btn.active {
+      background: var(--btn-active-bg);
+      color: var(--btn-active-text);
+    }
+
+    .nav-pill-btn svg {
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.85;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Free-Draw Lasso SVG Overlay */
+    .lasso-svg-overlay {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      pointer-events: none;
+      z-index: 35;
+    }
+
+    /* Background Preset Grid inside Background Popover */
+    .bg-preset-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      max-height: 210px;
+      overflow-y: auto;
+      padding-right: 2px;
+      margin-bottom: 8px;
+    }
+
+    .bg-preset-card {
+      height: 44px;
+      border-radius: 7px;
+      border: 2px solid var(--island-border);
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 3px;
+      font-size: 9px;
+      font-weight: 600;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.1s ease, border-color 0.12s ease;
+    }
+
+    .bg-preset-card:hover {
+      transform: translateY(-1px);
+    }
+
+    .bg-preset-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(105, 101, 219, 0.35);
+    }
+
+    .bg-preset-label {
+      background: rgba(0, 0, 0, 0.65);
+      color: #ffffff;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-size: 9px;
+      white-space: nowrap;
+      max-width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Center Bottom Annotation Bar */
+    .dock-center {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* Floating Selection Layer Action Bar (Appears right above/beside dock when objects are selected) */
+    .selection-layer-bar {
+      --pop-x: -50%;
+      position: fixed;
+      bottom: 62px;
+      left: 50%;
+      transform: translate(var(--pop-x), 0);
+      z-index: 50;
+      animation: popUp 0.12s ease-out;
+    }
+
+    /* Bottom-Left Page Navigation Island */
+    .dock-left {
+      position: fixed;
+      bottom: 14px;
+      left: 14px;
+    }
+
+    /* Bottom-Right Preview Toggle Island */
+    .dock-right {
+      position: fixed;
+      bottom: 14px;
+      right: 14px;
+    }
+
+    /* Monochromatic Excalidraw-Style Icon Button */
+    .exc-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      border: none;
+      background: transparent;
+      color: var(--icon-color);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      transition: background 0.12s ease, color 0.12s ease, transform 0.08s ease;
+      flex-shrink: 0;
+    }
+
+    .exc-btn:hover:not(:disabled) {
+      background: var(--btn-hover);
+    }
+
+    .exc-btn:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .exc-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .exc-btn.active {
+      background: var(--btn-active-bg);
+      color: var(--btn-active-text);
+    }
+
+    /* Small indicator dot showing a second click opens customization */
+    .exc-btn.active.customizable::after {
+      content: "";
+      position: absolute;
+      bottom: 3px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.75;
+    }
+
+    .exc-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.85;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .exc-divider {
+      width: 1px;
+      height: 22px;
+      background: var(--island-border);
+      margin: 0 2px;
+      flex-shrink: 0;
+    }
+
+    /* Color Swatch Button inside the Excalidraw Bar */
+    .color-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      padding: 0;
+      margin: 0 1px;
+    }
+
+    .color-btn-inner {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 1.5px solid rgba(255, 255, 255, 0.28);
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    [data-theme="light"] .color-btn-inner {
+      border-color: rgba(0, 0, 0, 0.22);
+    }
+
+    .color-btn.active {
+      background: var(--btn-active-bg);
+    }
+
+    .color-btn.active .color-btn-inner {
+      transform: scale(1.12);
+      box-shadow: 0 0 0 2px var(--island-bg), 0 0 0 3.5px var(--accent);
+    }
+
+    /* Page Counter in Bottom-Left Island */
+    .page-counter {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--icon-color);
+      padding: 0 6px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .page-num-input {
+      width: 34px;
+      height: 26px;
+      background: transparent;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      color: var(--icon-color);
+      text-align: center;
+      font-size: 12px;
+      font-weight: 600;
+      outline: none;
+    }
+
+    .page-num-input:hover,
+    .page-num-input:focus {
+      border-color: var(--island-border);
+      background: var(--btn-hover);
+    }
+
+    /* Compact Popover Panels (Icon-Only Online Class Layout) */
+    .exc-popover {
+      --pop-x: -50%;
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translate(var(--pop-x), 0);
+      background: var(--popover-bg);
+      border-radius: 11px;
+      padding: 10px;
+      box-shadow: var(--island-shadow);
+      z-index: 60;
+      min-width: 210px;
+      color: var(--icon-color);
+      animation: popUp 0.12s ease-out;
+      border: 1px solid var(--island-border);
+    }
+
+    @keyframes popUp {
+      from {
+        opacity: 0;
+        transform: translate(var(--pop-x, 0px), 6px) scale(0.98);
+      }
+      to {
+        opacity: 1;
+        transform: translate(var(--pop-x, 0px), 0px) scale(1);
+      }
+    }
+
+    .popover-section {
+      margin-bottom: 8px;
+    }
+
+    .popover-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .popover-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--icon-muted);
+      margin-bottom: 5px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      letter-spacing: 0.02em;
+    }
+
+    .option-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .option-pill {
+      flex: 1;
+      height: 32px;
+      min-width: 32px;
+      border-radius: 7px;
+      border: 1px solid var(--island-border);
+      background: transparent;
+      color: var(--icon-color);
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      position: relative;
+      transition: all 0.12s ease;
+      padding: 0 6px;
+    }
+
+    .option-pill:hover {
+      background: var(--btn-hover);
+    }
+
+    .option-pill.active {
+      background: var(--btn-active-bg);
+      color: var(--btn-active-text);
+      border-color: var(--accent);
+    }
+
+    .option-pill.active.customizable-slot::after {
+      content: "";
+      position: absolute;
+      bottom: 2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: currentColor;
+      opacity: 0.8;
+    }
+
+    .option-pill svg {
+      width: 17px;
+      height: 17px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.85;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Excalidraw-Style Touch Slider for Opacity & Custom Width */
+    .exc-slider-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 95px;
+    }
+
+    .exc-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 999px;
+      background: var(--island-border);
+      outline: none;
+      cursor: pointer;
+    }
+
+    .exc-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 2px solid #ffffff;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+    }
+
+    .exc-slider::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .width-customizer-box {
+      margin-top: 6px;
+      padding: 6px 8px;
+      border-radius: 7px;
+      background: rgba(105, 101, 219, 0.1);
+      border: 1px dashed var(--accent);
+      animation: popUp 0.1s ease-out;
+    }
+
+    /* Compact 2-Row Horizontal Scrolling Icon Strip inside Three-Dots */
+    .tools-scroll-grid {
+      display: grid;
+      grid-template-rows: repeat(2, 36px);
+      grid-auto-flow: column;
+      grid-auto-columns: 36px;
+      gap: 5px;
+      max-width: 196px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
+    }
+
+    .tools-scroll-grid::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .tools-scroll-grid::-webkit-scrollbar-thumb {
+      background: var(--island-border);
+      border-radius: 99px;
+    }
+
+    .tool-grid-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--island-border);
+      background: transparent;
+      color: var(--icon-color);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.12s ease;
+      padding: 0;
+    }
+
+    .tool-grid-btn:hover {
+      background: var(--btn-hover);
+    }
+
+    .tool-grid-btn.active {
+      background: var(--btn-active-bg);
+      color: var(--btn-active-text);
+      border-color: var(--accent);
+    }
+
+    .tool-grid-btn svg {
+      width: 18px;
+      height: 18px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.85;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    /* Color Grid inside Color Customization Popover */
+    .color-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .palette-swatch {
+      width: 28px;
+      height: 28px;
+      border-radius: 7px;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      cursor: pointer;
+      transition: transform 0.1s ease;
+      justify-self: center;
+    }
+
+    [data-theme="light"] .palette-swatch {
+      border-color: rgba(0, 0, 0, 0.15);
+    }
+
+    .palette-swatch:hover {
+      transform: scale(1.12);
+    }
+
+    .palette-swatch.selected {
+      box-shadow: 0 0 0 2px var(--popover-bg), 0 0 0 4px var(--accent);
+    }
+
+    .color-wheel-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid var(--island-border);
+    }
+
+    .color-wheel-input {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 32px;
+      border: 1px solid var(--island-border);
+      border-radius: 7px;
+      background: transparent;
+      cursor: pointer;
+      padding: 2px;
+    }
+
+    .color-wheel-input::-webkit-color-swatch-wrapper {
+      padding: 0;
+    }
+
+    .color-wheel-input::-webkit-color-swatch {
+      border: none;
+      border-radius: 5px;
+    }
+
+    /* Three-Dot Menu List */
+    .menu-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 245px;
+    }
+
+    .menu-item {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 7px;
+      border: none;
+      background: transparent;
+      color: var(--icon-color);
+      font-size: 13px;
+      font-weight: 500;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      transition: background 0.12s ease;
+    }
+
+    .menu-item:hover:not(:disabled) {
+      background: var(--btn-hover);
+    }
+
+    .menu-item-left {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+
+    .menu-item svg {
+      width: 16px;
+      height: 16px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.8;
+    }
+
+    .menu-divider {
+      height: 1px;
+      background: var(--island-border);
+      margin: 4px 0;
+    }
+
+    .menu-badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 99px;
+      background: var(--btn-active-bg);
+      color: var(--btn-active-text);
+      font-weight: 600;
+    }
+
+    /* Single-Column Low-Res Page Preview Drawer (Bottom-Right) */
+    .preview-drawer {
+      position: fixed;
+      bottom: 66px;
+      right: 16px;
+      width: 210px;
+      max-height: min(68vh, 520px);
+      background: var(--popover-bg);
+      border: 1px solid var(--island-border);
+      border-radius: 12px;
+      box-shadow: var(--island-shadow);
+      z-index: 55;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      animation: popUp 0.14s ease-out;
+    }
+
+    .preview-drawer-header {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--island-border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--icon-color);
+    }
+
+    .preview-list {
+      padding: 10px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .preview-card {
+      border-radius: 8px;
+      border: 2px solid var(--island-border);
+      background: rgba(0, 0, 0, 0.15);
+      overflow: hidden;
+      cursor: pointer;
+      transition: border-color 0.12s ease, transform 0.1s ease;
+    }
+
+    .preview-card:hover {
+      transform: translateY(-1px);
+    }
+
+    .preview-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(105, 101, 219, 0.28);
+    }
+
+    .preview-thumb {
+      width: 100%;
+      height: 104px;
+      object-fit: contain;
+      background: #ffffff;
+      display: block;
+    }
+
+    .preview-meta {
+      padding: 5px 8px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--icon-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .ink-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent);
+      display: inline-block;
+    }
+
+    /* Status Pill Toast */
+    .status-toast {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--popover-bg);
+      color: var(--icon-color);
+      border: 1px solid var(--island-border);
+      box-shadow: var(--island-shadow);
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 80;
+    }
+
+    .status-spinner {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: 2px solid var(--icon-muted);
+      border-top-color: var(--accent);
+      animation: spin 0.75s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    @media (max-width: 768px) {
+      .top-navbar {
+        top: 8px;
+        padding: 4px;
+      }
+      .nav-pill-btn span.nav-text {
+        display: none;
+      }
+      .dock-center {
+        max-width: calc(100vw - 16px);
+        overflow-x: auto;
+      }
+      .dock-left {
+        bottom: 60px;
+        left: 10px;
+      }
+      .dock-right {
+        bottom: 60px;
+        right: 10px;
+      }
+      .selection-layer-bar {
+        bottom: 106px;
+      }
+      .preview-drawer {
+        bottom: 106px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+    // =========================================================================
+    // 1. CONFIGURE PDF.JS WORKER (Supports both Online CDN and Inline Offline)
+    // =========================================================================
+    (function setupPdfWorker() {
+      if (!window.pdfjsLib) return;
+      const inlineWorkerEl = document.getElementById("inline-pdf-worker");
+      if (inlineWorkerEl && inlineWorkerEl.textContent.trim().length > 50) {
+        const blob = new Blob([inlineWorkerEl.textContent], { type: "application/javascript" });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(blob);
+      } else {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+      }
+    })();
+
+    // =========================================================================
+    // 2. 4K RESOLUTION PDF & WHITEBOARD ENGINE (Light & Dark Paired Templates)
+    // =========================================================================
+    const TARGET_4K_DIMENSION = 3840; // True 4K longest edge resolution
+    const NATIVE_SCENE_DIMENSION = 1280; // Native Excalidraw 1:1 scene scale for authentic real-time pen smoothing
+
+    // Helper to convert between Light and Dark equivalent background IDs
+    function getOppositeThemeBgId(bgStyle, targetTheme) {
+      if (!bgStyle || bgStyle === "custom") return bgStyle;
+      if (bgStyle === "white") bgStyle = "light-plain";
+      if (bgStyle === "black") bgStyle = "dark-plain";
+      if (targetTheme === "dark" && bgStyle.startsWith("light-")) {
+        return "dark-" + bgStyle.slice(6);
+      }
+      if (targetTheme === "light" && bgStyle.startsWith("dark-")) {
+        return "light-" + bgStyle.slice(5);
+      }
+      return bgStyle;
+    }
+
+    class PageEngine4K {
+      constructor() {
+        this.pdfDoc = null;
+        this.defaultBg = {
+          bgStyle: "dark-plain",
+          customBgDataUrl: null
+        };
+        // Virtual page descriptors (starts with dark-plain since initial UI is dark mode)
+        this.pages = [
+          { type: "blank", bgStyle: "dark-plain", customBgDataUrl: null, width: 3840, height: 2160 }
+        ];
+        // Lightweight vector stroke store per page index
+        this.pageVectors = {};
+        // Optional full-PDF pre-rasterized 4K cache (used when importMode === 'all')
+        this.preRasterizedCache = {};
+        // Low-res thumbnail cache (1-column preview drawer, ~5-10KB each)
+        this.thumbnailCache = {};
+      }
+
+      clearCaches() {
+        this.preRasterizedCache = {};
+        this.thumbnailCache = {};
+      }
+
+      setDefaultBackground(bgStyle, customBgDataUrl = null) {
+        this.defaultBg = {
+          bgStyle,
+          customBgDataUrl: customBgDataUrl || this.defaultBg.customBgDataUrl
+        };
+      }
+
+      applyBackgroundToPage(pageIndex, bgStyle, customBgDataUrl = null) {
+        const desc = this.pages[pageIndex];
+        if (!desc) return;
+        desc.type = "blank";
+        desc.bgStyle = bgStyle;
+        if (customBgDataUrl) {
+          desc.customBgDataUrl = customBgDataUrl;
+        } else if (bgStyle === "custom") {
+          desc.customBgDataUrl = this.defaultBg.customBgDataUrl;
+        }
+        delete this.preRasterizedCache[pageIndex];
+        delete this.thumbnailCache[pageIndex];
+      }
+
+      async loadPdfBuffer(arrayBuffer) {
+        if (this.pdfDoc) {
+          try { await this.pdfDoc.destroy(); } catch (e) {}
+        }
+        this.clearCaches();
+        const loadingTask = window.pdfjsLib.getDocument({ data: arrayBuffer });
+        this.pdfDoc = await loadingTask.promise;
+
+        const newPages = [];
+        for (let i = 1; i <= this.pdfDoc.numPages; i++) {
+          newPages.push({
+            type: "pdf",
+            pdfPageNum: i,
+            width: 3840,
+            height: 2160
+          });
+        }
+        this.pages = newPages;
+        this.pageVectors = {};
+        return this.pages.length;
+      }
+
+      async drawBlankOrCustomBackground(ctx, canvas, descriptor) {
+        let style = descriptor.bgStyle || "dark-plain";
+        if (style === "white") style = "light-plain";
+        if (style === "black") style = "dark-plain";
+
+        const customUrl = descriptor.customBgDataUrl || this.defaultBg.customBgDataUrl;
+
+        if (style === "custom" && customUrl) {
+          await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              const maxDim = Math.max(img.width || 1920, img.height || 1080);
+              const scale = TARGET_4K_DIMENSION / maxDim;
+              canvas.width = Math.round((img.width || 1920) * scale);
+              canvas.height = Math.round((img.height || 1080) * scale);
+              ctx.fillStyle = "#ffffff";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              descriptor.width = canvas.width;
+              descriptor.height = canvas.height;
+              resolve();
+            };
+            img.onerror = () => {
+              canvas.width = 3840;
+              canvas.height = 2160;
+              ctx.fillStyle = "#121214";
+              ctx.fillRect(0, 0, canvas.width, canvas.height);
+              resolve();
+            };
+            img.src = customUrl;
+          });
+          return;
+        }
+
+        canvas.width = descriptor.width || 3840;
+        canvas.height = descriptor.height || 2160;
+        const w = canvas.width;
+        const h = canvas.height;
+
+        const isDark = style.startsWith("dark-");
+        const pattern = style.replace(/^(light|dark)-/, "");
+
+        // 1. Base Fill Color
+        if (style === "dark-alt") {
+          ctx.fillStyle = "#0f291e"; // Green Chalkboard
+        } else if (style === "light-alt") {
+          ctx.fillStyle = "#fdf8ed"; // Warm Cream Paper
+        } else if (isDark) {
+          ctx.fillStyle = "#141417"; // Deep Blackboard
+        } else {
+          ctx.fillStyle = "#ffffff"; // Crisp Whiteboard
+        }
+        ctx.fillRect(0, 0, w, h);
+
+        const linePrimary = isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(15, 23, 42, 0.11)";
+        const lineSecondary = isDark ? "rgba(255, 255, 255, 0.05)" : "rgba(15, 23, 42, 0.05)";
+        const ruleBlue = isDark ? "rgba(56, 189, 248, 0.24)" : "rgba(59, 130, 246, 0.24)";
+        const marginRed = isDark ? "rgba(248, 113, 113, 0.4)" : "rgba(239, 68, 68, 0.36)";
+        const dotColor = isDark ? "rgba(255, 255, 255, 0.24)" : "rgba(15, 23, 42, 0.24)";
+        const accentAxis = isDark ? "rgba(148, 163, 184, 0.55)" : "rgba(71, 85, 105, 0.55)";
+
+        // 2. Pattern Overlay
+        if (pattern === "grid") {
+          const step = 96;
+          ctx.strokeStyle = linePrimary;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let x = step; x < w; x += step) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
+          }
+          for (let y = step; y < h; y += step) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+          }
+          ctx.stroke();
+        } else if (pattern === "dots") {
+          const step = 96;
+          ctx.fillStyle = dotColor;
+          for (let x = step; x < w; x += step) {
+            for (let y = step; y < h; y += step) {
+              ctx.beginPath();
+              ctx.arc(x, y, 3.8, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+        } else if (pattern === "ruled" || pattern === "wideruled") {
+          const step = pattern === "wideruled" ? 136 : 92;
+          ctx.strokeStyle = ruleBlue;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          for (let y = 180; y < h; y += step) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+          }
+          ctx.stroke();
+          ctx.strokeStyle = marginRed;
+          ctx.lineWidth = 3.5;
+          ctx.beginPath();
+          ctx.moveTo(320, 0);
+          ctx.lineTo(320, h);
+          ctx.stroke();
+        } else if (pattern === "cornell") {
+          const step = 92;
+          const cueX = 960;
+          const headerY = 220;
+          const summaryY = h - 420;
+          ctx.strokeStyle = ruleBlue;
+          ctx.lineWidth = 2.2;
+          ctx.beginPath();
+          for (let y = headerY + step; y < summaryY; y += step) {
+            ctx.moveTo(cueX, y);
+            ctx.lineTo(w, y);
+          }
+          ctx.stroke();
+          ctx.strokeStyle = marginRed;
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(0, headerY);
+          ctx.lineTo(w, headerY);
+          ctx.moveTo(cueX, headerY);
+          ctx.lineTo(cueX, summaryY);
+          ctx.moveTo(0, summaryY);
+          ctx.lineTo(w, summaryY);
+          ctx.stroke();
+        } else if (pattern === "isometric") {
+          const spacing = 110;
+          const rowH = Math.round(spacing * Math.sin(Math.PI / 3));
+          ctx.fillStyle = dotColor;
+          let row = 0;
+          for (let y = rowH; y < h; y += rowH) {
+            const offsetX = (row % 2) * (spacing / 2);
+            for (let x = spacing + offsetX; x < w - spacing / 2; x += spacing) {
+              ctx.beginPath();
+              ctx.arc(x, y, 4, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            row++;
+          }
+        } else if (pattern === "graph") {
+          const minor = 32;
+          const major = minor * 5;
+          ctx.strokeStyle = lineSecondary;
+          ctx.lineWidth = 1.5;
+          ctx.beginPath();
+          for (let x = minor; x < w; x += minor) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
+          }
+          for (let y = minor; y < h; y += minor) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+          }
+          ctx.stroke();
+
+          ctx.strokeStyle = linePrimary;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          for (let x = major; x < w; x += major) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
+          }
+          for (let y = major; y < h; y += major) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+          }
+          ctx.stroke();
+        } else if (pattern === "coord") {
+          const step = 96;
+          const cx = Math.floor(w / 2);
+          const cy = Math.floor(h / 2);
+          ctx.strokeStyle = linePrimary;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          for (let x = cx % step; x < w; x += step) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, h);
+          }
+          for (let y = cy % step; y < h; y += step) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+          }
+          ctx.stroke();
+
+          ctx.strokeStyle = accentAxis;
+          ctx.lineWidth = 5;
+          ctx.beginPath();
+          ctx.moveTo(0, cy);
+          ctx.lineTo(w, cy);
+          ctx.moveTo(cx, 0);
+          ctx.lineTo(cx, h);
+          ctx.stroke();
+        } else if (pattern === "music") {
+          const lineGap = 24;
+          const staffGap = 220;
+          ctx.strokeStyle = linePrimary;
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          for (let base = 200; base < h - 180; base += staffGap) {
+            for (let l = 0; l < 5; l++) {
+              const y = base + l * lineGap;
+              ctx.moveTo(180, y);
+              ctx.lineTo(w - 180, y);
+            }
+          }
+          ctx.stroke();
+        }
+      }
+
+      /**
+       * Renders a single page at crisp 4K resolution (3840px longest edge).
+       */
+      async renderPage4K(pageIndex, storeInCache = false) {
+        if (this.preRasterizedCache[pageIndex]) {
+          return this.preRasterizedCache[pageIndex];
+        }
+
+        const descriptor = this.pages[pageIndex];
+        if (!descriptor) throw new Error("Invalid page index");
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { alpha: false });
+
+        if (descriptor.type === "pdf" && this.pdfDoc) {
+          const page = await this.pdfDoc.getPage(descriptor.pdfPageNum);
+          const baseViewport = page.getViewport({ scale: 1.0 });
+          const maxBaseDim = Math.max(baseViewport.width, baseViewport.height) || 1000;
+          const scale4K = Math.min(Math.max(TARGET_4K_DIMENSION / maxBaseDim, 1.5), 5.0);
+          const viewport = page.getViewport({ scale: scale4K });
+
+          canvas.width = Math.floor(viewport.width);
+          canvas.height = Math.floor(viewport.height);
+
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+          await page.render({ canvasContext: ctx, viewport }).promise;
+          page.cleanup();
+
+          descriptor.width = canvas.width;
+          descriptor.height = canvas.height;
+        } else {
+          await this.drawBlankOrCustomBackground(ctx, canvas, descriptor);
+        }
+
+        // Also generate a lightweight low-res thumbnail if not already cached
+        if (!this.thumbnailCache[pageIndex]) {
+          const thumbCanvas = document.createElement("canvas");
+          const thumbScale = 220 / Math.max(canvas.width, canvas.height);
+          thumbCanvas.width = Math.max(1, Math.floor(canvas.width * thumbScale));
+          thumbCanvas.height = Math.max(1, Math.floor(canvas.height * thumbScale));
+          const tCtx = thumbCanvas.getContext("2d", { alpha: false });
+          tCtx.drawImage(canvas, 0, 0, thumbCanvas.width, thumbCanvas.height);
+          this.thumbnailCache[pageIndex] = thumbCanvas.toDataURL("image/jpeg", 0.6);
+          thumbCanvas.width = 0;
+          thumbCanvas.height = 0;
+        }
+
+        let dataURL = canvas.toDataURL("image/webp", 0.88);
+        if (!dataURL.startsWith("data:image/webp")) {
+          dataURL = canvas.toDataURL("image/jpeg", 0.90);
+        }
+
+        // Map 4K pixel dimensions to even-integer scene dimensions matched to the screen viewport
+        // so Fit Mode runs at a clean 1.0 zoom without fractional sub-pixel offscreen-canvas jitter.
+        const vw = window.innerWidth || 1280;
+        const vh = window.innerHeight || 720;
+        const fitScale = Math.min(vw / canvas.width, vh / canvas.height);
+        const sceneWidth = Math.max(2, Math.round((canvas.width * fitScale) / 2) * 2);
+        const sceneHeight = Math.max(2, Math.round((canvas.height * fitScale) / 2) * 2);
+
+        const result = {
+          dataURL,
+          width: sceneWidth,
+          height: sceneHeight,
+          pixelWidth: canvas.width,
+          pixelHeight: canvas.height,
+          mimeType: dataURL.startsWith("data:image/webp") ? "image/webp" : "image/jpeg"
+        };
+
+        // Immediately release GPU canvas memory
+        canvas.width = 0;
+        canvas.height = 0;
+
+        if (storeInCache) {
+          this.preRasterizedCache[pageIndex] = result;
+        }
+
+        return result;
+      }
+
+      /**
+       * Renders a tiny low-res thumbnail (~220px) for the bottom-right preview column.
+       */
+      async renderLowResThumbnail(pageIndex) {
+        if (this.thumbnailCache[pageIndex]) {
+          return this.thumbnailCache[pageIndex];
+        }
+        const descriptor = this.pages[pageIndex];
+        if (!descriptor) return "";
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d", { alpha: false });
+
+        if (descriptor.type === "pdf" && this.pdfDoc) {
+          const page = await this.pdfDoc.getPage(descriptor.pdfPageNum);
+          const baseVp = page.getViewport({ scale: 1.0 });
+          const scale = 220 / Math.max(baseVp.width, baseVp.height);
+          const vp = page.getViewport({ scale });
+          canvas.width = Math.max(1, Math.floor(vp.width));
+          canvas.height = Math.max(1, Math.floor(vp.height));
+          ctx.fillStyle = "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          await page.render({ canvasContext: ctx, viewport: vp }).promise;
+          page.cleanup();
+        } else {
+          canvas.width = 220;
+          canvas.height = 124;
+          const st = descriptor.bgStyle || "dark-plain";
+          const isDark = st.startsWith("dark-");
+          ctx.fillStyle =
+            st === "dark-alt" ? "#0f291e" : st === "light-alt" ? "#fdf8ed" : isDark ? "#141417" : "#ffffff";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        const thumbUrl = canvas.toDataURL("image/jpeg", 0.6);
+        canvas.width = 0;
+        canvas.height = 0;
+        this.thumbnailCache[pageIndex] = thumbUrl;
+        return thumbUrl;
+      }
+
+      insertBlankPageAfter(currentIndex, overrideStyle = null) {
+        const refPage = this.pages[currentIndex] || { width: 3840, height: 2160 };
+        const newIndex = currentIndex + 1;
+
+        const shiftMap = (mapObj) => {
+          const updated = {};
+          Object.keys(mapObj).forEach((k) => {
+            const idx = parseInt(k, 10);
+            updated[idx <= currentIndex ? idx : idx + 1] = mapObj[idx];
+          });
+          return updated;
+        };
+
+        this.pageVectors = shiftMap(this.pageVectors);
+        this.preRasterizedCache = shiftMap(this.preRasterizedCache);
+        this.thumbnailCache = shiftMap(this.thumbnailCache);
+
+        const chosenStyle = overrideStyle || this.defaultBg.bgStyle || "dark-plain";
+
+        this.pages.splice(newIndex, 0, {
+          type: "blank",
+          bgStyle: chosenStyle,
+          customBgDataUrl: this.defaultBg.customBgDataUrl,
+          width: refPage.width || 3840,
+          height: refPage.height || 2160
+        });
+
+        return newIndex;
+      }
+    }
+
+    // =========================================================================
+    // 3. LOCKED BACKGROUND ELEMENT FACTORY
+    // =========================================================================
+    function createLockedPageElement(pageIndex, fileId, width, height) {
+      return {
+        id: `__page_bg_${pageIndex}__`,
+        type: "image",
+        x: 0,
+        y: 0,
+        width,
+        height,
+        angle: 0,
+        strokeColor: "transparent",
+        backgroundColor: "transparent",
+        fillStyle: "solid",
+        strokeWidth: 1,
+        strokeStyle: "solid",
+        roughness: 0,
+        opacity: 100,
+        groupIds: [],
+        frameId: null,
+        roundness: null,
+        seed: 1001 + pageIndex,
+        version: 1,
+        versionNonce: 2002 + pageIndex,
+        isDeleted: false,
+        boundElements: null,
+        updated: Date.now(),
+        link: null,
+        locked: true,
+        fileId,
+        scale: [1, 1],
+        status: "saved"
+      };
+    }
+
+    // =========================================================================
+    // 4. AUTO SHAPE RECOGNIZER (Converts Freehand Strokes to Clean Shapes)
+    // =========================================================================
+    function recognizeAndCreateGeometricElement(freedrawEl, shapeCfg) {
+      const pts = freedrawEl.points;
+      if (!Array.isArray(pts) || pts.length < 5) return null;
+
+      const start = pts[0];
+      const end = pts[pts.length - 1];
+      const directDist = Math.hypot(end[0] - start[0], end[1] - start[1]);
+
+      let pathLength = 0;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (let i = 0; i < pts.length; i++) {
+        const [px, py] = pts[i];
+        if (px < minX) minX = px;
+        if (py < minY) minY = py;
+        if (px > maxX) maxX = px;
+        if (py > maxY) maxY = py;
+        if (i > 0) {
+          pathLength += Math.hypot(px - pts[i - 1][0], py - pts[i - 1][1]);
+        }
+      }
+
+      const boxW = maxX - minX;
+      const boxH = maxY - minY;
+      const diag = Math.hypot(boxW, boxH);
+      if (diag < 24) return null;
+
+      const baseProps = {
+        x: freedrawEl.x + minX,
+        y: freedrawEl.y + minY,
+        width: Math.max(12, boxW),
+        height: Math.max(12, boxH),
+        angle: 0,
+        strokeColor: freedrawEl.strokeColor,
+        backgroundColor:
+          shapeCfg && shapeCfg.fillStyle !== "transparent"
+            ? freedrawEl.strokeColor + "33"
+            : "transparent",
+        fillStyle:
+          shapeCfg && shapeCfg.fillStyle !== "transparent" ? shapeCfg.fillStyle : "solid",
+        strokeWidth: (shapeCfg && shapeCfg.strokeWidth) || freedrawEl.strokeWidth || 3.5,
+        strokeStyle: (shapeCfg && shapeCfg.strokeStyle) || "solid",
+        roughness: shapeCfg && typeof shapeCfg.roughness === "number" ? shapeCfg.roughness : 0,
+        opacity: (shapeCfg && shapeCfg.opacity) || freedrawEl.opacity || 100,
+        groupIds: [],
+        frameId: null,
+        roundness: { type: 3 },
+        seed: Math.floor(Math.random() * 100000),
+        version: 2,
+        versionNonce: Math.floor(Math.random() * 100000000),
+        isDeleted: false,
+        boundElements: null,
+        updated: Date.now(),
+        link: null,
+        locked: false
+      };
+
+      // 1. Check if straight line (path length very close to direct distance)
+      if (directDist / (pathLength + 0.001) > 0.86) {
+        return {
+          ...baseProps,
+          id: "shape_line_" + Date.now(),
+          type: "line",
+          x: freedrawEl.x + start[0],
+          y: freedrawEl.y + start[1],
+          width: Math.abs(end[0] - start[0]),
+          height: Math.abs(end[1] - start[1]),
+          points: [
+            [0, 0],
+            [end[0] - start[0], end[1] - start[1]]
+          ],
+          lastCommittedPoint: null,
+          startBinding: null,
+          endBinding: null,
+          startArrowhead: null,
+          endArrowhead: null
+        };
+      }
+
+      // 2. Check if closed loop (start and end points close relative to bounding diagonal)
+      const isClosed = directDist < diag * 0.42;
+      if (!isClosed) return null;
+
+      // Measure radial variance from center to distinguish circle/ellipse vs rectangle
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const rx = Math.max(10, boxW / 2);
+      const ry = Math.max(10, boxH / 2);
+
+      let normErrSum = 0;
+      for (let i = 0; i < pts.length; i++) {
+        const dx = (pts[i][0] - cx) / rx;
+        const dy = (pts[i][1] - cy) / ry;
+        const r = Math.hypot(dx, dy);
+        normErrSum += Math.abs(r - 1);
+      }
+      const avgEllipseErr = normErrSum / pts.length;
+
+      if (avgEllipseErr < 0.22) {
+        return {
+          ...baseProps,
+          id: "shape_ellipse_" + Date.now(),
+          type: "ellipse"
+        };
+      }
+
+      return {
+        ...baseProps,
+        id: "shape_rect_" + Date.now(),
+        type: "rectangle"
+      };
+    }
+
+    // =========================================================================
+    // 5. MONOCHROMATIC EXCALIDRAW-STYLE SVG ICONS & STRICT LASSO GEOMETRY
+    // =========================================================================
+    /**
+     * Combined Non-Zero Winding + Even-Odd Point-in-Polygon check.
+     * Handles both standard loops and hand-drawn lassos whose start/end tails cross over each other.
+     */
+    function isPointInPolygon(px, py, polygon) {
+      let evenOddInside = false;
+      let windingNumber = 0;
+
+      for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i][0], yi = polygon[i][1];
+        const xj = polygon[j][0], yj = polygon[j][1];
+
+        // Even-Odd Ray-Casting
+        const intersect =
+          yi > py !== yj > py &&
+          px < ((xj - xi) * (py - yi)) / (yj - yi + 1e-7) + xi;
+        if (intersect) evenOddInside = !evenOddInside;
+
+        // Non-Zero Winding Number (prevents self-overlapping tail loops from canceling out)
+        if (yj <= py) {
+          if (yi > py && (xi - xj) * (py - yj) - (px - xj) * (yi - yj) > 0) {
+            windingNumber++;
+          }
+        } else {
+          if (yi <= py && (xi - xj) * (py - yj) - (px - xj) * (yi - yj) < 0) {
+            windingNumber--;
+          }
+        }
+      }
+      return windingNumber !== 0 || evenOddInside;
+    }
+
+    function rotatePoint(px, py, cx, cy, angle) {
+      if (!angle) return [px, py];
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const dx = px - cx;
+      const dy = py - cy;
+      return [cx + dx * cos - dy * sin, cy + dx * sin + dy * cos];
+    }
+
+    /**
+     * Compute true visual bounding box of an element in scene coordinates (handles negative point offsets)
+     */
+    function getElementSceneBounds(el) {
+      if (Array.isArray(el.points) && el.points.length > 0) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (let i = 0; i < el.points.length; i++) {
+          const px = el.x + el.points[i][0];
+          const py = el.y + el.points[i][1];
+          if (px < minX) minX = px;
+          if (py < minY) minY = py;
+          if (px > maxX) maxX = px;
+          if (py > maxY) maxY = py;
+        }
+        return { minX, minY, maxX, maxY };
+      }
+      const x1 = el.x || 0;
+      const y1 = el.y || 0;
+      const x2 = x1 + (el.width || 0);
+      const y2 = y1 + (el.height || 0);
+      return {
+        minX: Math.min(x1, x2),
+        minY: Math.min(y1, y2),
+        maxX: Math.max(x1, x2),
+        maxY: Math.max(y1, y2)
+      };
+    }
+
+    /**
+     * Generates accurate geometric sample points along the TRUE visual shape of an element
+     * (e.g. actual circle perimeter for ellipses instead of empty square bounding-box corners,
+     * interpolated segments for lines/triangles, and stroke points for freedraw).
+     */
+    function getElementTrueSamplePoints(el) {
+      const bounds = getElementSceneBounds(el);
+      const cx = (bounds.minX + bounds.maxX) / 2;
+      const cy = (bounds.minY + bounds.maxY) / 2;
+      const angle = el.angle || 0;
+      const samples = [];
+
+      // 1. Point-based elements: freedraw, line, arrow, triangle
+      if (Array.isArray(el.points) && el.points.length > 0) {
+        if (el.type === "freedraw" || el.points.length > 12) {
+          const step = Math.max(1, Math.floor(el.points.length / 28));
+          for (let i = 0; i < el.points.length; i += step) {
+            samples.push(
+              rotatePoint(el.x + el.points[i][0], el.y + el.points[i][1], cx, cy, angle)
+            );
+          }
+          const last = el.points[el.points.length - 1];
+          samples.push(rotatePoint(el.x + last[0], el.y + last[1], cx, cy, angle));
+        } else {
+          // Interpolate along segments (for 2-point lines, arrows, or 4-point triangles)
+          for (let i = 0; i < el.points.length - 1; i++) {
+            const p1 = el.points[i];
+            const p2 = el.points[i + 1];
+            const steps = 6;
+            for (let s = 0; s <= steps; s++) {
+              const t = s / steps;
+              const px = el.x + p1[0] + (p2[0] - p1[0]) * t;
+              const py = el.y + p1[1] + (p2[1] - p1[1]) * t;
+              samples.push(rotatePoint(px, py, cx, cy, angle));
+            }
+          }
+        }
+        return { samples, center: [cx, cy] };
+      }
+
+      // 2. Circle / Ellipse: sample along the true ellipse perimeter (NOT the outer square corners!)
+      if (el.type === "ellipse") {
+        const rx = Math.max(2, (bounds.maxX - bounds.minX) / 2);
+        const ry = Math.max(2, (bounds.maxY - bounds.minY) / 2);
+        const numPts = 16;
+        for (let i = 0; i < numPts; i++) {
+          const theta = (i / numPts) * Math.PI * 2;
+          const px = cx + rx * Math.cos(theta);
+          const py = cy + ry * Math.sin(theta);
+          samples.push(rotatePoint(px, py, cx, cy, angle));
+        }
+        samples.push([cx, cy]);
+        return { samples, center: [cx, cy] };
+      }
+
+      // 3. Diamond: sample along the 4 diamond edges
+      if (el.type === "diamond") {
+        const verts = [
+          [cx, bounds.minY],
+          [bounds.maxX, cy],
+          [cx, bounds.maxY],
+          [bounds.minX, cy]
+        ];
+        for (let i = 0; i < 4; i++) {
+          const v1 = verts[i];
+          const v2 = verts[(i + 1) % 4];
+          for (let s = 0; s < 4; s++) {
+            const t = s / 4;
+            samples.push(
+              rotatePoint(v1[0] + (v2[0] - v1[0]) * t, v1[1] + (v2[1] - v1[1]) * t, cx, cy, angle)
+            );
+          }
+        }
+        samples.push([cx, cy]);
+        return { samples, center: [cx, cy] };
+      }
+
+      // 4. Rectangle, Text, Sticky Note, Image: sample along the 4 edges + center
+      const verts = [
+        [bounds.minX, bounds.minY],
+        [bounds.maxX, bounds.minY],
+        [bounds.maxX, bounds.maxY],
+        [bounds.minX, bounds.maxY]
+      ];
+      for (let i = 0; i < 4; i++) {
+        const v1 = verts[i];
+        const v2 = verts[(i + 1) % 4];
+        for (let s = 0; s < 4; s++) {
+          const t = s / 4;
+          samples.push(
+            rotatePoint(v1[0] + (v2[0] - v1[0]) * t, v1[1] + (v2[1] - v1[1]) * t, cx, cy, angle)
+          );
+        }
+      }
+      samples.push([cx, cy]);
+      return { samples, center: [cx, cy] };
+    }
+
+    /**
+     * Selects an element when its true geometry is encircled by the free-draw lasso.
+     * Allows a tiny 10% edge tolerance so slightly open loops or grazing a border still select reliably,
+     * while rejecting objects that are merely touched or partially crossed.
+     */
+    function isElementFullyInsideLasso(el, lassoPoly) {
+      if (!el || el.isDeleted || String(el.id).startsWith("__page_bg_")) return false;
+      if (!Array.isArray(lassoPoly) || lassoPoly.length < 3) return false;
+
+      const { samples } = getElementTrueSamplePoints(el);
+      if (samples.length === 0) return false;
+
+      let insideCount = 0;
+      for (let i = 0; i < samples.length; i++) {
+        if (isPointInPolygon(samples[i][0], samples[i][1], lassoPoly)) {
+          insideCount++;
+        }
+      }
+
+      const ratio = insideCount / samples.length;
+      return ratio >= 0.88;
+    }
+
+    const h = window.React.createElement;
+
+    const Icons = {
+      fullscreenEnter: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" })
+        ),
+      fullscreenExit: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" })
+        ),
+      lasso: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", {
+            d: "M7 22a5 5 0 0 1-2-4",
+            strokeDasharray: "2 2"
+          }),
+          h("path", {
+            d: "M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1",
+            strokeDasharray: "3 2"
+          }),
+          h("circle", { cx: "5", cy: "18", r: "2" })
+        ),
+      layerUp: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("polyline", { points: "17 11 12 6 7 11" }),
+          h("line", { x1: "12", y1: "6", x2: "12", y2: "18" }),
+          h("line", { x1: "5", y1: "3", x2: "19", y2: "3" })
+        ),
+      layerDown: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("polyline", { points: "7 13 12 18 17 13" }),
+          h("line", { x1: "12", y1: "18", x2: "12", y2: "6" }),
+          h("line", { x1: "5", y1: "21", x2: "19", y2: "21" })
+        ),
+      layerFront: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("rect", { x: "8", y: "8", width: "12", height: "12", rx: "2" }),
+          h("path", { d: "M4 16V6a2 2 0 0 1 2-2h10" })
+        ),
+      layerBack: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("rect", { x: "4", y: "4", width: "12", height: "12", rx: "2" }),
+          h("path", { d: "M20 8v10a2 2 0 0 1-2 2H8" })
+        ),
+      plus: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("line", { x1: "12", y1: "5", x2: "12", y2: "19" }),
+          h("line", { x1: "5", y1: "12", x2: "19", y2: "12" })
+        ),
+      lockClosed: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("rect", { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }),
+          h("path", { d: "M7 11V7a5 5 0 0 1 10 0v4" })
+        ),
+      backgroundGrid: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("rect", { x: "3", y: "3", width: "18", height: "18", rx: "2" }),
+          h("line", { x1: "3", y1: "9", x2: "21", y2: "9" }),
+          h("line", { x1: "3", y1: "15", x2: "21", y2: "15" }),
+          h("line", { x1: "9", y1: "3", x2: "9", y2: "21" }),
+          h("line", { x1: "15", y1: "3", x2: "15", y2: "21" })
+        ),
+      autoShape: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M12 3l4.5 8h-9L12 3z" }),
+          h("rect", { x: "4", y: "14", width: "7", height: "7", rx: "1" }),
+          h("circle", { cx: "17.5", cy: "17.5", r: "3.5" })
+        ),
+      pen: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" }),
+          h("path", { d: "m15 5 4 4" })
+        ),
+      eraser: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21" }),
+          h("path", { d: "M22 21H7" }),
+          h("path", { d: "m5 11 9 9" })
+        ),
+      laser: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("circle", { cx: "12", cy: "12", r: "3" }),
+          h("path", { d: "M12 2v3m0 14v3M2 12h3m14 0h3m-3.5-6.5-2.1 2.1M7.6 16.4l-2.1 2.1m0-13 2.1 2.1m8.8 8.8 2.1 2.1" })
+        ),
+      pan: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M18 11V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v0" }),
+          h("path", { d: "M14 10V4a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2" }),
+          h("path", { d: "M10 10.5V6a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v8" }),
+          h("path", { d: "M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" })
+        ),
+      highlighter: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "m9 11-6 6v3h9l3-3" }),
+          h("path", { d: "m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4" })
+        ),
+      clearAll: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M3 6h18" }),
+          h("path", { d: "M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" }),
+          h("path", { d: "M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" }),
+          h("line", { x1: "10", y1: "11", x2: "10", y2: "17" }),
+          h("line", { x1: "14", y1: "11", x2: "14", y2: "17" })
+        ),
+      threeDots: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("circle", { cx: "12", cy: "12", r: "1.5", fill: "currentColor" }),
+          h("circle", { cx: "19", cy: "12", r: "1.5", fill: "currentColor" }),
+          h("circle", { cx: "5", cy: "12", r: "1.5", fill: "currentColor" })
+        ),
+      // Extra Excalidraw Tools inside Three-Dots Menu
+      rectangle: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("rect", { x: "3", y: "5", width: "18", height: "14", rx: "2" })
+        ),
+      triangle: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M12 4 3 20h18L12 4z" })
+        ),
+      circle: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("circle", { cx: "12", cy: "12", r: "8" })
+        ),
+      arrow: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("line", { x1: "5", y1: "19", x2: "19", y2: "5" }),
+          h("polyline", { points: "10 5 19 5 19 14" })
+        ),
+      line: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("line", { x1: "4", y1: "20", x2: "20", y2: "4" })
+        ),
+      text: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("polyline", { points: "4 7 4 4 20 4 20 7" }),
+          h("line", { x1: "9", y1: "20", x2: "15", y2: "20" }),
+          h("line", { x1: "12", y1: "4", x2: "12", y2: "20" })
+        ),
+      note: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z" }),
+          h("polyline", { points: "15 3 15 9 21 9" })
+        ),
+      bucket: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z" }),
+          h("path", { d: "m5 2 5 5" }),
+          h("path", { d: "M2 13h15" }),
+          h("path", { d: "M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" })
+        ),
+      image: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("rect", { x: "3", y: "3", width: "18", height: "18", rx: "2", ry: "2" }),
+          h("circle", { cx: "8.5", cy: "8.5", r: "1.5" }),
+          h("polyline", { points: "21 15 16 10 5 21" })
+        ),
+      // Excalidraw Customization Property Icons
+      strokeConstant: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M4 16c3-6 5-6 8 0s5 6 8 0", strokeWidth: "2.5" })
+        ),
+      strokePressure: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M3 17C6 9 9 9 12 14C15 19 18 16 21 8", strokeWidth: "1.2" }),
+          h("path", { d: "M6 12C8 9 10 10 12 14C14 17 16 17 18 13", strokeWidth: "3.4" })
+        ),
+      styleSolid: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("line", { x1: "4", y1: "12", x2: "20", y2: "12", strokeWidth: "2.2" })
+        ),
+      styleDashed: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("line", { x1: "4", y1: "12", x2: "20", y2: "12", strokeWidth: "2.2", strokeDasharray: "4 4" })
+        ),
+      styleDotted: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("line", { x1: "4", y1: "12", x2: "20", y2: "12", strokeWidth: "2.6", strokeDasharray: "1 4" })
+        ),
+      sloppinessArchitect: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M4 16L10 8L15 14L20 6", strokeWidth: "2" })
+        ),
+      sloppinessArtist: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M4 16C7 9 9 9 12 13C15 17 17 12 20 7", strokeWidth: "2" })
+        ),
+      sloppinessCartoonist: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M3 16C6 8 9 9 12 14C15 18 18 11 21 6", strokeWidth: "1.6" }),
+          h("path", { d: "M4 17C7 10 9 10 12 13C15 16 17 12 20 8", strokeWidth: "1.6" })
+        ),
+      fillNone: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("rect", { x: "4", y: "4", width: "16", height: "16", rx: "2" }),
+          h("line", { x1: "5", y1: "19", x2: "19", y2: "5" })
+        ),
+      fillHachure: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("rect", { x: "4", y: "4", width: "16", height: "16", rx: "2" }),
+          h("line", { x1: "7", y1: "17", x2: "17", y2: "7" }),
+          h("line", { x1: "7", y1: "12", x2: "12", y2: "7" }),
+          h("line", { x1: "12", y1: "17", x2: "17", y2: "12" })
+        ),
+      fillSolid: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("rect", { x: "4", y: "4", width: "16", height: "16", rx: "2", fill: "currentColor" })
+        ),
+      chevronLeft: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "m15 18-6-6 6-6" })
+        ),
+      chevronRight: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "m9 18 6-6-6-6" })
+        ),
+      pagesPreview: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("rect", { x: "4", y: "3", width: "16", height: "7", rx: "1.5" }),
+          h("rect", { x: "4", y: "14", width: "16", height: "7", rx: "1.5" })
+        ),
+      folderOpen: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z" })
+        ),
+      plusPage: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" }),
+          h("polyline", { points: "14 2 14 8 20 8" }),
+          h("line", { x1: "12", y1: "18", x2: "12", y2: "12" }),
+          h("line", { x1: "9", y1: "15", x2: "15", y2: "15" })
+        ),
+      fitScreen: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("circle", { cx: "12", cy: "12", r: "3" }),
+          h("path", { d: "M3 7V5a2 2 0 0 1 2-2h2m10 0h2a2 2 0 0 1 2 2v2m0 10v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2" })
+        ),
+      downloadPdf: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" }),
+          h("polyline", { points: "7 10 12 15 17 10" }),
+          h("line", { x1: "12", y1: "15", x2: "12", y2: "3" })
+        ),
+      offlineUsb: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M13 2L3 14h9l-1 8 10-12h-9l1-8z" })
+        ),
+      settingsGear: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("circle", { cx: "12", cy: "12", r: "3" }),
+          h("path", { d: "M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" })
+        ),
+      sun: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("circle", { cx: "12", cy: "12", r: "4" }),
+          h("path", { d: "M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" })
+        ),
+      moon: () =>
+        h("svg", { viewBox: "0 0 24 24" },
+          h("path", { d: "M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" })
+        )
+    };
+
+    const STANDARD_PALETTE = [
+      "#ef4444", "#f97316", "#facc15", "#10b981", "#06b6d4",
+      "#3b82f6", "#8b5cf6", "#ec4899", "#ffffff", "#1e293b"
+    ];
+
+    const SHAPE_TOOLS = ["autoshape", "rectangle", "triangle", "circle", "arrow", "line"];
+    const EXTRA_TOOLS_LIST = [
+      { id: "highlighter", label: "Highlighter", icon: "highlighter" },
+      { id: "rectangle",   label: "Rectangle",   icon: "rectangle" },
+      { id: "triangle",    label: "Triangle",    icon: "triangle" },
+      { id: "circle",      label: "Circle",      icon: "circle" },
+      { id: "arrow",       label: "Arrow",       icon: "arrow" },
+      { id: "line",        label: "Line",        icon: "line" },
+      { id: "text",        label: "Text",        icon: "text" },
+      { id: "note",        label: "Sticky Note", icon: "note" },
+      { id: "bucket",      label: "Bucket Fill", icon: "bucket" },
+      { id: "image",       label: "Insert Image",icon: "image" },
+      { id: "pan",         label: "Pan Canvas",  icon: "pan" }
+    ];
+
+    // Complete Paired Light & Dark Background Templates (Sorted dynamically by current theme)
+    const ALL_BG_PRESETS = [
+      // Dark Versions
+      { id: "dark-plain",     theme: "dark",  label: "Black",       bg: "#141417" },
+      { id: "dark-alt",       theme: "dark",  label: "Chalkboard",  bg: "#0f291e" },
+      { id: "dark-grid",      theme: "dark",  label: "Dark Grid",   bg: "repeating-linear-gradient(0deg,#27272a,#27272a 1px,#141417 1px,#141417 10px),repeating-linear-gradient(90deg,#27272a,#27272a 1px,transparent 1px,transparent 10px)" },
+      { id: "dark-dots",      theme: "dark",  label: "Dark Dots",   bg: "radial-gradient(#52525b 1.2px, #141417 1.2px) 0 0 / 9px 9px" },
+      { id: "dark-ruled",     theme: "dark",  label: "Dark Lined",  bg: "repeating-linear-gradient(0deg,#1e3a8a,#1e3a8a 1px,#141417 1px,#141417 9px)" },
+      { id: "dark-wideruled", theme: "dark",  label: "Dark Wide",   bg: "repeating-linear-gradient(0deg,#1e3a8a,#1e3a8a 1px,#141417 1px,#141417 13px)" },
+      { id: "dark-cornell",   theme: "dark",  label: "Dark Cornell",bg: "linear-gradient(90deg,#141417 28%,#7f1d1d 28%,#7f1d1d 30%,#141417 30%)" },
+      { id: "dark-isometric", theme: "dark",  label: "Dark Iso",    bg: "radial-gradient(#64748b 1.2px, #141417 1.2px) 0 0 / 10px 10px" },
+      { id: "dark-graph",     theme: "dark",  label: "Dark Graph",  bg: "repeating-linear-gradient(0deg,#3f3f46,#3f3f46 1px,#141417 1px,#141417 7px),repeating-linear-gradient(90deg,#3f3f46,#3f3f46 1px,transparent 1px,transparent 7px)" },
+      { id: "dark-coord",     theme: "dark",  label: "Dark XY",     bg: "linear-gradient(0deg,transparent 47%,#64748b 47%,#64748b 53%,transparent 53%),linear-gradient(90deg,#141417 47%,#64748b 47%,#64748b 53%,#141417 53%)" },
+      { id: "dark-music",     theme: "dark",  label: "Dark Music",  bg: "repeating-linear-gradient(0deg,#3f3f46,#3f3f46 1px,#141417 1px,#141417 4px)" },
+
+      // Light Versions (Exact Light Equivalents)
+      { id: "light-plain",     theme: "light", label: "White",       bg: "#ffffff" },
+      { id: "light-alt",       theme: "light", label: "Warm Paper",  bg: "#fdf8ed" },
+      { id: "light-grid",      theme: "light", label: "White Grid",  bg: "repeating-linear-gradient(0deg,#e2e8f0,#e2e8f0 1px,#ffffff 1px,#ffffff 10px),repeating-linear-gradient(90deg,#e2e8f0,#e2e8f0 1px,transparent 1px,transparent 10px)" },
+      { id: "light-dots",      theme: "light", label: "White Dots",  bg: "radial-gradient(#94a3b8 1.2px, #ffffff 1.2px) 0 0 / 9px 9px" },
+      { id: "light-ruled",     theme: "light", label: "White Lined", bg: "repeating-linear-gradient(0deg,#bfdbfe,#bfdbfe 1px,#ffffff 1px,#ffffff 9px)" },
+      { id: "light-wideruled", theme: "light", label: "White Wide",  bg: "repeating-linear-gradient(0deg,#bfdbfe,#bfdbfe 1px,#ffffff 1px,#ffffff 13px)" },
+      { id: "light-cornell",   theme: "light", label: "Cornell",     bg: "linear-gradient(90deg,#ffffff 28%,#fca5a5 28%,#fca5a5 30%,#ffffff 30%)" },
+      { id: "light-isometric", theme: "light", label: "Isometric",   bg: "radial-gradient(#64748b 1.2px, #ffffff 1.2px) 0 0 / 10px 10px" },
+      { id: "light-graph",     theme: "light", label: "Graph Paper", bg: "repeating-linear-gradient(0deg,#cbd5e1,#cbd5e1 1px,#ffffff 1px,#ffffff 7px),repeating-linear-gradient(90deg,#cbd5e1,#cbd5e1 1px,transparent 1px,transparent 7px)" },
+      { id: "light-coord",     theme: "light", label: "XY Axes",     bg: "linear-gradient(0deg,transparent 47%,#64748b 47%,#64748b 53%,transparent 53%),linear-gradient(90deg,#ffffff 47%,#64748b 47%,#64748b 53%,#ffffff 53%)" },
+      { id: "light-music",     theme: "light", label: "Music Staff", bg: "repeating-linear-gradient(0deg,#cbd5e1,#cbd5e1 1px,#ffffff 1px,#ffffff 4px)" }
+    ];
+
+    // =========================================================================
+    // 6. MAIN REACT APPLICATION
+    // =========================================================================
+    const { useState, useEffect, useRef, useCallback } = window.React;
+
+    function App() {
+      const engineRef = useRef(new PageEngine4K());
+      const [excalidrawAPI, setExcalidrawAPI] = useState(null);
+
+      // Page state
+      const [currentPage, setCurrentPage] = useState(0);
+      const [totalPages, setTotalPages] = useState(1);
+      const [isBusy, setIsBusy] = useState(false);
+      const [statusMessage, setStatusMessage] = useState("");
+
+      // UI & Fullscreen State
+      const [isFullscreen, setIsFullscreen] = useState(false);
+      const [uiTheme, setUiTheme] = useState("dark");
+      const [toolLock, setToolLock] = useState(true);
+      const [isFitMode, setIsFitMode] = useState(true);
+      const isFitModeRef = useRef(true);
+
+      useEffect(() => {
+        isFitModeRef.current = isFitMode;
+      }, [isFitMode]);
+
+      // Default Page Background State (Starts dark in dark mode)
+      const [defaultBgStyle, setDefaultBgStyle] = useState("dark-plain");
+      const [hasCustomBgImage, setHasCustomBgImage] = useState(false);
+
+      // 4K Rasterization Mode: "lazy" (On-Demand per page) or "all" (Pre-Rasterize Whole PDF on import)
+      const [rasterizeMode, setRasterizeMode] = useState("lazy");
+
+      // Bottom-Right 1-Column Preview Drawer State
+      const [showPreviewDrawer, setShowPreviewDrawer] = useState(false);
+      const [thumbnails, setThumbnails] = useState({});
+
+      // Active Tool & Popover State
+      const [activeTool, setActiveTool] = useState("pen");
+      const [lastExtraTool, setLastExtraTool] = useState(null);
+      const [openPopover, setOpenPopover] = useState(null); // null | "tool" | "color" | "menu" | "background"
+      const [editingWidthSlot, setEditingWidthSlot] = useState(false);
+
+      // Tracks whether Shapes have been independently customized away from Pen defaults
+      const [shapesCustomized, setShapesCustomized] = useState(false);
+
+      // Color Slots
+      const [colorSlots, setColorSlots] = useState([
+        "#ef4444",
+        "#3b82f6",
+        "#10b981",
+        "#ffffff"
+      ]);
+      const [activeColorIdx, setActiveColorIdx] = useState(0);
+      const activeColor = colorSlots[activeColorIdx];
+
+      // Saved Tool Customization Configurations (Uses Excalidraw's native strokeWidth scale: 1, 2, 4)
+      const [toolConfigs, setToolConfigs] = useState({
+        pen: {
+          widthPresets: [1, 2, 4],
+          activeWidthSlot: 1,
+          strokeWidth: 2,
+          opacity: 100,
+          strokeType: "pressure" // "pressure" | "constant"
+        },
+        highlighter: {
+          widthPresets: [4, 8, 12],
+          activeWidthSlot: 1,
+          strokeWidth: 8,
+          opacity: 35,
+          strokeType: "constant",
+          color: "#facc15"
+        },
+        shapes: {
+          widthPresets: [1, 2, 4],
+          activeWidthSlot: 1,
+          strokeWidth: 2,
+          opacity: 100,
+          strokeStyle: "solid",
+          roughness: 0,
+          fillStyle: "transparent"
+        }
+      });
+
+      // Keep a live ref for the native capture-phase pointer listener
+      const strokeModeRef = useRef({
+        tool: "pen",
+        penType: "pressure",
+        hlType: "constant"
+      });
+      const isDrawingOnCanvasRef = useRef(false);
+
+      useEffect(() => {
+        strokeModeRef.current = {
+          tool: activeTool,
+          penType: toolConfigs.pen.strokeType,
+          hlType: toolConfigs.highlighter.strokeType
+        };
+      }, [activeTool, toolConfigs.pen.strokeType, toolConfigs.highlighter.strokeType]);
+
+      // Native Excalidraw Constant vs. Pressure Feed:
+      // Tracks active canvas strokes from pointerdown through pointerup so pressure never drops mid-stroke.
+      useEffect(() => {
+        const applyConstantPressure = (e) => {
+          try {
+            Object.defineProperty(e, "pointerType", {
+              get: () => "pen",
+              configurable: true
+            });
+            Object.defineProperty(e, "pressure", {
+              get: () => 0.22,
+              configurable: true
+            });
+          } catch (err) {}
+        };
+
+        const onPointerDownCapture = (e) => {
+          const target = e.target;
+          const onCanvas = Boolean(target && target.closest && target.closest(".excalidraw__canvas"));
+          if (!onCanvas) return;
+
+          // If Fit Mode is ON, block secondary multi-touch pointers from panning/zooming mid-stroke
+          if (isFitModeRef.current && e.isPrimary === false) {
+            e.stopPropagation();
+            e.preventDefault();
+            return;
+          }
+
+          isDrawingOnCanvasRef.current = true;
+          const { tool, penType, hlType } = strokeModeRef.current;
+          if ((tool === "pen" && penType === "constant") || (tool === "highlighter" && hlType === "constant")) {
+            applyConstantPressure(e);
+          }
+        };
+
+        const onPointerMoveCapture = (e) => {
+          if (isFitModeRef.current && isDrawingOnCanvasRef.current && e.isPrimary === false) {
+            e.stopPropagation();
+            e.preventDefault();
+            return;
+          }
+          if (!isDrawingOnCanvasRef.current) return;
+          const { tool, penType, hlType } = strokeModeRef.current;
+          if ((tool === "pen" && penType === "constant") || (tool === "highlighter" && hlType === "constant")) {
+            applyConstantPressure(e);
+          }
+        };
+
+        const onPointerUpOrCancelCapture = (e) => {
+          if (!isDrawingOnCanvasRef.current) return;
+          const { tool, penType, hlType } = strokeModeRef.current;
+          if ((tool === "pen" && penType === "constant") || (tool === "highlighter" && hlType === "constant")) {
+            applyConstantPressure(e);
+          }
+          isDrawingOnCanvasRef.current = false;
+        };
+
+        window.addEventListener("pointerdown", onPointerDownCapture, { capture: true });
+        window.addEventListener("pointermove", onPointerMoveCapture, { capture: true });
+        window.addEventListener("pointerup", onPointerUpOrCancelCapture, { capture: true });
+        window.addEventListener("pointercancel", onPointerUpOrCancelCapture, { capture: true });
+        return () => {
+          window.removeEventListener("pointerdown", onPointerDownCapture, { capture: true });
+          window.removeEventListener("pointermove", onPointerMoveCapture, { capture: true });
+          window.removeEventListener("pointerup", onPointerUpOrCancelCapture, { capture: true });
+          window.removeEventListener("pointercancel", onPointerUpOrCancelCapture, { capture: true });
+        };
+      }, []);
+
+      // Selection & Free-Draw Lasso State
+      const [selectedIds, setSelectedIds] = useState([]);
+      const selectedIdsRef = useRef([]);
+      const [lassoPath, setLassoPath] = useState([]);
+      const isDrawingLassoRef = useRef(false);
+      const lassoPointsRef = useRef([]);
+
+      // File Input & Scene Tracking Refs
+      const fileInputRef = useRef(null);
+      const imageInputRef = useRef(null);
+      const bgImageInputRef = useRef(null);
+      const isSwitchingPageRef = useRef(false);
+      const currentBgMetaRef = useRef({ width: 1280, height: 720, id: "__page_bg_0__" });
+      const processedStrokeIdsRef = useRef(new Set());
+
+      // Helper to resolve which config bucket applies to a given tool
+      const getConfigBucketName = (toolName) => {
+        if (toolName === "highlighter") return "highlighter";
+        if (SHAPE_TOOLS.includes(toolName)) return "shapes";
+        return "pen";
+      };
+
+      // Sync theme attribute on document and Excalidraw canvas background
+      useEffect(() => {
+        document.documentElement.setAttribute("data-theme", uiTheme);
+        if (excalidrawAPI) {
+          excalidrawAPI.updateScene({
+            appState: {
+              viewBackgroundColor: uiTheme === "dark" ? "#121212" : "#e2e8f0"
+            }
+          });
+        }
+      }, [uiTheme, excalidrawAPI]);
+
+      // Listen for native fullscreen exit (e.g. pressing Esc)
+      useEffect(() => {
+        const onFsChange = () => {
+          if (!document.fullscreenElement) {
+            setIsFullscreen(false);
+          }
+        };
+        document.addEventListener("fullscreenchange", onFsChange);
+        return () => document.removeEventListener("fullscreenchange", onFsChange);
+      }, []);
+
+      // Toggle Fullscreen (Hides Top Navbar while keeping Page Bar, Preview Bar & Annotation Bar)
+      const toggleFullscreenMode = async () => {
+        setOpenPopover(null);
+        if (!isFullscreen) {
+          setIsFullscreen(true);
+          try {
+            if (document.documentElement.requestFullscreen) {
+              await document.documentElement.requestFullscreen();
+            }
+          } catch (e) {}
+        } else {
+          setIsFullscreen(false);
+          try {
+            if (document.fullscreenElement && document.exitFullscreen) {
+              await document.exitFullscreen();
+            }
+          } catch (e) {}
+        }
+      };
+
+      // Apply tool configuration directly to Excalidraw using its native freedraw & shape properties
+      const applyToolToExcalidraw = useCallback((toolName, colorHex, configsOverride, lockOverride) => {
+        if (!excalidrawAPI) return;
+        const cfgs = configsOverride || toolConfigs;
+        const keepLocked = lockOverride !== undefined ? lockOverride : toolLock;
+        const bucket = getConfigBucketName(toolName);
+        const cfg = cfgs[bucket] || cfgs.pen;
+
+        if (toolName === "pen") {
+          excalidrawAPI.updateScene({
+            appState: {
+              currentItemStrokeColor: colorHex,
+              currentItemBackgroundColor: "transparent",
+              currentItemStrokeWidth: cfg.strokeWidth,
+              currentItemOpacity: cfg.opacity,
+              currentItemStrokeStyle: "solid",
+              currentItemRoughness: 0,
+              activeTool: { type: "freedraw", customType: null, locked: keepLocked }
+            }
+          });
+        } else if (toolName === "autoshape") {
+          const sCfg = cfgs.shapes;
+          excalidrawAPI.updateScene({
+            appState: {
+              currentItemStrokeColor: colorHex,
+              currentItemBackgroundColor: sCfg.fillStyle !== "transparent" ? colorHex + "33" : "transparent",
+              currentItemFillStyle: sCfg.fillStyle === "transparent" ? "solid" : sCfg.fillStyle,
+              currentItemStrokeWidth: sCfg.strokeWidth,
+              currentItemOpacity: sCfg.opacity,
+              currentItemStrokeStyle: sCfg.strokeStyle,
+              currentItemRoughness: sCfg.roughness,
+              activeTool: { type: "freedraw", customType: null, locked: keepLocked }
+            }
+          });
+        } else if (toolName === "highlighter") {
+          const hCfg = cfgs.highlighter;
+          excalidrawAPI.updateScene({
+            appState: {
+              currentItemStrokeColor: colorHex || hCfg.color || "#facc15",
+              currentItemStrokeWidth: hCfg.strokeWidth,
+              currentItemOpacity: hCfg.opacity,
+              currentItemStrokeStyle: "solid",
+              currentItemRoughness: 0,
+              activeTool: { type: "freedraw", customType: null, locked: keepLocked }
+            }
+          });
+        } else if (toolName === "lasso") {
+          excalidrawAPI.setActiveTool({ type: "selection" });
+        } else if (toolName === "rectangle" || toolName === "triangle") {
+          const sCfg = cfgs.shapes;
+          excalidrawAPI.updateScene({
+            appState: {
+              currentItemStrokeColor: colorHex,
+              currentItemBackgroundColor: sCfg.fillStyle !== "transparent" ? colorHex + "33" : "transparent",
+              currentItemFillStyle: sCfg.fillStyle === "transparent" ? "solid" : sCfg.fillStyle,
+              currentItemStrokeWidth: sCfg.strokeWidth,
+              currentItemOpacity: sCfg.opacity,
+              currentItemStrokeStyle: sCfg.strokeStyle,
+              currentItemRoughness: sCfg.roughness,
+              activeTool: { type: "rectangle", customType: null, locked: keepLocked }
+            }
+          });
+        } else if (toolName === "circle") {
+          const sCfg = cfgs.shapes;
+          excalidrawAPI.updateScene({
+            appState: {
+              currentItemStrokeColor: colorHex,
+              currentItemBackgroundColor: sCfg.fillStyle !== "transparent" ? colorHex + "33" : "transparent",
+              currentItemFillStyle: sCfg.fillStyle === "transparent" ? "solid" : sCfg.fillStyle,
+              currentItemStrokeWidth: sCfg.strokeWidth,
+              currentItemOpacity: sCfg.opacity,
+              currentItemStrokeStyle: sCfg.strokeStyle,
+              currentItemRoughness: sCfg.roughness,
+              activeTool: { type: "ellipse", customType: null, locked: keepLocked }
+            }
+          });
+        } else if (toolName === "arrow" || toolName === "line") {
+          const sCfg = cfgs.shapes;
+          excalidrawAPI.updateScene({
+            appState: {
+              currentItemStrokeColor: colorHex,
+              currentItemStrokeWidth: sCfg.strokeWidth,
+              currentItemOpacity: sCfg.opacity,
+              currentItemStrokeStyle: sCfg.strokeStyle,
+              currentItemRoughness: sCfg.roughness,
+              activeTool: { type: toolName, customType: null, locked: keepLocked }
+            }
+          });
+        } else if (toolName === "text") {
+          excalidrawAPI.updateScene({
+            appState: {
+              currentItemStrokeColor: colorHex,
+              currentItemOpacity: cfg.opacity,
+              activeTool: { type: "text", customType: null, locked: keepLocked }
+            }
+          });
+        } else if (toolName === "note") {
+          excalidrawAPI.updateScene({
+            appState: {
+              currentItemStrokeColor: "#1e293b",
+              currentItemBackgroundColor: "#fef08a",
+              currentItemFillStyle: "solid",
+              currentItemStrokeWidth: 2,
+              currentItemOpacity: 100,
+              currentItemRoughness: 0,
+              activeTool: { type: "rectangle", customType: null, locked: keepLocked }
+            }
+          });
+        } else if (toolName === "bucket") {
+          excalidrawAPI.setActiveTool({ type: "selection" });
+        } else if (toolName === "eraser") {
+          excalidrawAPI.setActiveTool({ type: "eraser" });
+        } else if (toolName === "laser") {
+          excalidrawAPI.setActiveTool({ type: "laser" });
+        } else if (toolName === "pan") {
+          excalidrawAPI.setActiveTool({ type: "hand" });
+        }
+      }, [excalidrawAPI, toolConfigs, toolLock]);
+
+      // Free-Draw Lasso Selection Handlers on the Canvas Container
+      const screenToSceneCoords = useCallback((clientX, clientY) => {
+        if (!excalidrawAPI) return [0, 0];
+        const appState = excalidrawAPI.getAppState();
+        if (
+          window.ExcalidrawLib &&
+          typeof window.ExcalidrawLib.viewportCoordsToSceneCoords === "function"
+        ) {
+          const pt = window.ExcalidrawLib.viewportCoordsToSceneCoords(
+            { clientX, clientY },
+            appState
+          );
+          return [pt.x, pt.y];
+        }
+        const zoom = (appState.zoom && appState.zoom.value) || 1;
+        const offsetLeft = appState.offsetLeft || 0;
+        const offsetTop = appState.offsetTop || 0;
+        const scrollX = appState.scrollX || 0;
+        const scrollY = appState.scrollY || 0;
+        return [
+          (clientX - offsetLeft) / zoom - scrollX,
+          (clientY - offsetTop) / zoom - scrollY
+        ];
+      }, [excalidrawAPI]);
+
+      const handleLassoPointerDownCapture = useCallback((e) => {
+        if (activeTool !== "lasso" || !excalidrawAPI) return;
+        if (e.button !== undefined && e.button !== 0) return;
+
+        const appState = excalidrawAPI.getAppState();
+        const selectedMap = appState.selectedElementIds || {};
+        const currentSelIds = Object.keys(selectedMap).filter(
+          (id) => selectedMap[id] && !String(id).startsWith("__page_bg_")
+        );
+
+        const [sceneX, sceneY] = screenToSceneCoords(e.clientX, e.clientY);
+        const zoom = (appState.zoom && appState.zoom.value) || 1;
+
+        // If elements are currently selected, ONLY pass through to Excalidraw if the user clicks
+        // directly on the selection bounding box, resize handles, or top rotation handle.
+        // Clicking anywhere else starts our custom Free-Draw Lasso (never Excalidraw's rectangle selection!).
+        if (currentSelIds.length > 0) {
+          const elements = excalidrawAPI.getSceneElements();
+          const selectedEls = elements.filter(
+            (el) => selectedMap[el.id] && !el.isDeleted && !String(el.id).startsWith("__page_bg_")
+          );
+
+          if (selectedEls.length > 0) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            selectedEls.forEach((el) => {
+              const b = getElementSceneBounds(el);
+              minX = Math.min(minX, b.minX);
+              minY = Math.min(minY, b.minY);
+              maxX = Math.max(maxX, b.maxX);
+              maxY = Math.max(maxY, b.maxY);
+            });
+
+            const cx = (minX + maxX) / 2;
+            const cy = (minY + maxY) / 2;
+            // Account for element rotation when checking if pointer is on the box or rotation handle
+            const commonAngle = selectedEls.length === 1 ? (selectedEls[0].angle || 0) : 0;
+            const [localX, localY] = rotatePoint(sceneX, sceneY, cx, cy, -commonAngle);
+
+            const handleTol = 16 / zoom;
+            const onSelectionBox =
+              localX >= minX - handleTol &&
+              localX <= maxX + handleTol &&
+              localY >= minY - handleTol &&
+              localY <= maxY + handleTol;
+
+            const onRotationHandle =
+              Math.abs(localX - cx) <= 24 / zoom &&
+              localY >= minY - 48 / zoom &&
+              localY <= minY + handleTol;
+
+            if (onSelectionBox || onRotationHandle) {
+              return; // Let Excalidraw move, resize, or rotate the selected element(s)
+            }
+          }
+        }
+
+        // Start drawing a Free-Draw Lasso loop and capture the pointer so it never drops mid-stroke
+        e.stopPropagation();
+        e.preventDefault();
+        try {
+          if (e.currentTarget && e.currentTarget.setPointerCapture) {
+            e.currentTarget.setPointerCapture(e.pointerId);
+          }
+        } catch (err) {}
+
+        isDrawingLassoRef.current = true;
+        const startPt = [[e.clientX, e.clientY]];
+        lassoPointsRef.current = startPt;
+        setLassoPath(startPt);
+      }, [activeTool, excalidrawAPI, screenToSceneCoords]);
+
+      const handleLassoPointerMoveCapture = useCallback((e) => {
+        if (!isDrawingLassoRef.current) return;
+        e.stopPropagation();
+        e.preventDefault();
+        const prevPts = lassoPointsRef.current;
+        if (prevPts.length > 0) {
+          const last = prevPts[prevPts.length - 1];
+          if (Math.hypot(e.clientX - last[0], e.clientY - last[1]) < 3) {
+            return;
+          }
+        }
+        const nextPts = [...prevPts, [e.clientX, e.clientY]];
+        lassoPointsRef.current = nextPts;
+        setLassoPath(nextPts);
+      }, []);
+
+      const handleLassoPointerUpCapture = useCallback((e) => {
+        if (!isDrawingLassoRef.current) return;
+        e.stopPropagation();
+        e.preventDefault();
+        try {
+          if (e.currentTarget && e.currentTarget.releasePointerCapture) {
+            e.currentTarget.releasePointerCapture(e.pointerId);
+          }
+        } catch (err) {}
+
+        isDrawingLassoRef.current = false;
+
+        const currentPath = lassoPointsRef.current;
+        lassoPointsRef.current = [];
+        setLassoPath([]);
+
+        if (!excalidrawAPI) return;
+
+        // Measure total screen path length to distinguish a lasso loop from a single tap
+        let screenLength = 0;
+        for (let i = 1; i < currentPath.length; i++) {
+          screenLength += Math.hypot(
+            currentPath[i][0] - currentPath[i - 1][0],
+            currentPath[i][1] - currentPath[i - 1][1]
+          );
+        }
+
+        if (currentPath.length >= 3 && screenLength >= 16) {
+          const scenePolygon = currentPath.map(([cx, cy]) => screenToSceneCoords(cx, cy));
+          // Explicitly close the polygon loop
+          scenePolygon.push(scenePolygon[0]);
+
+          const elements = excalidrawAPI.getSceneElements();
+          const newSelected = {};
+          elements.forEach((el) => {
+            if (isElementFullyInsideLasso(el, scenePolygon)) {
+              newSelected[el.id] = true;
+            }
+          });
+          const selKeys = Object.keys(newSelected);
+          selectedIdsRef.current = selKeys;
+          setSelectedIds(selKeys);
+          excalidrawAPI.updateScene({
+            appState: {
+              selectedElementIds: newSelected,
+              activeTool: { type: "selection", customType: null, locked: false }
+            }
+          });
+        } else {
+          // Single tap on empty space clears current selection
+          selectedIdsRef.current = [];
+          setSelectedIds([]);
+          excalidrawAPI.updateScene({
+            appState: { selectedElementIds: {} }
+          });
+        }
+      }, [excalidrawAPI, screenToSceneCoords]);
+
+      // Move selected elements Up/Down/Front/Back in Layer Order (Keeping locked page background at index 0)
+      const handleMoveSelectionLayer = useCallback((direction) => {
+        if (!excalidrawAPI) return;
+        const appState = excalidrawAPI.getAppState();
+        const selMap = appState.selectedElementIds || {};
+        const activeSel = Object.keys(selMap).filter(
+          (id) => selMap[id] && !String(id).startsWith("__page_bg_")
+        );
+        if (activeSel.length === 0) return;
+
+        const elements = excalidrawAPI.getSceneElements();
+        const bgElements = elements.filter((el) => String(el.id).startsWith("__page_bg_"));
+        const userElements = elements.filter((el) => !String(el.id).startsWith("__page_bg_"));
+        const selSet = new Set(activeSel);
+
+        let reordered = [...userElements];
+
+        if (direction === "front") {
+          const unsel = reordered.filter((el) => !selSet.has(el.id));
+          const sel = reordered.filter((el) => selSet.has(el.id));
+          reordered = [...unsel, ...sel];
+        } else if (direction === "back") {
+          const unsel = reordered.filter((el) => !selSet.has(el.id));
+          const sel = reordered.filter((el) => selSet.has(el.id));
+          reordered = [...sel, ...unsel];
+        } else if (direction === "up") {
+          for (let i = reordered.length - 2; i >= 0; i--) {
+            if (selSet.has(reordered[i].id) && !selSet.has(reordered[i + 1].id)) {
+              const tmp = reordered[i];
+              reordered[i] = reordered[i + 1];
+              reordered[i + 1] = tmp;
+            }
+          }
+        } else if (direction === "down") {
+          for (let i = 1; i < reordered.length; i++) {
+            if (selSet.has(reordered[i].id) && !selSet.has(reordered[i - 1].id)) {
+              const tmp = reordered[i];
+              reordered[i] = reordered[i - 1];
+              reordered[i - 1] = tmp;
+            }
+          }
+        }
+
+        const finalElements = [...bgElements, ...reordered].map((el) => ({
+          ...el,
+          version: (el.version || 1) + 1,
+          versionNonce: Math.floor(Math.random() * 100000000)
+        }));
+
+        excalidrawAPI.updateScene({
+          elements: finalElements,
+          appState: { selectedElementIds: selMap },
+          commitToHistory: true
+        });
+      }, [excalidrawAPI]);
+
+      const handleDeleteSelection = useCallback(() => {
+        if (!excalidrawAPI) return;
+        const appState = excalidrawAPI.getAppState();
+        const selMap = appState.selectedElementIds || {};
+        const selSet = new Set(
+          Object.keys(selMap).filter((id) => selMap[id] && !String(id).startsWith("__page_bg_"))
+        );
+        if (selSet.size === 0) return;
+        const updated = excalidrawAPI
+          .getSceneElements()
+          .filter((el) => !selSet.has(el.id));
+        setSelectedIds([]);
+        excalidrawAPI.updateScene({
+          elements: updated,
+          appState: { selectedElementIds: {} },
+          commitToHistory: true
+        });
+      }, [excalidrawAPI]);
+
+      // Select an Extra Tool from the Three-Dot Menu
+      const handleSelectExtraTool = (toolId) => {
+        if (toolId === "image") {
+          setOpenPopover(null);
+          if (imageInputRef.current) imageInputRef.current.click();
+          return;
+        }
+        setLastExtraTool(toolId);
+        setActiveTool(toolId);
+        setEditingWidthSlot(false);
+        setOpenPopover(null);
+        applyToolToExcalidraw(toolId, activeColor);
+      };
+
+      // Choose Default Page Background Preset (Applies to new pages and updates current page if blank)
+      const handleSelectBackgroundPreset = async (bgStyleId) => {
+        const engine = engineRef.current;
+        engine.setDefaultBackground(bgStyleId);
+        setDefaultBgStyle(bgStyleId);
+
+        const currentDesc = engine.pages[currentPage];
+        if (currentDesc && currentDesc.type === "blank") {
+          saveCurrentPageVectors(currentPage);
+          engine.applyBackgroundToPage(currentPage, bgStyleId);
+          await goToPage(currentPage, true);
+        }
+      };
+
+      // Toggle UI Theme (Dark <-> Light) and sync default/blank page background to matching theme version
+      const handleToggleTheme = async () => {
+        const nextTheme = uiTheme === "dark" ? "light" : "dark";
+        setUiTheme(nextTheme);
+
+        // Also flip the 4th color slot between white (#ffffff) and dark slate (#1e293b) for high contrast
+        setColorSlots((prevSlots) => {
+          const nextSlots = [...prevSlots];
+          if (nextTheme === "light" && nextSlots[3].toLowerCase() === "#ffffff") {
+            nextSlots[3] = "#1e293b";
+          } else if (nextTheme === "dark" && nextSlots[3].toLowerCase() === "#1e293b") {
+            nextSlots[3] = "#ffffff";
+          }
+          return nextSlots;
+        });
+
+        const engine = engineRef.current;
+        const mappedDefault = getOppositeThemeBgId(defaultBgStyle, nextTheme);
+        engine.setDefaultBackground(mappedDefault);
+        setDefaultBgStyle(mappedDefault);
+
+        const currentDesc = engine.pages[currentPage];
+        if (currentDesc && currentDesc.type === "blank" && currentDesc.bgStyle !== "custom") {
+          saveCurrentPageVectors(currentPage);
+          const mappedCurrent = getOppositeThemeBgId(currentDesc.bgStyle, nextTheme);
+          engine.applyBackgroundToPage(currentPage, mappedCurrent);
+          await goToPage(currentPage, true);
+        }
+      };
+
+      // Handle Custom Background Image Upload
+      const handleCustomBackgroundUpload = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const dataUrl = reader.result;
+          const engine = engineRef.current;
+          engine.setDefaultBackground("custom", dataUrl);
+          setDefaultBgStyle("custom");
+          setHasCustomBgImage(true);
+
+          const currentDesc = engine.pages[currentPage];
+          if (currentDesc && currentDesc.type === "blank") {
+            saveCurrentPageVectors(currentPage);
+            engine.applyBackgroundToPage(currentPage, "custom", dataUrl);
+            await goToPage(currentPage, true);
+          }
+        };
+        reader.readAsDataURL(file);
+        e.target.value = "";
+      };
+
+      // Color Button Click Handler:
+      // 1st click -> selects color for Pen/Highlighter/Active Shape (or switches to Pen if on Eraser/Pan/Laser).
+      // 2nd click on ALREADY selected color -> opens Color Picker popover (Standard + Color Wheel)!
+      const handleColorSlotClick = (slotIdx) => {
+        const chosenColor = colorSlots[slotIdx];
+        const canUseColor =
+          activeTool === "pen" ||
+          activeTool === "highlighter" ||
+          SHAPE_TOOLS.includes(activeTool) ||
+          activeTool === "text" ||
+          activeTool === "bucket";
+
+        if (activeColorIdx === slotIdx && canUseColor) {
+          setOpenPopover(openPopover === "color" ? null : "color");
+        } else {
+          setActiveColorIdx(slotIdx);
+          setOpenPopover(null);
+          const nextTool = canUseColor ? activeTool : "pen";
+          setActiveTool(nextTool);
+          applyToolToExcalidraw(nextTool, chosenColor);
+        }
+      };
+
+      // Update the active color slot from standard palette or color wheel
+      const updateActiveColorSlot = (newHex) => {
+        const updated = [...colorSlots];
+        updated[activeColorIdx] = newHex;
+        setColorSlots(updated);
+        const canUseColor =
+          activeTool === "pen" ||
+          activeTool === "highlighter" ||
+          SHAPE_TOOLS.includes(activeTool) ||
+          activeTool === "text" ||
+          activeTool === "bucket";
+        const targetTool = canUseColor ? activeTool : "pen";
+        applyToolToExcalidraw(targetTool, newHex);
+      };
+
+      // Tool Button Click Handler:
+      // 1st click -> activates tool silently with saved settings.
+      // 2nd click on ALREADY active customizable tool -> toggles customization popover!
+      const handleToolClick = (toolName) => {
+        const isCustomizable =
+          toolName === "pen" ||
+          toolName === "highlighter" ||
+          SHAPE_TOOLS.includes(toolName);
+
+        if (activeTool === toolName) {
+          if (isCustomizable) {
+            setEditingWidthSlot(false);
+            setOpenPopover(openPopover === "tool" ? null : "tool");
+          } else {
+            setOpenPopover(null);
+          }
+          return;
+        }
+
+        setActiveTool(toolName);
+        setEditingWidthSlot(false);
+        setOpenPopover(null);
+        applyToolToExcalidraw(toolName, activeColor);
+      };
+
+      // Update a property inside toolConfigs (Syncs Pen -> Shapes unless Shapes was independently customized)
+      const updateToolConfig = (key, value) => {
+        const bucket = getConfigBucketName(activeTool);
+        const updatedBucket = {
+          ...toolConfigs[bucket],
+          [key]: value
+        };
+        const nextConfigs = {
+          ...toolConfigs,
+          [bucket]: updatedBucket
+        };
+
+        // By default, Pen settings also propagate to Shapes until Shapes are explicitly customized
+        if (bucket === "pen" && !shapesCustomized && (key === "strokeWidth" || key === "opacity")) {
+          nextConfigs.shapes = {
+            ...toolConfigs.shapes,
+            [key]: value
+          };
+        } else if (bucket === "shapes") {
+          setShapesCustomized(true);
+        }
+
+        setToolConfigs(nextConfigs);
+        applyToolToExcalidraw(activeTool, activeColor, nextConfigs);
+      };
+
+      // 3 Stroke Width Preset Slots:
+      // 1st click selects that preset width; 2nd click on active slot opens fine-tuning slider
+      const handleWidthSlotClick = (slotIdx) => {
+        const bucket = getConfigBucketName(activeTool);
+        const currentBucketCfg = toolConfigs[bucket] || toolConfigs.pen;
+
+        if (currentBucketCfg.activeWidthSlot === slotIdx) {
+          setEditingWidthSlot(!editingWidthSlot);
+          return;
+        }
+
+        setEditingWidthSlot(false);
+        const newWidth = currentBucketCfg.widthPresets[slotIdx];
+
+        const nextBucket = {
+          ...toolConfigs[bucket],
+          activeWidthSlot: slotIdx,
+          strokeWidth: newWidth
+        };
+        const nextConfigs = {
+          ...toolConfigs,
+          [bucket]: nextBucket
+        };
+        if (bucket === "pen" && !shapesCustomized) {
+          nextConfigs.shapes = {
+            ...toolConfigs.shapes,
+            activeWidthSlot: slotIdx,
+            strokeWidth: newWidth
+          };
+        } else if (bucket === "shapes") {
+          setShapesCustomized(true);
+        }
+
+        setToolConfigs(nextConfigs);
+        applyToolToExcalidraw(activeTool, activeColor, nextConfigs);
+      };
+
+      const handleCustomWidthSliderChange = (newWidthVal) => {
+        const bucket = getConfigBucketName(activeTool);
+        const cur = toolConfigs[bucket];
+        const newPresets = [...cur.widthPresets];
+        newPresets[cur.activeWidthSlot] = newWidthVal;
+
+        const nextConfigs = {
+          ...toolConfigs,
+          [bucket]: {
+            ...cur,
+            widthPresets: newPresets,
+            strokeWidth: newWidthVal
+          }
+        };
+
+        if (bucket === "pen" && !shapesCustomized) {
+          const shapePresets = [...toolConfigs.shapes.widthPresets];
+          shapePresets[cur.activeWidthSlot] = newWidthVal;
+          nextConfigs.shapes = {
+            ...toolConfigs.shapes,
+            widthPresets: shapePresets,
+            strokeWidth: newWidthVal
+          };
+        } else if (bucket === "shapes") {
+          setShapesCustomized(true);
+        }
+
+        setToolConfigs(nextConfigs);
+        applyToolToExcalidraw(activeTool, activeColor, nextConfigs);
+      };
+
+      // Save current page vector strokes (excludes the locked page background)
+      const saveCurrentPageVectors = useCallback((pageIdx) => {
+        if (!excalidrawAPI) return;
+        const elements = excalidrawAPI.getSceneElements();
+        const strokesOnly = elements.filter(
+          (el) => !el.isDeleted && !String(el.id).startsWith("__page_bg_")
+        );
+        engineRef.current.pageVectors[pageIdx] = strokesOnly;
+      }, [excalidrawAPI]);
+
+      // Compute exact 100% edge-to-edge viewport fit with integer-aligned scroll offsets
+      const computeExactFitAppState = useCallback((bgElOverride = null) => {
+        const bgW = (bgElOverride && bgElOverride.width) || currentBgMetaRef.current.width || 1280;
+        const bgH = (bgElOverride && bgElOverride.height) || currentBgMetaRef.current.height || 720;
+        const vw = window.innerWidth || 1280;
+        const vh = window.innerHeight || 720;
+        const rawZoom = Math.min(vw / bgW, vh / bgH);
+        const exactZoom = Math.abs(rawZoom - 1) < 0.005 ? 1 : rawZoom;
+        const scrollX = Math.round(vw / (2 * exactZoom) - bgW / 2);
+        const scrollY = Math.round(vh / (2 * exactZoom) - bgH / 2);
+        return {
+          zoom: { value: exactZoom },
+          scrollX,
+          scrollY
+        };
+      }, []);
+
+      // Center & fit the locked 4K page cleanly to 100% of the screen viewport
+      const fitPageToScreen = useCallback((bgElOverride = null) => {
+        if (!excalidrawAPI) return;
+        const elements = excalidrawAPI.getSceneElements();
+        const targetEl =
+          bgElOverride ||
+          elements.find((el) => String(el.id).startsWith("__page_bg_"));
+        if (targetEl) {
+          const fitState = computeExactFitAppState(targetEl);
+          excalidrawAPI.updateScene({
+            appState: fitState
+          });
+        }
+      }, [excalidrawAPI, computeExactFitAppState]);
+
+      // Toggle Fit Mode ON (locked full-screen page) vs OFF (unlocked infinite canvas)
+      const handleToggleFitMode = useCallback(() => {
+        const nextFit = !isFitModeRef.current;
+        isFitModeRef.current = nextFit;
+        setIsFitMode(nextFit);
+        if (nextFit) {
+          fitPageToScreen();
+        }
+      }, [fitPageToScreen]);
+
+      // Re-fit automatically on window resize or Fullscreen change when Fit Mode is ON
+      useEffect(() => {
+        const onResize = () => {
+          if (isFitModeRef.current) {
+            fitPageToScreen();
+          }
+        };
+        window.addEventListener("resize", onResize);
+        return () => window.removeEventListener("resize", onResize);
+      }, [fitPageToScreen]);
+
+      // Prevent wheel scroll/zoom and multi-touch pinch-zoom from moving the page while Fit Mode is ON
+      useEffect(() => {
+        const onWheelCapture = (e) => {
+          if (!isFitModeRef.current) return;
+          const target = e.target;
+          if (target && target.closest && target.closest(".excalidraw__canvas")) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        };
+        const onTouchMoveCapture = (e) => {
+          if (!isFitModeRef.current) return;
+          if (e.touches && e.touches.length > 1) {
+            const target = e.target;
+            if (target && target.closest && target.closest(".excalidraw__canvas")) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }
+        };
+        window.addEventListener("wheel", onWheelCapture, { passive: false, capture: true });
+        window.addEventListener("touchmove", onTouchMoveCapture, { passive: false, capture: true });
+        return () => {
+          window.removeEventListener("wheel", onWheelCapture, { capture: true });
+          window.removeEventListener("touchmove", onTouchMoveCapture, { capture: true });
+        };
+      }, []);
+
+      // Navigate to any page index in 4K resolution while keeping RAM low
+      const goToPage = useCallback(async (targetIdx, forceReload = false) => {
+        if (!excalidrawAPI) return;
+        const engine = engineRef.current;
+        if (targetIdx < 0 || targetIdx >= engine.pages.length) return;
+        if (targetIdx === currentPage && !forceReload) return;
+
+        try {
+          isSwitchingPageRef.current = true;
+          setIsBusy(true);
+          if (!forceReload) {
+            saveCurrentPageVectors(currentPage);
+          }
+
+          const isCached = Boolean(engine.preRasterizedCache[targetIdx]);
+          if (!isCached) {
+            setStatusMessage(`Rendering Page ${targetIdx + 1} in 4K...`);
+          }
+
+          const bitmap = await engine.renderPage4K(targetIdx, rasterizeMode === "all");
+          const fileId = `page_4k_${targetIdx}_${Date.now()}`;
+          const bgElement = createLockedPageElement(
+            targetIdx,
+            fileId,
+            bitmap.width,
+            bitmap.height
+          );
+
+          currentBgMetaRef.current = {
+            width: bitmap.width,
+            height: bitmap.height,
+            id: bgElement.id
+          };
+
+          excalidrawAPI.addFiles([
+            {
+              id: fileId,
+              dataURL: bitmap.dataURL,
+              mimeType: bitmap.mimeType,
+              created: Date.now(),
+              lastRetrieved: Date.now()
+            }
+          ]);
+
+          const savedStrokes = (engine.pageVectors[targetIdx] || []).map((el) => ({
+            ...el,
+            version: (el.version || 1) + 1,
+            versionNonce: Math.floor(Math.random() * 1000000000)
+          }));
+
+          excalidrawAPI.updateScene({
+            elements: [bgElement, ...savedStrokes],
+            commitToHistory: false
+          });
+
+          // Sync thumbnail cache state for preview drawer
+          if (engine.thumbnailCache[targetIdx]) {
+            setThumbnails((prev) => ({ ...prev, [targetIdx]: engine.thumbnailCache[targetIdx] }));
+          }
+
+          setCurrentPage(targetIdx);
+          setTotalPages(engine.pages.length);
+
+          requestAnimationFrame(() => {
+            applyToolToExcalidraw(activeTool, activeColor);
+            if (isFitModeRef.current) {
+              requestAnimationFrame(() => {
+                fitPageToScreen(bgElement);
+                isSwitchingPageRef.current = false;
+                setStatusMessage("");
+                setIsBusy(false);
+              });
+            } else {
+              isSwitchingPageRef.current = false;
+              setStatusMessage("");
+              setIsBusy(false);
+            }
+          });
+        } catch (err) {
+          console.error(err);
+          isSwitchingPageRef.current = false;
+          setIsBusy(false);
+          setStatusMessage("Could not render page");
+          setTimeout(() => setStatusMessage(""), 2500);
+        }
+      }, [excalidrawAPI, currentPage, rasterizeMode, saveCurrentPageVectors, fitPageToScreen, applyToolToExcalidraw, activeTool, activeColor]);
+
+      // Initialize first page when Excalidraw mounts
+      useEffect(() => {
+        if (excalidrawAPI) {
+          goToPage(0, true);
+        }
+      }, [excalidrawAPI]);
+
+      // Lazily populate low-res thumbnails when the Preview Drawer opens
+      useEffect(() => {
+        if (!showPreviewDrawer) return;
+        let cancelled = false;
+        const engine = engineRef.current;
+
+        (async () => {
+          for (let i = 0; i < engine.pages.length; i++) {
+            if (cancelled) break;
+            if (!engine.thumbnailCache[i]) {
+              const url = await engine.renderLowResThumbnail(i);
+              if (!cancelled) {
+                setThumbnails((prev) => ({ ...prev, [i]: url }));
+              }
+            } else if (!thumbnails[i]) {
+              setThumbnails((prev) => ({ ...prev, [i]: engine.thumbnailCache[i] }));
+            }
+          }
+        })();
+
+        return () => { cancelled = true; };
+      }, [showPreviewDrawer, totalPages]);
+
+      // Handle PDF File Import (Supports both On-Demand 4K and Pre-Rasterize Whole PDF 4K)
+      const handleFileUpload = async (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file) return;
+
+        setOpenPopover(null);
+        setIsBusy(true);
+        setStatusMessage(`Loading "${file.name}"...`);
+
+        try {
+          const buffer = await file.arrayBuffer();
+          const count = await engineRef.current.loadPdfBuffer(buffer);
+          setTotalPages(count);
+          setThumbnails({});
+
+          // If user chose "Pre-Rasterize Whole PDF", render all pages at 4K upfront so zero loading later
+          if (rasterizeMode === "all") {
+            for (let i = 0; i < count; i++) {
+              setStatusMessage(`Pre-rasterizing 4K PDF: Page ${i + 1} of ${count}...`);
+              await engineRef.current.renderPage4K(i, true);
+              setThumbnails((prev) => ({ ...prev, [i]: engineRef.current.thumbnailCache[i] }));
+            }
+          }
+
+          await goToPage(0, true);
+        } catch (err) {
+          setStatusMessage("Failed to load PDF: " + err.message);
+          setTimeout(() => setStatusMessage(""), 3500);
+          setIsBusy(false);
+        } finally {
+          e.target.value = "";
+        }
+      };
+
+      // Toggle between On-Demand 4K and Pre-Rasterize Whole PDF 4K
+      const handleToggleRasterizeMode = async () => {
+        const nextMode = rasterizeMode === "lazy" ? "all" : "lazy";
+        setRasterizeMode(nextMode);
+
+        const engine = engineRef.current;
+        if (nextMode === "lazy") {
+          // Free pre-rasterized 4K bitmaps immediately to reclaim RAM
+          engine.preRasterizedCache = {};
+          setStatusMessage("Switched to On-Demand 4K Mode (Low RAM)");
+          setTimeout(() => setStatusMessage(""), 2200);
+        } else if (engine.pages.length > 1) {
+          // Pre-rasterize all pages right now so subsequent page turns are instant
+          setOpenPopover(null);
+          setIsBusy(true);
+          for (let i = 0; i < engine.pages.length; i++) {
+            setStatusMessage(`Pre-rasterizing 4K Page ${i + 1} of ${engine.pages.length}...`);
+            await engine.renderPage4K(i, true);
+            setThumbnails((prev) => ({ ...prev, [i]: engine.thumbnailCache[i] }));
+          }
+          setIsBusy(false);
+          setStatusMessage("All pages pre-rasterized in 4K!");
+          setTimeout(() => setStatusMessage(""), 2200);
+        }
+      };
+
+      // Insert Blank / Default-Background Page
+      const handleInsertBlankPage = async (overrideStyle = null) => {
+        if (!excalidrawAPI || isBusy) return;
+        setOpenPopover(null);
+        saveCurrentPageVectors(currentPage);
+        const newIdx = engineRef.current.insertBlankPageAfter(currentPage, overrideStyle);
+        setTotalPages(engineRef.current.pages.length);
+        await goToPage(newIdx, true);
+      };
+
+      // Clear all annotations on current page
+      const handleClearCurrentPageAnnotations = () => {
+        if (!excalidrawAPI) return;
+        setOpenPopover(null);
+        const bgEl = excalidrawAPI.getSceneElements().find((el) =>
+          String(el.id).startsWith("__page_bg_")
+        );
+        if (bgEl) {
+          engineRef.current.pageVectors[currentPage] = [];
+          excalidrawAPI.updateScene({ elements: [bgEl] });
+        }
+      };
+
+      // Handle inserting an image onto the current page canvas
+      const handleInsertImageFile = (e) => {
+        const file = e.target.files && e.target.files[0];
+        if (!file || !excalidrawAPI) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataURL = reader.result;
+          const img = new Image();
+          img.onload = () => {
+            const fileId = "img_" + Date.now();
+            excalidrawAPI.addFiles([
+              {
+                id: fileId,
+                dataURL,
+                mimeType: file.type || "image/png",
+                created: Date.now(),
+                lastRetrieved: Date.now()
+              }
+            ]);
+
+            const maxDim = 640;
+            const scale = Math.min(1, maxDim / Math.max(img.width || 400, img.height || 400));
+            const w = Math.round((img.width || 400) * scale);
+            const h = Math.round((img.height || 400) * scale);
+
+            const bgMeta = currentBgMetaRef.current;
+            const newImgEl = {
+              id: "user_img_" + Date.now(),
+              type: "image",
+              x: Math.round((bgMeta.width - w) / 2),
+              y: Math.round((bgMeta.height - h) / 2),
+              width: w,
+              height: h,
+              angle: 0,
+              strokeColor: "transparent",
+              backgroundColor: "transparent",
+              fillStyle: "solid",
+              strokeWidth: 1,
+              strokeStyle: "solid",
+              roughness: 0,
+              opacity: 100,
+              groupIds: [],
+              frameId: null,
+              roundness: null,
+              seed: Math.floor(Math.random() * 100000),
+              version: 1,
+              versionNonce: Math.floor(Math.random() * 100000000),
+              isDeleted: false,
+              boundElements: null,
+              updated: Date.now(),
+              link: null,
+              locked: false,
+              fileId,
+              scale: [1, 1],
+              status: "saved"
+            };
+
+            const existing = excalidrawAPI.getSceneElements();
+            excalidrawAPI.updateScene({
+              elements: [...existing, newImgEl],
+              commitToHistory: true
+            });
+          };
+          img.src = dataURL;
+        };
+        reader.readAsDataURL(file);
+        e.target.value = "";
+      };
+
+      // Guard the locked page background and track selected elements without ever interrupting active strokes
+      const handleExcalidrawChange = useCallback((elements, appState) => {
+        if (isSwitchingPageRef.current || !excalidrawAPI) return;
+
+        // Never run scene updates or state reconciliation while the user is actively drawing or dragging
+        if (
+          isDrawingOnCanvasRef.current ||
+          (appState && (appState.draggingElement || appState.newElement || appState.editingElement))
+        ) {
+          return;
+        }
+
+        // Track currently selected non-background elements
+        if (appState && appState.selectedElementIds) {
+          const selKeys = Object.keys(appState.selectedElementIds).filter(
+            (id) => appState.selectedElementIds[id] && !String(id).startsWith("__page_bg_")
+          );
+          const prevKeys = selectedIdsRef.current;
+          if (
+            selKeys.length !== prevKeys.length ||
+            selKeys.some((k, idx) => k !== prevKeys[idx])
+          ) {
+            selectedIdsRef.current = selKeys;
+            setSelectedIds(selKeys);
+          }
+        }
+
+        const expectedId = `__page_bg_${currentPage}__`;
+        const bgEl = elements.find((el) => el.id === expectedId);
+
+        const bgNeedsRestore =
+          bgEl &&
+          (bgEl.isDeleted || !bgEl.locked || bgEl.x !== 0 || bgEl.y !== 0);
+
+        if (bgNeedsRestore) {
+          const restoredElements = elements.map((el) =>
+            el.id === expectedId
+              ? {
+                  ...el,
+                  isDeleted: false,
+                  locked: true,
+                  x: 0,
+                  y: 0,
+                  width: currentBgMetaRef.current.width,
+                  height: currentBgMetaRef.current.height
+                }
+              : el
+          );
+
+          excalidrawAPI.updateScene({
+            elements: restoredElements,
+            commitToHistory: false
+          });
+        }
+      }, [excalidrawAPI, currentPage]);
+
+      // PointerUp Handler ONLY for Bucket Fill, Auto Shape Recognizer, Triangle, & Sticky Note
+      // Leaves Pen & Highlighter 100% untouched so native Excalidraw real-time freedraw works natively
+      const handleCanvasPointerUp = useCallback(() => {
+        if (!excalidrawAPI) return;
+        if (
+          activeTool !== "bucket" &&
+          activeTool !== "autoshape" &&
+          activeTool !== "triangle" &&
+          activeTool !== "note"
+        ) {
+          return;
+        }
+
+        setTimeout(() => {
+          const elements = excalidrawAPI.getSceneElements();
+          const appState = excalidrawAPI.getAppState();
+
+          // 1. BUCKET FILL MODE: Fill any clicked/selected element with the active color
+          if (activeTool === "bucket") {
+            const selectedIdsMap = appState.selectedElementIds || {};
+            const targetIds = Object.keys(selectedIdsMap).filter(
+              (id) => selectedIdsMap[id] && !String(id).startsWith("__page_bg_")
+            );
+            if (targetIds.length > 0) {
+              const updated = elements.map((el) =>
+                targetIds.includes(el.id)
+                  ? {
+                      ...el,
+                      backgroundColor: activeColor,
+                      fillStyle: "solid",
+                      version: (el.version || 1) + 1,
+                      versionNonce: Math.floor(Math.random() * 100000000)
+                    }
+                  : el
+              );
+              excalidrawAPI.updateScene({
+                elements: updated,
+                appState: { selectedElementIds: {} },
+                commitToHistory: true
+              });
+            }
+            return;
+          }
+
+          // 2. AUTO SHAPE RECOGNIZER MODE
+          if (activeTool === "autoshape") {
+            for (let i = elements.length - 1; i >= 0; i--) {
+              const el = elements[i];
+              if (!el.isDeleted && el.type === "freedraw" && !processedStrokeIdsRef.current.has(el.id)) {
+                processedStrokeIdsRef.current.add(el.id);
+                const recognizedShape = recognizeAndCreateGeometricElement(el, toolConfigs.shapes);
+                if (recognizedShape) {
+                  const updatedElements = elements.map((item) =>
+                    item.id === el.id ? recognizedShape : item
+                  );
+                  excalidrawAPI.updateScene({
+                    elements: updatedElements,
+                    commitToHistory: true
+                  });
+                }
+                break;
+              }
+            }
+            return;
+          }
+
+          // 4. TRIANGLE CREATION TOOL (Converts drawn rectangle guide into crisp geometric triangle)
+          if (activeTool === "triangle") {
+            for (let i = elements.length - 1; i >= 0; i--) {
+              const el = elements[i];
+              if (!el.isDeleted && el.type === "rectangle" && !processedStrokeIdsRef.current.has(el.id)) {
+                processedStrokeIdsRef.current.add(el.id);
+                const w = Math.max(20, el.width);
+                const h = Math.max(20, el.height);
+                const triangleEl = {
+                  ...el,
+                  id: "tri_" + Date.now(),
+                  type: "line",
+                  width: w,
+                  height: h,
+                  points: [[w / 2, 0], [w, h], [0, h], [w / 2, 0]],
+                  lastCommittedPoint: null,
+                  startBinding: null,
+                  endBinding: null,
+                  startArrowhead: null,
+                  endArrowhead: null,
+                  version: (el.version || 1) + 1,
+                  versionNonce: Math.floor(Math.random() * 100000000)
+                };
+                const updated = elements.map((item) => (item.id === el.id ? triangleEl : item));
+                excalidrawAPI.updateScene({ elements: updated, commitToHistory: true });
+                excalidrawAPI.setActiveTool({ type: "rectangle" });
+                break;
+              }
+            }
+            return;
+          }
+
+          // 5. STICKY NOTE TOOL (Ensures drawn note stays ready for annotations)
+          if (activeTool === "note") {
+            for (let i = elements.length - 1; i >= 0; i--) {
+              const el = elements[i];
+              if (!el.isDeleted && el.type === "rectangle" && !processedStrokeIdsRef.current.has(el.id)) {
+                processedStrokeIdsRef.current.add(el.id);
+                const updated = elements.map((item) =>
+                  item.id === el.id
+                    ? {
+                        ...item,
+                        backgroundColor: "#fef08a",
+                        fillStyle: "solid",
+                        strokeColor: "#eab308",
+                        roundness: { type: 3 }
+                      }
+                    : item
+                );
+                excalidrawAPI.updateScene({ elements: updated, commitToHistory: true });
+                break;
+              }
+            }
+          }
+        }, 25);
+      }, [excalidrawAPI, activeTool, activeColor, toolConfigs]);
+
+      // Export all pages + annotations to PDF
+      const handleExportAnnotatedPdf = async () => {
+        if (!excalidrawAPI || isBusy) return;
+        setOpenPopover(null);
+        saveCurrentPageVectors(currentPage);
+
+        const engine = engineRef.current;
+        const { jsPDF } = window.jspdf;
+        setIsBusy(true);
+
+        try {
+          let pdfOut = null;
+          for (let i = 0; i < engine.pages.length; i++) {
+            setStatusMessage(`Exporting 4K PDF Page ${i + 1} of ${engine.pages.length}...`);
+            const bitmap = await engine.renderPage4K(i, false);
+            const fileId = `export_file_${i}`;
+            const bgEl = createLockedPageElement(i, fileId, bitmap.width, bitmap.height);
+            const strokes = engine.pageVectors[i] || [];
+            const exportWidth = bitmap.pixelWidth || bitmap.width;
+            const exportHeight = bitmap.pixelHeight || bitmap.height;
+            const exportScale = exportWidth / bitmap.width;
+
+            const exportCanvas = await window.ExcalidrawLib.exportToCanvas({
+              elements: [bgEl, ...strokes],
+              appState: {
+                exportBackground: true,
+                viewBackgroundColor: "#ffffff"
+              },
+              getDimensions: () => ({
+                width: exportWidth,
+                height: exportHeight,
+                scale: exportScale
+              }),
+              files: {
+                [fileId]: {
+                  id: fileId,
+                  dataURL: bitmap.dataURL,
+                  mimeType: bitmap.mimeType,
+                  created: Date.now()
+                }
+              }
+            });
+
+            const imgData = exportCanvas.toDataURL("image/jpeg", 0.90);
+            const orientation = exportWidth > exportHeight ? "l" : "p";
+
+            if (i === 0) {
+              pdfOut = new jsPDF({
+                orientation,
+                unit: "px",
+                format: [exportWidth, exportHeight],
+                compress: true
+              });
+            } else {
+              pdfOut.addPage([exportWidth, exportHeight], orientation);
+            }
+
+            pdfOut.addImage(imgData, "JPEG", 0, 0, exportWidth, exportHeight);
+            exportCanvas.width = 0;
+            exportCanvas.height = 0;
+          }
+
+          pdfOut.save(`ExcaliNote3-4K-${new Date().toISOString().slice(0, 10)}.pdf`);
+          setStatusMessage("PDF Exported Successfully!");
+          setTimeout(() => setStatusMessage(""), 2500);
+        } catch (err) {
+          setStatusMessage("Export error: " + err.message);
+          setTimeout(() => setStatusMessage(""), 3500);
+        } finally {
+          setIsBusy(false);
+        }
+      };
+
+      // Package 100% Offline Single-File HTML for USB drives
+      const handleDownloadOfflineUsbVersion = async () => {
+        if (isBusy) return;
+        setOpenPopover(null);
+        setIsBusy(true);
+        setStatusMessage("Packaging 100% Offline USB App...");
+
+        try {
+          const libs = [
+            { id: "lib-react", url: "https://unpkg.com/react@18.2.0/umd/react.production.min.js" },
+            { id: "lib-react-dom", url: "https://unpkg.com/react-dom@18.2.0/umd/react-dom.production.min.js" },
+            { id: "lib-excalidraw", url: "https://unpkg.com/@excalidraw/excalidraw@0.17.6/dist/excalidraw.production.min.js" },
+            { id: "lib-pdfjs", url: "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js" },
+            { id: "lib-jspdf", url: "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js" }
+          ];
+          const workerUrl = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+          const cloneDoc = document.documentElement.cloneNode(true);
+          const cloneRoot = cloneDoc.querySelector("#root");
+          if (cloneRoot) cloneRoot.innerHTML = "";
+
+          for (let i = 0; i < libs.length; i++) {
+            setStatusMessage(`Bundling offline library ${i + 1} of ${libs.length + 1}...`);
+            const res = await fetch(libs[i].url);
+            const code = await res.text();
+            const scriptEl = cloneDoc.querySelector(`#${libs[i].id}`);
+            if (scriptEl) {
+              scriptEl.removeAttribute("src");
+              scriptEl.removeAttribute("crossorigin");
+              scriptEl.textContent = code.replace(/<\/script/gi, "<\\/script");
+            }
+          }
+
+          const workerRes = await fetch(workerUrl);
+          const workerCode = await workerRes.text();
+          let workerHolder = cloneDoc.querySelector("#inline-pdf-worker");
+          if (!workerHolder) {
+            workerHolder = document.createElement("script");
+            workerHolder.id = "inline-pdf-worker";
+            workerHolder.type = "text/plain";
+            cloneDoc.querySelector("head").appendChild(workerHolder);
+          }
+          workerHolder.textContent = workerCode.replace(/<\/script/gi, "<\\/script");
+
+          const finalHtml = "<!DOCTYPE html>\n" + cloneDoc.outerHTML;
+          const blob = new Blob([finalHtml], { type: "text/html;charset=utf-8" });
+          const downloadUrl = URL.createObjectURL(blob);
+
+          const a = document.createElement("a");
+          a.href = downloadUrl;
+          a.download = "ExcaliNote3_4K_Offline.html";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(downloadUrl);
+
+          setStatusMessage("Offline USB HTML downloaded!");
+          setTimeout(() => setStatusMessage(""), 3000);
+        } catch (err) {
+          setStatusMessage("Offline bundle failed: check connection");
+          setTimeout(() => setStatusMessage(""), 3500);
+        } finally {
+          setIsBusy(false);
+        }
+      };
+
+      const ExcalidrawComponent = window.ExcalidrawLib.Excalidraw;
+      const activeBucket = getConfigBucketName(activeTool);
+      const currentToolCfg = toolConfigs[activeBucket] || toolConfigs.pen;
+      const isShapeToolActive = SHAPE_TOOLS.includes(activeTool);
+      const isExtraToolActive = EXTRA_TOOLS_LIST.some((t) => t.id === activeTool);
+
+      // Sort backgrounds so Dark backgrounds appear first in Dark Mode, and Light backgrounds appear first in Light Mode
+      const sortedBgPresets = [
+        ...ALL_BG_PRESETS.filter((p) => p.theme === uiTheme),
+        ...ALL_BG_PRESETS.filter((p) => p.theme !== uiTheme)
+      ];
+
+      return h(
+        "div",
+        {
+          className: "app-shell",
+          onPointerUp: handleCanvasPointerUp
+        },
+
+        // Hidden PDF File Input
+        h("input", {
+          ref: fileInputRef,
+          type: "file",
+          accept: "application/pdf",
+          style: { display: "none" },
+          onChange: handleFileUpload
+        }),
+
+        // Hidden Image Insert Input
+        h("input", {
+          ref: imageInputRef,
+          type: "file",
+          accept: "image/*",
+          style: { display: "none" },
+          onChange: handleInsertImageFile
+        }),
+
+        // Hidden Custom Page Background Image Input
+        h("input", {
+          ref: bgImageInputRef,
+          type: "file",
+          accept: "image/*",
+          style: { display: "none" },
+          onChange: handleCustomBackgroundUpload
+        }),
+
+        // Status / Progress Pill
+        statusMessage
+          ? h(
+              "div",
+              { className: "status-toast", style: { top: isFullscreen ? "16px" : "60px" } },
+              h("span", { className: "status-spinner" }),
+              statusMessage
+            )
+          : null,
+
+        // =====================================================================
+        // TOP NAVBAR (Import, Export, 4K Mode, Fit, Theme, Offline USB, Fullscreen)
+        // Vanishes completely when Fullscreen button is clicked!
+        // =====================================================================
+        !isFullscreen
+          ? h(
+              "header",
+              { className: "exc-island top-navbar" },
+              h(
+                "button",
+                {
+                  className: "nav-pill-btn",
+                  disabled: isBusy,
+                  onClick: () => fileInputRef.current && fileInputRef.current.click(),
+                  title: "Open PDF Document (4K)"
+                },
+                Icons.folderOpen(),
+                h("span", { className: "nav-text" }, "Open PDF")
+              ),
+              h(
+                "button",
+                {
+                  className: "nav-pill-btn",
+                  disabled: isBusy,
+                  onClick: handleExportAnnotatedPdf,
+                  title: "Export Annotated 4K PDF"
+                },
+                Icons.downloadPdf(),
+                h("span", { className: "nav-text" }, "Export PDF")
+              ),
+              h(
+                "button",
+                {
+                  className: `nav-pill-btn ${rasterizeMode === "all" ? "active" : ""}`,
+                  disabled: isBusy,
+                  onClick: handleToggleRasterizeMode,
+                  title: "Toggle 4K PDF Import Mode: On-Demand (Low RAM) vs. Pre-Rasterize Whole PDF"
+                },
+                Icons.settingsGear(),
+                h(
+                  "span",
+                  { className: "nav-text" },
+                  rasterizeMode === "lazy" ? "4K: On-Demand" : "4K: Whole PDF"
+                )
+              ),
+              h("div", { className: "exc-divider" }),
+              h(
+                "button",
+                {
+                  className: `nav-pill-btn ${isFitMode ? "active" : ""}`,
+                  onClick: handleToggleFitMode,
+                  title: isFitMode
+                    ? "Fit Page to Screen: ON (Click to unlock Infinite Canvas)"
+                    : "Fit Page to Screen: OFF (Infinite Canvas active — Click to Fit Page)"
+                },
+                Icons.fitScreen(),
+                h("span", { className: "nav-text" }, "Fit")
+              ),
+              h(
+                "button",
+                {
+                  className: "nav-pill-btn",
+                  onClick: handleToggleTheme,
+                  title: uiTheme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"
+                },
+                uiTheme === "dark" ? Icons.sun() : Icons.moon(),
+                h("span", { className: "nav-text" }, uiTheme === "dark" ? "Light Mode" : "Dark Mode")
+              ),
+              h(
+                "button",
+                {
+                  className: "nav-pill-btn",
+                  disabled: isBusy,
+                  onClick: handleDownloadOfflineUsbVersion,
+                  title: "Download 100% Offline Single-File USB Version"
+                },
+                Icons.offlineUsb(),
+                h("span", { className: "nav-text" }, "Offline USB")
+              ),
+              h("div", { className: "exc-divider" }),
+              h(
+                "button",
+                {
+                  className: "nav-pill-btn",
+                  onClick: toggleFullscreenMode,
+                  title: "Enter Fullscreen (Hides Top Navbar)"
+                },
+                Icons.fullscreenEnter(),
+                h("span", { className: "nav-text" }, "Fullscreen")
+              )
+            )
+          : null,
+
+        // Free-Draw Lasso Visual Overlay when drawing a selection loop
+        lassoPath.length > 1
+          ? h(
+              "svg",
+              { className: "lasso-svg-overlay" },
+              h("polygon", {
+                points: lassoPath.map((p) => `${p[0]},${p[1]}`).join(" "),
+                fill: "rgba(105, 101, 219, 0.14)",
+                stroke: "#6965db",
+                strokeWidth: "2",
+                strokeDasharray: "6 4"
+              })
+            )
+          : null,
+
+        // Full-Bleed Excalidraw Canvas (Keep Excalidraw theme="light" so it never inverts canvas colors)
+        h(
+          "main",
+          {
+            className: "canvas-container",
+            onPointerDownCapture: (e) => {
+              if (openPopover) setOpenPopover(null);
+              handleLassoPointerDownCapture(e);
+            },
+            onPointerMoveCapture: handleLassoPointerMoveCapture,
+            onPointerUpCapture: handleLassoPointerUpCapture
+          },
+          h(ExcalidrawComponent, {
+            excalidrawAPI: setExcalidrawAPI,
+            onChange: handleExcalidrawChange,
+            theme: "light",
+            initialData: {
+              appState: {
+                viewBackgroundColor: uiTheme === "dark" ? "#121212" : "#e2e8f0",
+                currentItemRoughness: 0,
+                currentItemStrokeColor: "#ef4444",
+                currentItemStrokeWidth: 2,
+                activeTool: { type: "freedraw", customType: null, locked: true }
+              }
+            },
+            UIOptions: {
+              canvasActions: {
+                changeViewBackgroundColor: false,
+                clearCanvas: false,
+                loadScene: false,
+                saveToActiveFile: false,
+                toggleTheme: false,
+                export: false
+              }
+            }
+          })
+        ),
+
+        // =====================================================================
+        // FLOATING LAYER & SELECTION BAR (Appears beside options when objects are selected)
+        // =====================================================================
+        selectedIds.length > 0 && !openPopover
+          ? h(
+              "div",
+              { className: "exc-island selection-layer-bar" },
+              h(
+                "button",
+                {
+                  className: "exc-btn",
+                  onClick: () => handleMoveSelectionLayer("down"),
+                  title: "Move Layer Down (Send Backward)"
+                },
+                Icons.layerDown()
+              ),
+              h(
+                "button",
+                {
+                  className: "exc-btn",
+                  onClick: () => handleMoveSelectionLayer("up"),
+                  title: "Move Layer Up (Bring Forward)"
+                },
+                Icons.layerUp()
+              ),
+              h(
+                "button",
+                {
+                  className: "exc-btn",
+                  onClick: () => handleMoveSelectionLayer("back"),
+                  title: "Send to Back"
+                },
+                Icons.layerBack()
+              ),
+              h(
+                "button",
+                {
+                  className: "exc-btn",
+                  onClick: () => handleMoveSelectionLayer("front"),
+                  title: "Bring to Front"
+                },
+                Icons.layerFront()
+              ),
+              h("div", { className: "exc-divider" }),
+              h(
+                "button",
+                {
+                  className: "exc-btn",
+                  onClick: handleDeleteSelection,
+                  title: "Delete Selected"
+                },
+                Icons.clearAll()
+              )
+            )
+          : null,
+
+        // =====================================================================
+        // POPOVER 1: COMPACT ICON-ONLY TOOL CUSTOMIZATION
+        // Upper row: 3 Stroke Width Icons (Tap active again to fine-tune)
+        // Lower row: Pressure/Constant Icons on the SAME line as Opacity Slider!
+        // =====================================================================
+        openPopover === "tool" && (activeTool === "pen" || activeTool === "highlighter" || isShapeToolActive)
+          ? h(
+              "div",
+              {
+                className: "exc-popover",
+                style: { "--pop-x": "-50%" }
+              },
+
+              // 1. UPPER ROW: THREE STROKE WIDTH ICONS (Icon-only; tap active again to adjust width slider)
+              h(
+                "div",
+                { className: "popover-section" },
+                h(
+                  "div",
+                  { className: "option-row" },
+                  currentToolCfg.widthPresets.map((wVal, slotIdx) =>
+                    h(
+                      "button",
+                      {
+                        key: slotIdx,
+                        className: `option-pill customizable-slot ${currentToolCfg.activeWidthSlot === slotIdx ? "active" : ""}`,
+                        onClick: () => handleWidthSlotClick(slotIdx),
+                        title:
+                          currentToolCfg.activeWidthSlot === slotIdx
+                            ? `Tap to customize (${wVal}px)`
+                            : `Width ${wVal}px`
+                      },
+                      h("span", {
+                        style: {
+                          width: "22px",
+                          height: `${Math.min(12, Math.max(2, Math.round(wVal * 1.1)))}px`,
+                          background: "currentColor",
+                          borderRadius: "99px"
+                        }
+                      })
+                    )
+                  ),
+                  isShapeToolActive && shapesCustomized
+                    ? h(
+                        "button",
+                        {
+                          className: "option-pill",
+                          style: { flex: "none", padding: "0 7px", fontSize: "10px" },
+                          onClick: () => {
+                            setShapesCustomized(false);
+                            const synced = {
+                              ...toolConfigs,
+                              shapes: {
+                                ...toolConfigs.shapes,
+                                widthPresets: [...toolConfigs.pen.widthPresets],
+                                activeWidthSlot: toolConfigs.pen.activeWidthSlot,
+                                strokeWidth: toolConfigs.pen.strokeWidth,
+                                opacity: toolConfigs.pen.opacity
+                              }
+                            };
+                            setToolConfigs(synced);
+                            applyToolToExcalidraw(activeTool, activeColor, synced);
+                          },
+                          title: "Reset Shape width/opacity to Pen"
+                        },
+                        "Sync"
+                      )
+                    : null
+                ),
+
+                // Expandable Fine-Tuning Slider when clicking an already-selected width icon
+                editingWidthSlot
+                  ? h(
+                      "div",
+                      { className: "width-customizer-box" },
+                      h(
+                        "div",
+                        { className: "exc-slider-wrap" },
+                        h("input", {
+                          type: "range",
+                          className: "exc-slider",
+                          min: 0.5,
+                          max: 28,
+                          step: 0.5,
+                          value: currentToolCfg.strokeWidth,
+                          onChange: (e) => handleCustomWidthSliderChange(parseFloat(e.target.value))
+                        }),
+                        h("span", { style: { fontSize: "10px", fontWeight: 600, minWidth: "28px", textAlign: "right" } }, `${currentToolCfg.strokeWidth}`)
+                      )
+                    )
+                  : null
+              ),
+
+              // 2. SHAPE-ONLY COMPACT ICON ROWS (Stroke Style + Sloppiness on Row A, Fill Icons on Row B)
+              isShapeToolActive
+                ? h(
+                    "div",
+                    { className: "popover-section" },
+                    h(
+                      "div",
+                      { className: "option-row", style: { marginBottom: "6px" } },
+                      [
+                        { id: "solid", icon: Icons.styleSolid, title: "Solid Line" },
+                        { id: "dashed", icon: Icons.styleDashed, title: "Dashed Line" },
+                        { id: "dotted", icon: Icons.styleDotted, title: "Dotted Line" }
+                      ].map((st) =>
+                        h(
+                          "button",
+                          {
+                            key: st.id,
+                            className: `option-pill ${currentToolCfg.strokeStyle === st.id ? "active" : ""}`,
+                            onClick: () => updateToolConfig("strokeStyle", st.id),
+                            title: st.title
+                          },
+                          st.icon()
+                        )
+                      ),
+                      h("div", { className: "exc-divider" }),
+                      [
+                        { id: 0, icon: Icons.sloppinessArchitect, title: "Clean" },
+                        { id: 1, icon: Icons.sloppinessArtist, title: "Sketchy" },
+                        { id: 2, icon: Icons.sloppinessCartoonist, title: "Cartoonist" }
+                      ].map((r) =>
+                        h(
+                          "button",
+                          {
+                            key: r.id,
+                            className: `option-pill ${currentToolCfg.roughness === r.id ? "active" : ""}`,
+                            onClick: () => updateToolConfig("roughness", r.id),
+                            title: r.title
+                          },
+                          r.icon()
+                        )
+                      )
+                    )
+                  )
+                : null,
+
+              // 3. LOWER ROW: PRESSURE / CONSTANT ICONS + OPACITY SLIDER IN THE SAME LINE
+              h(
+                "div",
+                { className: "popover-section" },
+                h(
+                  "div",
+                  { className: "option-row" },
+                  activeTool === "pen" || activeTool === "highlighter"
+                    ? h(
+                        window.React.Fragment,
+                        null,
+                        h(
+                          "button",
+                          {
+                            className: `option-pill ${currentToolCfg.strokeType === "pressure" ? "active" : ""}`,
+                            style: { flex: "none", width: "34px" },
+                            onClick: () => updateToolConfig("strokeType", "pressure"),
+                            title: "Pressure Sensitivity (Natural Tapered Stroke)"
+                          },
+                          Icons.strokePressure()
+                        ),
+                        h(
+                          "button",
+                          {
+                            className: `option-pill ${currentToolCfg.strokeType === "constant" ? "active" : ""}`,
+                            style: { flex: "none", width: "34px" },
+                            onClick: () => updateToolConfig("strokeType", "constant"),
+                            title: "Constant Width (Uniform Line)"
+                          },
+                          Icons.strokeConstant()
+                        ),
+                        h("div", { className: "exc-divider" })
+                      )
+                    : null,
+                  isShapeToolActive
+                    ? h(
+                        window.React.Fragment,
+                        null,
+                        [
+                          { id: "transparent", icon: Icons.fillNone, title: "No Fill" },
+                          { id: "hachure", icon: Icons.fillHachure, title: "Hachure Fill" },
+                          { id: "solid", icon: Icons.fillSolid, title: "Solid Fill" }
+                        ].map((fl) =>
+                          h(
+                            "button",
+                            {
+                              key: fl.id,
+                              className: `option-pill ${currentToolCfg.fillStyle === fl.id ? "active" : ""}`,
+                              style: { flex: "none", width: "32px" },
+                              onClick: () => updateToolConfig("fillStyle", fl.id),
+                              title: fl.title
+                            },
+                            fl.icon()
+                          )
+                        ),
+                        h("div", { className: "exc-divider" })
+                      )
+                    : null,
+                  h(
+                    "div",
+                    { className: "exc-slider-wrap", title: `Opacity: ${currentToolCfg.opacity}%` },
+                    h("input", {
+                      type: "range",
+                      className: "exc-slider",
+                      min: 10,
+                      max: 100,
+                      step: 5,
+                      value: currentToolCfg.opacity,
+                      onChange: (e) => updateToolConfig("opacity", parseInt(e.target.value, 10))
+                    })
+                  )
+                )
+              )
+            )
+          : null,
+
+        // =====================================================================
+        // POPOVER 2: COLOR CUSTOMIZATION (Only shown on 2nd click of active color)
+        // =====================================================================
+        openPopover === "color"
+          ? h(
+              "div",
+              {
+                className: "exc-popover",
+                style: { "--pop-x": "-50%" }
+              },
+              h(
+                "div",
+                { className: "color-grid" },
+                STANDARD_PALETTE.map((hex) =>
+                  h("button", {
+                    key: hex,
+                    className: `palette-swatch ${activeColor.toLowerCase() === hex.toLowerCase() ? "selected" : ""}`,
+                    style: { backgroundColor: hex },
+                    onClick: () => updateActiveColorSlot(hex),
+                    title: hex
+                  })
+                )
+              ),
+              h(
+                "div",
+                { className: "color-wheel-row" },
+                h("input", {
+                  type: "color",
+                  className: "color-wheel-input",
+                  value: activeColor,
+                  onChange: (e) => updateActiveColorSlot(e.target.value),
+                  title: "Custom Color Wheel"
+                })
+              )
+            )
+          : null,
+
+        // =====================================================================
+        // POPOVER 3: THREE-DOT MENU (Compact 2-Row Horizontal Scrolling Icon Strip)
+        // =====================================================================
+        openPopover === "menu"
+          ? h(
+              "div",
+              {
+                className: "exc-popover",
+                style: { "--pop-x": "-15%", minWidth: "auto", padding: "8px" }
+              },
+              h(
+                "div",
+                { className: "tools-scroll-grid" },
+                EXTRA_TOOLS_LIST.map((item) =>
+                  h(
+                    "button",
+                    {
+                      key: item.id,
+                      className: `tool-grid-btn ${activeTool === item.id ? "active" : ""}`,
+                      onClick: () => {
+                        // Automatically unlock Infinite Canvas if the user selects the Pan tool
+                        if (item.id === "pan" && isFitModeRef.current) {
+                          isFitModeRef.current = false;
+                          setIsFitMode(false);
+                        }
+                        handleSelectExtraTool(item.id);
+                      },
+                      title: item.label
+                    },
+                    Icons[item.icon]()
+                  )
+                ),
+                // Fit to Screen vs. Infinite Canvas Toggle Icon
+                h(
+                  "button",
+                  {
+                    className: `tool-grid-btn ${isFitMode ? "active" : ""}`,
+                    onClick: handleToggleFitMode,
+                    title: isFitMode
+                      ? "Fit Page: ON (Tap to unlock Infinite Canvas & pan outside)"
+                      : "Fit Page: OFF (Infinite Canvas — Tap to Fit Page to Screen)"
+                  },
+                  Icons.fitScreen()
+                ),
+                // Tool Lock Toggle Icon
+                h(
+                  "button",
+                  {
+                    className: `tool-grid-btn ${toolLock ? "active" : ""}`,
+                    onClick: () => {
+                      const nextLock = !toolLock;
+                      setToolLock(nextLock);
+                      applyToolToExcalidraw(activeTool, activeColor, toolConfigs, nextLock);
+                    },
+                    title: toolLock ? "Tool Locked (Stays active)" : "Lock Tool"
+                  },
+                  Icons.lockClosed()
+                ),
+                // Page Background Picker Icon
+                h(
+                  "button",
+                  {
+                    className: "tool-grid-btn",
+                    onClick: () => setOpenPopover("background"),
+                    title: "Page Background Presets & Custom Image"
+                  },
+                  Icons.backgroundGrid()
+                ),
+                // Theme Toggle Icon (Quick access in Fullscreen too)
+                h(
+                  "button",
+                  {
+                    className: "tool-grid-btn",
+                    onClick: handleToggleTheme,
+                    title: uiTheme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"
+                  },
+                  uiTheme === "dark" ? Icons.sun() : Icons.moon()
+                ),
+                // Fullscreen Enter/Exit Icon
+                h(
+                  "button",
+                  {
+                    className: `tool-grid-btn ${isFullscreen ? "active" : ""}`,
+                    onClick: toggleFullscreenMode,
+                    title: isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"
+                  },
+                  isFullscreen ? Icons.fullscreenExit() : Icons.fullscreenEnter()
+                )
+              )
+            )
+          : null,
+
+        // =====================================================================
+        // POPOVER 4: PAGE BACKGROUND SELECTOR (Dark First in Dark Mode, Light First in Light Mode)
+        // =====================================================================
+        openPopover === "background"
+          ? h(
+              "div",
+              {
+                className: "exc-popover",
+                style: { "--pop-x": "-25%", width: "268px" }
+              },
+              h(
+                "div",
+                { className: "option-row", style: { justifyContent: "space-between", marginBottom: "6px" } },
+                h(
+                  "button",
+                  {
+                    className: "option-pill",
+                    style: { flex: "none", width: "32px" },
+                    onClick: () => setOpenPopover("menu"),
+                    title: "Back"
+                  },
+                  Icons.chevronLeft()
+                ),
+                h(
+                  "span",
+                  { style: { fontSize: "11px", fontWeight: 600, color: "var(--icon-muted)" } },
+                  uiTheme === "dark" ? "Dark & Light Backgrounds" : "Light & Dark Backgrounds"
+                ),
+                h(
+                  "button",
+                  {
+                    className: "option-pill",
+                    style: { flex: "none", width: "32px" },
+                    onClick: () => bgImageInputRef.current && bgImageInputRef.current.click(),
+                    title: "Upload Custom Background Image"
+                  },
+                  Icons.image()
+                )
+              ),
+              h(
+                "div",
+                { className: "bg-preset-grid" },
+                hasCustomBgImage
+                  ? h(
+                      "div",
+                      {
+                        className: `bg-preset-card ${defaultBgStyle === "custom" ? "active" : ""}`,
+                        style: {
+                          backgroundImage: `url(${engineRef.current.defaultBg.customBgDataUrl})`,
+                          backgroundSize: "cover",
+                          backgroundPosition: "center"
+                        },
+                        onClick: () => handleSelectBackgroundPreset("custom"),
+                        title: "Custom Uploaded Background"
+                      },
+                      h("span", { className: "bg-preset-label" }, "Custom")
+                    )
+                  : null,
+                sortedBgPresets.map((preset) =>
+                  h(
+                    "div",
+                    {
+                      key: preset.id,
+                      className: `bg-preset-card ${defaultBgStyle === preset.id ? "active" : ""}`,
+                      style: { background: preset.bg },
+                      onClick: () => handleSelectBackgroundPreset(preset.id),
+                      title: preset.label
+                    },
+                    h("span", { className: "bg-preset-label" }, preset.label)
+                  )
+                )
+              )
+            )
+          : null,
+
+        // =====================================================================
+        // BOTTOM-LEFT ISLAND: PREV / NEXT PAGE + PLUS (+) ADD EMPTY PAGE BUTTON
+        // Always remains visible in Fullscreen Mode for smooth online teaching!
+        // =====================================================================
+        h(
+          "div",
+          { className: "exc-island dock-left" },
+          h(
+            "button",
+            {
+              className: "exc-btn",
+              disabled: isBusy || currentPage <= 0,
+              onClick: () => goToPage(currentPage - 1),
+              title: "Previous Page"
+            },
+            Icons.chevronLeft()
+          ),
+          h(
+            "div",
+            { className: "page-counter" },
+            h("input", {
+              className: "page-num-input",
+              type: "number",
+              min: 1,
+              max: totalPages,
+              value: currentPage + 1,
+              onChange: (e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && val >= 1 && val <= totalPages) {
+                  goToPage(val - 1);
+                }
+              },
+              title: "Jump to page number"
+            }),
+            h("span", { style: { color: "var(--icon-muted)" } }, `/ ${totalPages}`)
+          ),
+          h(
+            "button",
+            {
+              className: "exc-btn",
+              disabled: isBusy || currentPage >= totalPages - 1,
+              onClick: () => goToPage(currentPage + 1),
+              title: "Next Page"
+            },
+            Icons.chevronRight()
+          ),
+          h("div", { className: "exc-divider" }),
+          h(
+            "button",
+            {
+              className: "exc-btn",
+              disabled: isBusy,
+              onClick: () => handleInsertBlankPage(),
+              title: "Add New Page"
+            },
+            Icons.plus()
+          )
+        ),
+
+        // =====================================================================
+        // BOTTOM-CENTER ANNOTATION BAR (Monochromatic Excalidraw-Style Dock)
+        // Order: Auto Shape -> Pen -> Eraser -> Laser -> Lasso Selection -> Colors -> Clear All -> Three Dots
+        // =====================================================================
+        h(
+          "div",
+          { className: "exc-island dock-center" },
+
+          // 1. Auto Shape Recognizer
+          h(
+            "button",
+            {
+              className: `exc-btn customizable ${activeTool === "autoshape" ? "active" : ""}`,
+              onClick: () => handleToolClick("autoshape"),
+              title: "Auto Shape Recognizer (Click again to customize)"
+            },
+            Icons.autoShape()
+          ),
+
+          // 2. Pen Tool
+          h(
+            "button",
+            {
+              className: `exc-btn customizable ${activeTool === "pen" ? "active" : ""}`,
+              onClick: () => handleToolClick("pen"),
+              title: "Pen (Click again to customize width, pressure & opacity)"
+            },
+            Icons.pen()
+          ),
+
+          // 3. Eraser Tool
+          h(
+            "button",
+            {
+              className: `exc-btn ${activeTool === "eraser" ? "active" : ""}`,
+              onClick: () => handleToolClick("eraser"),
+              title: "Eraser"
+            },
+            Icons.eraser()
+          ),
+
+          // 4. Laser Pointer
+          h(
+            "button",
+            {
+              className: `exc-btn ${activeTool === "laser" ? "active" : ""}`,
+              onClick: () => handleToolClick("laser"),
+              title: "Laser Pointer"
+            },
+            Icons.laser()
+          ),
+
+          // 5. Free-Draw Lasso Selection
+          h(
+            "button",
+            {
+              className: `exc-btn ${activeTool === "lasso" ? "active" : ""}`,
+              onClick: () => handleToolClick("lasso"),
+              title: "Free-Draw Lasso Selection (Circle full object to select)"
+            },
+            Icons.lasso()
+          ),
+
+          // 6. Active Extra Tool Indicator (When Highlighter, Shape, Text, Note, Bucket, or Pan is selected from Three-Dots)
+          isExtraToolActive || lastExtraTool
+            ? h(
+                "button",
+                {
+                  className: `exc-btn ${
+                    activeTool === "highlighter" || SHAPE_TOOLS.includes(activeTool) ? "customizable" : ""
+                  } ${isExtraToolActive ? "active" : ""}`,
+                  onClick: () => handleToolClick(isExtraToolActive ? activeTool : lastExtraTool),
+                  title: "Active Extra Tool (Click again to customize)"
+                },
+                Icons[
+                  (EXTRA_TOOLS_LIST.find((t) => t.id === (isExtraToolActive ? activeTool : lastExtraTool)) || {
+                    icon: "highlighter"
+                  }).icon
+                ]()
+              )
+            : null,
+
+          h("div", { className: "exc-divider" }),
+
+          // 7. Color Slots (1st click selects color, 2nd click on active color opens palette + color wheel)
+          colorSlots.map((hex, idx) =>
+            h(
+              "button",
+              {
+                key: idx,
+                className: `color-btn ${activeColorIdx === idx ? "active" : ""}`,
+                onClick: () => handleColorSlotClick(idx),
+                title:
+                  activeColorIdx === idx
+                    ? "Click again to change this color slot"
+                    : `Select color ${hex}`
+              },
+              h("span", {
+                className: "color-btn-inner",
+                style: { backgroundColor: hex }
+              })
+            )
+          ),
+
+          h("div", { className: "exc-divider" }),
+
+          // 8. Clear All Annotations on Current Page
+          h(
+            "button",
+            {
+              className: "exc-btn",
+              onClick: handleClearCurrentPageAnnotations,
+              title: "Clear Page Annotations"
+            },
+            Icons.clearAll()
+          ),
+
+          // 9. Three Dot Menu (Highlighter, Shapes, Text, Note, Bucket, Image, Lock, Background)
+          h(
+            "button",
+            {
+              className: `exc-btn ${openPopover === "menu" || openPopover === "background" ? "active" : ""}`,
+              onClick: () => setOpenPopover(openPopover === "menu" || openPopover === "background" ? null : "menu"),
+              title: "More Tools"
+            },
+            Icons.threeDots()
+          )
+        ),
+
+        // =====================================================================
+        // BOTTOM-RIGHT ISLAND & 1-COLUMN LOW-RES PAGE PREVIEW DRAWER
+        // Always remains visible in Fullscreen Mode!
+        // =====================================================================
+        h(
+          "div",
+          { className: "exc-island dock-right" },
+          h(
+            "button",
+            {
+              className: `exc-btn ${showPreviewDrawer ? "active" : ""}`,
+              onClick: () => {
+                setOpenPopover(null);
+                setShowPreviewDrawer(!showPreviewDrawer);
+              },
+              title: "Page Previews"
+            },
+            Icons.pagesPreview()
+          )
+        ),
+
+        showPreviewDrawer
+          ? h(
+              "aside",
+              { className: "preview-drawer" },
+              h(
+                "div",
+                { className: "preview-drawer-header" },
+                h("span", null, `Pages (${totalPages})`),
+                h(
+                  "button",
+                  {
+                    className: "option-pill",
+                    style: { flex: "none", height: "24px", padding: "0 8px", fontSize: "11px" },
+                    onClick: () => handleInsertBlankPage(),
+                    title: "Add New Page after current page"
+                  },
+                  "+ Page"
+                )
+              ),
+              h(
+                "div",
+                { className: "preview-list" },
+                engineRef.current.pages.map((p, idx) => {
+                  const hasInk =
+                    engineRef.current.pageVectors[idx] &&
+                    engineRef.current.pageVectors[idx].length > 0;
+                  return h(
+                    "div",
+                    {
+                      key: idx,
+                      className: `preview-card ${currentPage === idx ? "active" : ""}`,
+                      onClick: () => goToPage(idx)
+                    },
+                    thumbnails[idx]
+                      ? h("img", {
+                          className: "preview-thumb",
+                          src: thumbnails[idx],
+                          alt: `Page ${idx + 1}`
+                        })
+                      : h(
+                          "div",
+                          {
+                            className: "preview-thumb",
+                            style: {
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              fontSize: "11px",
+                              color: "#64748b"
+                            }
+                          },
+                          `Page ${idx + 1}`
+                        ),
+                    h(
+                      "div",
+                      { className: "preview-meta" },
+                      h("span", null, `Page ${idx + 1}`),
+                      hasInk ? h("span", { className: "ink-dot", title: "Has annotations" }) : null
+                    )
+                  );
+                })
+              )
+            )
+          : null
+      );
+    }
+
+    const root = window.ReactDOM.createRoot(document.getElementById("root"));
+    root.render(window.React.createElement(App));
+  </script>
+</body>
+</html>
